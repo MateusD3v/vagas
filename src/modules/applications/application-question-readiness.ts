@@ -105,9 +105,7 @@ function profileFieldReadiness(
     return location ? { ready: true, value: location } : { ready: false };
   }
   if (name === 'linkedin' || name === 'linkedin_url') {
-    return candidate.linkedinUrl
-      ? { ready: true, value: candidate.linkedinUrl }
-      : { ready: false };
+    return candidate.linkedinUrl ? { ready: true, value: candidate.linkedinUrl } : { ready: false };
   }
   if (name === 'github' || name === 'github_url') {
     return candidate.githubUrl ? { ready: true, value: candidate.githubUrl } : { ready: false };
