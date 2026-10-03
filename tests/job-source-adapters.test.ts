@@ -49,6 +49,61 @@ describe('normalização dos adapters reais', () => {
     expect(job.publishedAt).toBeInstanceOf(Date);
   });
 
+  it('não trata nível de experiência da Arbeitnow como tipo de contratação', () => {
+    const adapter = new ArbeitnowJobSource(unusedHttp, 50_000);
+    const job = adapter.normalizeJob({
+      slug: 'support-1',
+      company_name: 'Example GmbH',
+      title: 'Technical Support Specialist',
+      description: 'IT support and troubleshooting',
+      remote: true,
+      url: 'https://www.arbeitnow.com/jobs/support-1',
+      tags: ['Support'],
+      job_types: ['Experienced'],
+      location: 'Remote',
+      created_at: 1_759_276_800,
+    });
+    expect(job.employmentType).toBeUndefined();
+  });
+
+  it('separa nível de experiência do tipo de contratação da Arbeitnow', () => {
+    const adapter = new ArbeitnowJobSource(unusedHttp, 50_000);
+    const job = adapter.normalizeJob({
+      slug: 'backend-experienced-1',
+      company_name: 'Example GmbH',
+      title: 'Backend Developer',
+      description: '<div>Java and APIs</div>',
+      remote: true,
+      url: 'https://www.arbeitnow.com/jobs/backend-experienced-1',
+      tags: ['Java'],
+      job_types: ['Experienced', 'Permanent', 'Full time'],
+      location: 'Remote',
+      created_at: 1_759_276_800,
+    });
+
+    expect(job.employmentType).toBe('FULL_TIME');
+    expect(job.seniority).toBe('MID');
+  });
+
+  it('não transforma nível Experienced em tipo de contratação', () => {
+    const adapter = new ArbeitnowJobSource(unusedHttp, 50_000);
+    const job = adapter.normalizeJob({
+      slug: 'support-experienced-1',
+      company_name: 'Example GmbH',
+      title: 'IT Support Specialist',
+      description: 'Support users and systems',
+      remote: true,
+      url: 'https://www.arbeitnow.com/jobs/support-experienced-1',
+      tags: [],
+      job_types: ['Experienced', 'Permanent'],
+      location: 'Remote',
+      created_at: 1_759_276_800,
+    });
+
+    expect(job.employmentType).toBeUndefined();
+    expect(job.seniority).toBe('MID');
+  });
+
   it('pagina a Arbeitnow até encontrar vagas compatíveis com as keywords', async () => {
     const getJson = vi
       .fn()

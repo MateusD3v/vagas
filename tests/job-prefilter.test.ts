@@ -36,7 +36,7 @@ describe('JobPreFilterService', () => {
     expect(result.preliminaryScore).toBe(100);
   });
 
-  it('rejeita palavra-chave excluída', () => {
+  it('rejeita palavra-chave excluída no cargo', () => {
     const result = service.evaluate(
       { ...job, title: 'Engineering Director' },
       search,
@@ -45,6 +45,21 @@ describe('JobPreFilterService', () => {
     );
     expect(result.passed).toBe(false);
     expect(result.reasons.join(' ')).toMatch(/Palavra-chave excluída/);
+  });
+
+  it('não rejeita vaga júnior só porque a descrição menciona cargos seniores', () => {
+    const result = service.evaluate(
+      {
+        ...job,
+        title: 'Junior Backend Developer',
+        description: 'Work closely with Senior Engineers, Tech Leads and Engineering Managers.',
+      },
+      { ...search, excludedKeywords: ['Senior', 'Lead', 'Manager'] },
+      candidate,
+      14,
+    );
+    expect(result.passed).toBe(true);
+    expect(result.reasons.join(' ')).not.toMatch(/Palavra-chave excluída/);
   });
 
   it('rejeita senioridade incompatível', () => {
@@ -117,5 +132,16 @@ describe('JobPreFilterService', () => {
     );
     expect(result.passed).toBe(false);
     expect(result.reasons.join(' ')).toMatch(/Senioridade não desejada/);
+  });
+
+  it('ignora rótulo de experiência que a fonte expôs no campo de contratação', () => {
+    const result = service.evaluate(
+      { ...job, employmentType: 'EXPERIENCED' },
+      search,
+      candidate,
+      14,
+    );
+    expect(result.passed).toBe(true);
+    expect(result.reasons.join(' ')).not.toMatch(/Tipo de contratação/);
   });
 });

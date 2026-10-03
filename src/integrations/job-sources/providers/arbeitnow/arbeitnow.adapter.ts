@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { includesText } from '../../../../shared/text.js';
+import { includesText, normalizeText } from '../../../../shared/text.js';
 import type {
   JobSearchQuery,
   JobSourceAdapter,
@@ -38,6 +38,36 @@ const responseSchema = z.object({
 
 const MAX_PAGES_PER_RUN = 5;
 export type ArbeitnowExternalJob = z.infer<typeof arbeitnowJobSchema>;
+
+function inferEmploymentType(jobTypes: string[]): string | undefined {
+  const normalized = jobTypes.map((value) => normalizeText(value));
+  const mappings: Array<[RegExp, string]> = [
+    [/\b(full[ _-]?time)\b/, 'FULL_TIME'],
+    [/\b(part[ _-]?time)\b/, 'PART_TIME'],
+    [/\b(intern|internship|working student|student)\b/, 'INTERNSHIP'],
+    [/\b(contract|contractor|freelance|freelancer)\b/, 'CONTRACT'],
+    [/\b(temporary|temp)\b/, 'TEMPORARY'],
+  ];
+
+  for (const [pattern, value] of mappings) {
+    if (normalized.some((item) => pattern.test(item))) return value;
+  }
+  return undefined;
+}
+
+function inferArbeitnowSeniority(raw: ArbeitnowExternalJob): string | undefined {
+  const titleSeniority = inferSeniority(raw.title);
+  if (titleSeniority) return titleSeniority;
+
+  const metadata = normalizeText([...raw.job_types, ...raw.tags].join(' '));
+  if (/\b(intern|internship|working student|student)\b/.test(metadata)) return 'INTERN';
+  if (/\b(entry|entry level|junior|jr|graduate)\b/.test(metadata)) return 'JUNIOR';
+  if (/\b(senior|sr|staff|principal|lead)\b/.test(metadata)) return 'SENIOR';
+  if (/\b(experienced|mid|midlevel|mid level|intermediate|pleno)\b/.test(metadata)) {
+    return 'MID';
+  }
+  return undefined;
+}
 
 export class ArbeitnowJobSource implements JobSourceAdapter {
   readonly source = 'arbeitnow';
@@ -119,8 +149,8 @@ export class ArbeitnowJobSource implements JobSourceAdapter {
       location: raw.location ?? (raw.remote ? 'Remote' : undefined),
       country: raw.location ?? undefined,
       remoteType: raw.remote ? 'REMOTE' : 'ONSITE',
-      employmentType: raw.job_types[0]?.toUpperCase(),
-      seniority: inferSeniority(raw.title),
+      employmentType: inferEmploymentType(raw.job_types),
+      seniority: inferArbeitnowSeniority(raw),
       applicationUrl: raw.url,
       originalUrl: raw.url,
       publishedAt,

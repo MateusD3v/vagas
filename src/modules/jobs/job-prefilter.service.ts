@@ -38,6 +38,16 @@ export interface PreFilterResult {
 
 const seniorTerms = ['senior', 'sr', 'staff', 'principal', 'lead'];
 const earlyCareerTerms = ['intern', 'entry', 'junior', 'jr', 'trainee', 'estagio'];
+const knownEmploymentTypes = new Set([
+  'FULL_TIME',
+  'PART_TIME',
+  'CONTRACT',
+  'INTERNSHIP',
+  'ESTAGIO',
+  'CLT',
+  'TEMPORARY',
+  'FREELANCE',
+]);
 
 export class JobPreFilterService {
   evaluate(
@@ -49,8 +59,11 @@ export class JobPreFilterService {
   ): PreFilterResult {
     const reasons: string[] = [];
     const searchable = `${job.title} ${job.description}`;
+    const exclusionTarget = `${job.title} ${job.seniority ?? ''}`;
 
-    const excluded = search.excludedKeywords.find((keyword) => includesText(searchable, keyword));
+    const excluded = search.excludedKeywords.find((keyword) =>
+      includesText(exclusionTarget, keyword),
+    );
     if (excluded) reasons.push(`Palavra-chave excluída: ${excluded}`);
 
     const targetSeniorities = search.seniorityLevels.length
@@ -99,6 +112,7 @@ export class JobPreFilterService {
     if (
       search.employmentTypes.length &&
       job.employmentType &&
+      knownEmploymentTypes.has(job.employmentType.toUpperCase()) &&
       !search.employmentTypes.some((type) => includesText(job.employmentType ?? '', type))
     ) {
       reasons.push(`Tipo de contratação não desejado: ${job.employmentType}`);
