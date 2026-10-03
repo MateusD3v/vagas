@@ -5,18 +5,14 @@ O repositório inclui `render.yaml` para criar a infraestrutura mínima do agent
 ## Recursos definidos
 
 - `vagas-api`: Web Service Docker, com `/health` como health check.
-- `vagas-worker`: Background Worker Docker usando a mesma imagem.
-- `vagas-db`: PostgreSQL privado para API e worker.
+- `vagas-worker-cron`: Cron Job Docker usando a mesma imagem, executado a cada seis horas.
+- `vagas-db`: PostgreSQL privado para API e cron.
 
-O Blueprint usa `starter` para API/worker e `free` para o PostgreSQL. Revise os planos no Render antes de sincronizar o Blueprint, porque API/worker 24/7 podem gerar cobrança e um banco gratuito não é a opção recomendada para retenção permanente de produção.
+O Blueprint foi ajustado para a opção de menor custo operacional: API como Web Service e processamento em segundo plano via Cron Job. O cron usa `node dist/src/worker-once.js`, `WORKER_MODE=cron` e `WORKER_HEALTH_TTL_SECONDS=25200`, suficiente para uma janela de sete horas entre heartbeats.
 
-## Alternativa sem worker 24/7
+O ciclo único executa coleta, retomada de `PENDING_ANALYSIS`, sincronização de disponibilidade, preparação das candidaturas pendentes e retenção, grava `IDLE` no heartbeat e encerra normalmente. Isso evita manter um worker contínuo 24/7.
 
-Quando o objetivo for reduzir custo, a API pode continuar como Web Service e o processamento em segundo plano pode usar um Cron Job executando `node dist/src/worker-once.js` a cada seis horas. Nesse modo use `WORKER_MODE=cron` na API e no cron, com `WORKER_HEALTH_TTL_SECONDS` maior que o intervalo entre execuções (por exemplo, `25200` para sete horas).
-
-O ciclo único executa coleta, retomada de `PENDING_ANALYSIS`, sincronização de disponibilidade, preparação das candidaturas pendentes e retenção, grava `IDLE` no heartbeat e encerra normalmente. Isso evita manter um processo de worker contínuo quando a plataforma oferece execução agendada.
-
-O `render.yaml` continua descrevendo a opção de worker contínuo. A alternativa com Cron Job deve usar a mesma `DATABASE_URL`, `ADMIN_API_KEY` e flags operacionais da API, mantendo `SAFE_MODE=true`.
+`SAFE_MODE=true` permanece explícito na API e no cron. O PostgreSQL está configurado no plano gratuito no Blueprint; ele é adequado para validação inicial, mas não deve ser tratado como armazenamento permanente sem revisar as condições atuais do plano.
 
 ## Segurança de bootstrap
 
@@ -30,14 +26,16 @@ SEED_DEMO_DATA=false
 
 Com `SEED_DEMO_DATA=false`, o seed cadastra/atualiza apenas o registry de fontes. Ele não cria candidato fictício, vagas mock, matches ou candidaturas de demonstração.
 
-O worker usa:
+O cron usa:
 
 ```
 RUN_MIGRATIONS=false
 RUN_SEED=false
+WORKER_MODE=cron
+WORKER_HEALTH_TTL_SECONDS=25200
 ```
 
-`ADMIN_API_KEY` é gerada pelo Render para a API e compartilhada com o worker por referência de variável. `SAFE_MODE=true` permanece explícito nos dois serviços.
+`ADMIN_API_KEY` é gerada pelo Render para a API e compartilhada com o cron por referência de variável. `SAFE_MODE=true` permanece explícito nos dois serviços.
 
 ## OpenAI
 
@@ -55,7 +53,7 @@ RUN_SEED=false
 
 ## Depois do deploy
 
-A API e o worker compartilham `DATABASE_URL`. O worker mantém coleta, análise, heartbeat, preparação de candidaturas e sincronização de disponibilidade. Somente a API executa migrations.
+A API e o cron compartilham `DATABASE_URL`. O cron mantém coleta, análise, heartbeat, preparação de candidaturas e sincronização de disponibilidade. Somente a API executa migrations.
 
 Fontes oficiais de referência do Blueprint:
 

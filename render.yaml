@@ -20,6 +20,10 @@ services:
         value: 'false'
       - key: SAFE_MODE
         value: 'true'
+      - key: WORKER_MODE
+        value: cron
+      - key: WORKER_HEALTH_TTL_SECONDS
+        value: '25200'
       - key: JOB_SOURCE_USER_AGENT
         value: JobApplicationAgent/0.3 (+render)
       - key: DATABASE_URL
@@ -29,13 +33,14 @@ services:
       - key: ADMIN_API_KEY
         generateValue: true
 
-  - type: worker
-    name: vagas-worker
+  - type: cron
+    name: vagas-worker-cron
     runtime: docker
     plan: starter
+    schedule: '0 */6 * * *'
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: ./docker-entrypoint.sh node dist/src/worker.js
+    dockerCommand: ./docker-entrypoint.sh node dist/src/worker-once.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -47,6 +52,10 @@ services:
         value: 'false'
       - key: SAFE_MODE
         value: 'true'
+      - key: WORKER_MODE
+        value: cron
+      - key: WORKER_HEALTH_TTL_SECONDS
+        value: '25200'
       - key: JOB_SOURCE_USER_AGENT
         value: JobApplicationAgent/0.3 (+render)
       - key: DATABASE_URL

@@ -82,3 +82,45 @@ describe('ManualJobIntakeService', () => {
     expect(raw.skills.map((skill) => skill.skill)).toContain('Node.js');
   });
 });
+
+describe('ManualJobIntakeService preparação imediata', () => {
+  it('gera pacote imediatamente quando o matching cria candidatura', async () => {
+    const ingest = vi.fn<JobIngestionService['ingest']>().mockResolvedValue({
+      job: { id: 'job-3' } as Awaited<ReturnType<JobIngestionService['ingest']>>['job'],
+      inserted: true,
+      duplicated: false,
+    });
+    const analyze = vi.fn().mockResolvedValue({
+      match: { decision: 'APPLY', score: 91 },
+      application: { id: 'app-3', status: 'READY' },
+      cached: false,
+    });
+    const prepare = vi.fn().mockResolvedValue({
+      id: 'prep-3',
+      applicationId: 'app-3',
+      version: 2,
+      missingInformation: [],
+    });
+
+    const result = await new ManualJobIntakeService(
+      { ingest } as unknown as JobIngestionService,
+      { analyze } as unknown as JobMatchingService,
+      { prepare } as never,
+    ).importAndAnalyze({
+      title: 'Junior Backend Developer',
+      company: 'Example',
+      description: 'Node.js REST API Docker',
+      applicationUrl: 'https://www.linkedin.com/jobs/view/456',
+      remoteType: 'REMOTE',
+      requiredCertifications: [],
+      skills: [],
+      fastApply: true,
+    });
+
+    expect(prepare).toHaveBeenCalledWith('app-3');
+    expect(result.preparation).toMatchObject({
+      applicationId: 'app-3',
+      version: 2,
+    });
+  });
+});

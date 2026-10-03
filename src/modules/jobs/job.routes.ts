@@ -7,6 +7,7 @@ import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { idParamsSchema } from '../../shared/http.js';
 import { AnalyzeJobWorker } from '../../workers/analyze-job.worker.js';
 import { CollectJobsWorker } from '../../workers/collect-jobs.worker.js';
+import { ApplicationPreparationService } from '../applications/application-preparation.service.js';
 import { JobMatchingService } from '../matching/job-matching.service.js';
 import { JobIngestionService } from './job-ingestion.service.js';
 import { JobReprocessService } from './job-reprocess.service.js';
@@ -26,7 +27,8 @@ export function jobRoutes(app: FastifyInstance): void {
   const ingestion = new JobIngestionService(prisma);
   const reprocessor = new JobReprocessService(prisma, matching, env);
   const collector = new CollectJobsWorker(ingestion, analyzer, app.log);
-  const manualIntake = new ManualJobIntakeService(ingestion, matching);
+  const preparation = new ApplicationPreparationService(prisma);
+  const manualIntake = new ManualJobIntakeService(ingestion, matching, preparation);
 
   app.get('/jobs', { schema: { tags: ['Jobs'], summary: 'Lista e filtra vagas' } }, (request) =>
     jobs.list(jobsQuerySchema.parse(request.query)),

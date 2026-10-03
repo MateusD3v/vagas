@@ -10,6 +10,7 @@ import {
   classifyApplicationChannel,
   type ApplicationChannel,
 } from '../applications/application-channel.js';
+import type { ApplicationPreparationService } from '../applications/application-preparation.service.js';
 import type { JobMatchingService } from '../matching/job-matching.service.js';
 import type { JobIngestionService } from './job-ingestion.service.js';
 import type { manualJobImportSchema } from './job.schemas.js';
@@ -44,6 +45,7 @@ export class ManualJobIntakeService {
   constructor(
     private readonly ingestion: JobIngestionService,
     private readonly matching: JobMatchingService,
+    private readonly preparation?: ApplicationPreparationService,
   ) {}
 
   async importAndAnalyze(input: ManualJobInput) {
@@ -51,6 +53,10 @@ export class ManualJobIntakeService {
     const normalized = this.normalize(input, channel);
     const ingested = await this.ingestion.ingest(new ManualJobAdapter(normalized), normalized);
     const analysis = await this.matching.analyze(ingested.job.id);
+    const prepared =
+      analysis.application && this.preparation
+        ? await this.preparation.prepare(analysis.application.id)
+        : null;
 
     return {
       jobId: ingested.job.id,
@@ -58,6 +64,7 @@ export class ManualJobIntakeService {
       duplicated: ingested.duplicated,
       channel,
       analysis,
+      preparation: prepared,
     };
   }
 
