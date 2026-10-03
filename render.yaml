@@ -1,0 +1,77 @@
+services:
+  - type: web
+    name: vagas-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: ./docker-entrypoint.sh node dist/src/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: RUN_MIGRATIONS
+        value: 'true'
+      - key: RUN_SEED
+        value: 'true'
+      - key: SEED_DEMO_DATA
+        value: 'false'
+      - key: SAFE_MODE
+        value: 'true'
+      - key: WORKER_MODE
+        value: cron
+      - key: WORKER_HEALTH_TTL_SECONDS
+        value: '25200'
+      - key: JOB_SOURCE_USER_AGENT
+        value: JobApplicationAgent/0.3 (+render)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vagas-db
+          property: connectionString
+      - key: ADMIN_API_KEY
+        generateValue: true
+
+  - type: cron
+    name: vagas-worker-cron
+    runtime: docker
+    plan: starter
+    schedule: '0 */6 * * *'
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: ./docker-entrypoint.sh node dist/src/worker-once.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_MIGRATIONS
+        value: 'false'
+      - key: RUN_SEED
+        value: 'false'
+      - key: SEED_DEMO_DATA
+        value: 'false'
+      - key: SAFE_MODE
+        value: 'true'
+      - key: WORKER_MODE
+        value: cron
+      - key: WORKER_HEALTH_TTL_SECONDS
+        value: '25200'
+      - key: JOB_SOURCE_USER_AGENT
+        value: JobApplicationAgent/0.3 (+render)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vagas-db
+          property: connectionString
+      - key: ADMIN_API_KEY
+        fromService:
+          type: web
+          name: vagas-api
+          envVarKey: ADMIN_API_KEY
+
+databases:
+  - name: vagas-db
+    plan: free
+    postgresMajorVersion: '17'
+    databaseName: vagas
+    user: vagas
+    ipAllowList: []

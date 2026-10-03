@@ -1,6 +1,6 @@
-# Job Application Agent — Fase 2
+# Job Application Agent — Fase 3 foundation
 
-Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa e prepara candidaturas locais. O sistema **não envia candidaturas**, não automatiza LinkedIn/Indeed e não usa navegador, CAPTCHA bypass ou evasão anti-bot.
+Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa, reprocessa e prepara candidaturas locais. O sistema **não envia candidaturas**, não automatiza LinkedIn/Indeed e não usa navegador, CAPTCHA bypass ou evasão anti-bot.
 
 ## Stack e arquitetura
 
@@ -13,7 +13,7 @@ src/
   integrations/
     job-sources/
       mock/                     fonte determinística
-      providers/                Remotive e Arbeitnow
+      providers/                Remotive, Arbeitnow e Jobicy
       shared/                   HTTP, normalização e erros
       job-source.registry.ts
     llm/                        mock/OpenAI e validação
@@ -66,11 +66,11 @@ Durante desenvolvimento, use `npm run dev` e `npm run dev:worker`.
 
 ## Coleta manual
 
-Endpoints administrativos usam `X-Admin-Key` quando `ADMIN_API_KEY` está configurada e possuem rate limit de cinco chamadas por minuto.
+Em `production`, todos os endpoints de dados exigem `X-Admin-Key`; apenas `/health`, `/docs` e a casca pública de `/dashboard` permanecem acessíveis sem credencial. Operações administrativas continuam com rate limit de cinco chamadas por minuto.
 
 ```bash
 curl -X POST http://localhost:3000/job-sources/run \
-  -H "X-Admin-Key: local-admin-key" \
+  -H "X-Admin-Key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -82,12 +82,18 @@ A resposta `202` contém `collectionRunIds`. Consulte o progresso em `GET /colle
 Compatibilidade da Fase 1 preservada:
 
 - `GET /health`
-- `GET|POST|PUT|PATCH /profile`
+- `GET|POST|PUT|PATCH /profile`, `GET /profile/readiness`
+- `GET|POST /candidate-answers`, `PUT|DELETE /candidate-answers/:id`
 - `GET /jobs`, `GET /jobs/:id`
-- `POST /jobs/import/mock`, `POST /jobs/:id/analyze`
+- `POST /jobs/import/mock`, `POST /jobs/import/manual`, `POST /jobs/:id/analyze`, `POST /jobs/reprocess`
 - `GET /matches`, `GET /matches/:id`
 - `GET /applications`, `GET /applications/:id`
-- `GET /stats`, `GET /docs`
+- `POST /applications/:id/prepare`, `GET /applications/:id/preparation`, `GET /applications/:id/resume.md`
+- `GET /applications/:id/fast-apply-kit` para currículo + respostas reutilizáveis + pendências
+- `GET /applications/:id/eligibility` para explicar requisitos e bloqueios de automação
+- `POST /applications/:id/submit` para provider de submissão explicitamente autorizado
+- `PATCH /applications/:id/status` para acompanhamento manual auditável (também disponível no dashboard)
+- `GET /audit-logs`, `GET /stats`, `GET /docs`, `GET /dashboard`
 
 Fase 2:
 
@@ -102,7 +108,7 @@ Listagens usam `page`/`pageSize`, limitados a 100. Collection runs aceitam `sour
 
 O worker usa cron no próprio processo, sem Redis. `JOB_COLLECTION_CRON` segue o formato cron de cinco campos e o padrão `0 */6 * * *` executa a cada seis horas, respeitando a recomendação da Remotive de no máximo quatro coletas diárias. A opção `protect` impede sobreposição dentro do scheduler e as fontes de uma execução são processadas em sequência para compartilhar corretamente o orçamento diário.
 
-O heartbeat é atualizado a cada 30 segundos. `/health` considera o worker indisponível após 90 segundos sem atualização. `SIGTERM` e `SIGINT` interrompem scheduler/heartbeat e fecham Prisma.
+O heartbeat é atualizado a cada 30 segundos. `/health` considera o worker indisponível após 90 segundos sem atualização e também informa se o perfil ainda é de demonstração. `SIGTERM` e `SIGINT` interrompem scheduler/heartbeat e fecham Prisma. A manutenção diária remove runs/logs expirados e marca vagas reais não vistas como `STALE` e depois `CLOSED` usando janelas configuráveis.
 
 ## Pré-filtro, IA e custos
 
@@ -111,6 +117,12 @@ Antes do matching, regras baratas verificam palavras excluídas, senioridade, mo
 `LLM_MAX_ANALYSES_PER_RUN` e `LLM_MAX_ANALYSES_PER_DAY` deixam excedentes em `PENDING_ANALYSIS`; cada ciclo do worker retoma essa fila por prioridade, mesmo quando nenhuma vaga nova é importada ou a criação de uma coleta falha. A cota diária é reservada por atualização condicional atômica no PostgreSQL, portanto permanece segura com processos concorrentes. Resultados encontrados no cache devolvem a reserva. O hash de vaga + perfil + configuração e `MATCHING_ENGINE_VERSION` evitam nova chamada quando nada mudou. Sem `OPENAI_API_KEY`, o provider mock mantém o pipeline funcional.
 
 Hard constraints continuam soberanas. A IA nunca altera o perfil nem cria competências ou respostas.
+
+## Preparação de candidatura
+
+`POST /jobs/import/manual` permite registrar uma vaga externa informada pelo usuário, inclusive links de LinkedIn/Indeed ou ATS conhecidos, sem fazer scraping ou automação de navegador. O campo `fastApply=true` é apenas um hint explícito para classificar a vaga como candidatura rápida no dashboard; não dispara cliques nem submissão.
+
+`POST /applications/:id/prepare` gera um pacote estruturado a partir exclusivamente do perfil salvo e da vaga: contato, formação, competências, idiomas, experiências priorizadas por relevância, currículo em Markdown e respostas marcadas como reutilizáveis. O pacote registra informações ausentes em vez de inventá-las e permanece local em `ApplicationPreparation`. Com `AUTO_PREPARE_APPLICATIONS=true`, o worker também prepara automaticamente candidaturas `READY`/`REVIEW_REQUIRED` que ainda não possuem pacote, em lotes configuráveis. `GET /applications/:id/preparation` recupera a versão mais recente. `GET /applications/:id/eligibility` avalia a política configurada, limite diário, fonte, score, dados faltantes e separa esses requisitos dos bloqueios operacionais (`SAFE_MODE` e ausência de um provider de submissão autorizado).
 
 ## HTTP, retry e circuit breaker
 
@@ -128,28 +140,41 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 
 ## Variáveis principais
 
-| Variável                   | Padrão        | Finalidade                                     |
-| -------------------------- | ------------- | ---------------------------------------------- |
-| `DATABASE_URL`             | local         | PostgreSQL padrão/Supabase PostgreSQL          |
-| `ADMIN_API_KEY`            | vazio         | Proteção temporária; obrigatória em production |
-| `JOB_COLLECTION_CRON`      | `0 */6 * * *` | Agenda do worker                               |
-| `JOB_SOURCE_TIMEOUT_MS`    | `10000`       | Timeout HTTP                                   |
-| `JOB_SOURCE_MAX_RETRIES`   | `3`           | Tentativas adicionais                          |
-| `JOB_SOURCE_USER_AGENT`    | identificável | Identidade da aplicação                        |
-| `SOURCE_FAILURE_THRESHOLD` | `5`           | Falhas antes do cooldown                       |
-| `SOURCE_COOLDOWN_MINUTES`  | `30`          | Duração do cooldown                            |
-| `AUTO_ANALYZE_NEW_JOBS`    | `true`        | Análise após ingestão                          |
-| `LLM_MAX_ANALYSES_PER_RUN` | `25`          | Limite por execução                            |
-| `LLM_MAX_ANALYSES_PER_DAY` | `100`         | Limite diário                                  |
-| `MATCHING_ENGINE_VERSION`  | `1`           | Versão auditável                               |
-| `MAX_JOB_AGE_DAYS`         | `14`          | Freshness padrão                               |
-| `ENABLE_REAL_JOB_SOURCES`  | `true`        | Liga adapters reais                            |
-| `ENABLE_AUTO_ANALYSIS`     | `true`        | Feature flag de análise                        |
-| `ENABLE_NOTIFICATIONS`     | `false`       | Provider de console                            |
-| `ENABLE_SCHEDULER`         | `true`        | Agenda periódica                               |
-| `REMOTIVE_ENABLED`         | `true`        | Adapter Remotive                               |
-| `ARBEITNOW_ENABLED`        | `true`        | Adapter Arbeitnow                              |
-| `SAFE_MODE`                | `true`        | Proíbe futuras escritas externas               |
+| Variável                                   | Padrão        | Finalidade                                         |
+| ------------------------------------------ | ------------- | -------------------------------------------------- |
+| `DATABASE_URL`                             | local         | PostgreSQL padrão/Supabase PostgreSQL              |
+| `ADMIN_API_KEY`                            | vazio         | Proteção temporária; obrigatória em production     |
+| `SEED_DEMO_DATA`                           | `true`        | Popula perfil/vagas mock apenas em desenvolvimento |
+| `JOB_COLLECTION_CRON`                      | `0 */6 * * *` | Agenda do worker                                   |
+| `JOB_SOURCE_TIMEOUT_MS`                    | `10000`       | Timeout HTTP                                       |
+| `JOB_SOURCE_MAX_RETRIES`                   | `3`           | Tentativas adicionais                              |
+| `JOB_SOURCE_USER_AGENT`                    | identificável | Identidade da aplicação                            |
+| `SOURCE_FAILURE_THRESHOLD`                 | `5`           | Falhas antes do cooldown                           |
+| `SOURCE_COOLDOWN_MINUTES`                  | `30`          | Duração do cooldown                                |
+| `COLLECTION_RUN_RETENTION_DAYS`            | `30`          | Retenção de execuções finalizadas                  |
+| `AUDIT_LOG_RETENTION_DAYS`                 | `90`          | Retenção de logs de auditoria                      |
+| `JOB_STALE_AFTER_DAYS`                     | `14`          | Dias sem reaparecer antes de `STALE`               |
+| `JOB_CLOSED_AFTER_DAYS`                    | `30`          | Dias sem reaparecer antes de `CLOSED`              |
+| `JOB_STATUS_SYNC_INTERVAL_MINUTES`         | `360`         | Intervalo de status explícito quando suportado     |
+| `JOB_STATUS_SYNC_BATCH_SIZE`               | `100`         | IDs verificados por fonte/ciclo                    |
+| `AUTO_ANALYZE_NEW_JOBS`                    | `true`        | Análise após ingestão                              |
+| `LLM_MAX_ANALYSES_PER_RUN`                 | `25`          | Limite por execução                                |
+| `LLM_MAX_ANALYSES_PER_DAY`                 | `100`         | Limite diário                                      |
+| `MATCHING_ENGINE_VERSION`                  | `3`           | Versão auditável                                   |
+| `MAX_JOB_AGE_DAYS`                         | `14`          | Freshness padrão                                   |
+| `ENABLE_REAL_JOB_SOURCES`                  | `true`        | Liga adapters reais                                |
+| `ENABLE_AUTO_ANALYSIS`                     | `true`        | Feature flag de análise                            |
+| `AUTO_PREPARE_APPLICATIONS`                | `true`        | Prepara pacotes pendentes no worker                |
+| `APPLICATION_PREPARATION_INTERVAL_SECONDS` | `60`          | Intervalo da preparação automática                 |
+| `APPLICATION_PREPARATION_BATCH_SIZE`       | `25`          | Máximo preparado por ciclo                         |
+| `ENABLE_NOTIFICATIONS`                     | `false`       | Liga notificações locais/externas                  |
+| `NOTIFICATION_WEBHOOK_URL`                 | vazio         | Webhook HTTP opcional para eventos                 |
+| `NOTIFICATION_WEBHOOK_TIMEOUT_MS`          | `5000`        | Timeout do webhook                                 |
+| `ENABLE_SCHEDULER`                         | `true`        | Agenda periódica                                   |
+| `REMOTIVE_ENABLED`                         | `true`        | Adapter Remotive                                   |
+| `ARBEITNOW_ENABLED`                        | `true`        | Adapter Arbeitnow                                  |
+| `JOBICY_ENABLED`                           | `true`        | Adapter Jobicy                                     |
+| `SAFE_MODE`                                | `true`        | Proíbe futuras escritas externas                   |
 
 A lista completa está em `.env.example`. Nenhum segredo é salvo em `JobSource.configuration` ou logs.
 
@@ -168,10 +193,12 @@ Testes de adapters e HTTP usam mocks; a suíte automatizada não depende da inte
 
 ## Deploy no Render
 
+O repositório já inclui `render.yaml` e o guia `docs/deploy-render.md`. O Blueprint prepara os três recursos abaixo; ele não cria nada até ser sincronizado manualmente no Render.
+
 Crie três recursos usando o mesmo repositório/imagem:
 
 1. PostgreSQL gerenciado (ou Supabase apenas como PostgreSQL) e copie sua URL TLS para `DATABASE_URL`.
-2. Web Service/API com start command `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `HOST=0.0.0.0` e uma `ADMIN_API_KEY` forte.
+2. Web Service/API com start command `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `SEED_DEMO_DATA=false`, `HOST=0.0.0.0` e uma `ADMIN_API_KEY` forte. O seed de produção registra apenas as fontes; não cria perfil/vagas de demonstração.
 3. Background Worker com `./docker-entrypoint.sh node dist/src/worker.js`, `RUN_MIGRATIONS=false` e `RUN_SEED=false`.
 
 Compartilhe as demais variáveis entre API e worker. Use health path `/health`. Não use hostname `postgres` fora do Compose; ele existe apenas na rede Docker local.
@@ -188,10 +215,11 @@ Compartilhe as demais variáveis entre API e worker. Use health path `/health`. 
 ## Limitações e próxima fase
 
 - Um perfil operacional, embora as relações já sejam por candidato.
-- Arbeitnow consulta somente a primeira página por execução.
-- Remotive usa a primeira keyword do perfil em cada chamada; ampliar cobertura sem exceder o limite da API permanece uma melhoria pendente.
+- Arbeitnow pagina de forma limitada (até cinco páginas por execução) para manter coleta conservadora.
+- Remotive alterna uma keyword por execução, em vez de disparar várias chamadas no mesmo ciclo.
 - O limite diário possui reserva atômica compartilhada, mas cada processo ainda limita apenas sua própria concorrência por execução; dimensione múltiplos workers com cautela para não sobrecarregar as fontes.
-- `STALE`/`CLOSED` estão modelados, mas fechamento exige evidência de múltiplos ciclos e permanece dívida técnica.
-- Retenção/purge de runs e logs ainda não é automática.
-- Console é o único provider de notificação.
-- Não há dashboard, autenticação completa, OAuth, candidatura automática, currículo personalizado ou acompanhamento externo. Esses itens ficam para a Fase 3 e posteriores.
+- Jobicy usa confirmação explícita de `active/closed/unknown`; Remotive e Arbeitnow continuam usando ausência temporal (`lastSeenAt`) como evidência de `STALE`/`CLOSED`.
+- Notificações externas suportam webhook genérico, mas ainda não existem providers específicos de e-mail/Slack/Discord.
+- Reprocessamento completo existe por `POST /jobs/reprocess` e CLI `npm run reprocess:jobs`, mas requer um perfil real; o seed permanece deliberadamente de demonstração.
+- O currículo personalizado em Markdown e o acompanhamento manual de candidatura já existem. A submissão automática possui interface/registry e endpoint, porém nenhum provider externo está habilitado por padrão; `SAFE_MODE=true` continua bloqueando qualquer envio.
+- O dashboard local e a proteção por API key já existem. Ainda faltam autenticação multiusuário/OAuth e integrações externas autorizadas para acompanhamento/submissão; esses itens continuam para as próximas etapas da Fase 3.

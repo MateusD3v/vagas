@@ -45,6 +45,7 @@ export interface MatchJob {
 export interface DeterministicMatch {
   score: number;
   decision: MatchDecision;
+  roleAligned: boolean;
   matchedSkills: string[];
   missingSkills: string[];
   strengths: string[];

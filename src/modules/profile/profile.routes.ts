@@ -10,6 +10,12 @@ export function profileRoutes(app: FastifyInstance): void {
     service.get(),
   );
 
+  app.get(
+    '/profile/readiness',
+    { schema: { tags: ['Profile'], summary: 'Mostra pendências para busca e matching' } },
+    () => service.readiness(),
+  );
+
   app.post(
     '/profile',
     { schema: { tags: ['Profile'], summary: 'Cadastra o perfil único' } },

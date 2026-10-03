@@ -25,8 +25,22 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Autenticação: não requerida.
 - Campos: slug, empresa, título, descrição, remoto, URL, tags, tipos de contratação, localização e criação.
 - Normalização: filtro de keywords local, descrição sem HTML, modalidade remota/presencial, senioridade inferida conservadoramente e tecnologias reconhecidas.
-- Paginação: a API fornece paginação; a implementação consulta a primeira página e respeita `maxJobsPerRun`.
-- Limites/regras: a documentação pública não publica uma cota numérica. O adapter usa limite interno conservador de 0,5 requisição por segundo e somente uma chamada por execução.
+- Paginação: a API fornece paginação; a implementação percorre no máximo cinco páginas por execução e interrompe ao atingir `maxJobsPerRun`.
+- Limites/regras: a documentação pública não publica uma cota numérica. O adapter usa limite interno conservador de 0,5 requisição por segundo e concorrência 1.
+
+## Jobicy — ACTIVE
+
+- Tipo: API pública de vagas remotas.
+- Endpoint: `GET https://jobicy.com/api/v2/remote-jobs`.
+- Documentação oficial: <https://jobicy.com/jobs-rss-feed>.
+- Autenticação: não requerida para a API pública; sem chave, `url` aponta para a página da vaga na Jobicy.
+- Janela pública: vagas publicadas nos últimos sete dias, com atraso aproximado de três horas.
+- Filtros usados: `count`, `tag` e `cursor`; uma keyword é rotacionada por execução para manter a coleta conservadora.
+- Paginação: cursor opaco (`nextCursor`), com até três páginas por execução e no máximo 200 itens por página.
+- Normalização: descrição sem HTML, modalidade `REMOTE`, senioridade inferida conservadoramente, salário estruturado quando disponível e tecnologias reconhecidas.
+- Atribuição: a URL pública da Jobicy é preservada como origem da vaga.
+- Status explícito: `GET /api/v2/remote-jobs/status?ids=...` verifica até 100 IDs por chamada. `closed` pode encerrar a vaga; `unknown` nunca é tratado como confirmação de fechamento.
+- Controle interno: concorrência 1, limite conservador de uma requisição a cada 30 segundos, sincronização periódica de disponibilidade e sem uso da API comercial paga por padrão.
 
 ## Mock Job Source — DEVELOPMENT
 
@@ -38,4 +52,4 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 
 ## Falhas e desativação
 
-Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED` e `ARBEITNOW_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
+Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED` e `JOBICY_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.

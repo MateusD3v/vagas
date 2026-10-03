@@ -76,6 +76,12 @@ export class JobCollectionService {
     const available = sources.filter((source) => this.registry.getAdapter(source.slug));
     if (!available.length)
       throw new AppError('Nenhuma fonte habilitada possui adapter disponível', 409);
+    if (profile.isDemo && available.some((source) => source.type !== 'MOCK')) {
+      throw new AppError(
+        'Substitua o perfil de demonstração por dados reais antes de executar fontes externas',
+        409,
+      );
+    }
     return this.db.$transaction(
       available.map((source) =>
         this.db.collectionRun.create({
@@ -121,6 +127,14 @@ export class JobCollectionService {
         ? { publishedAfter: new Date(Date.now() - search.publishedWithinHours * 3_600_000) }
         : {}),
     };
+    const rotatesKeyword = source.slug === 'remotive' || source.slug === 'jobicy';
+    const selectedKeyword =
+      rotatesKeyword && query.keywords.length
+        ? query.keywords[source.keywordCursor % query.keywords.length]
+        : undefined;
+    const sourceQuery: JobSearchQuery = selectedKeyword
+      ? { ...query, keywords: [selectedKeyword] }
+      : query;
     const counters = {
       queriesExecuted: 1,
       jobsFetched: 0,
@@ -137,7 +151,7 @@ export class JobCollectionService {
 
     try {
       this.logger.info({ collectionRunId: run.id, source: source.slug }, 'Coleta iniciada');
-      const externalJobs = await adapter.searchJobs(query);
+      const externalJobs = await adapter.searchJobs(sourceQuery);
       counters.jobsFetched = externalJobs.length;
       const insertedIds: string[] = [];
       for (const externalJob of externalJobs) {
@@ -270,7 +284,11 @@ export class JobCollectionService {
           status,
           finishedAt: new Date(),
           ...counters,
-          metadata: { durationMs: Date.now() - started, safeMode: this.config.SAFE_MODE },
+          metadata: {
+            durationMs: Date.now() - started,
+            safeMode: this.config.SAFE_MODE,
+            selectedKeyword: rotatesKeyword ? (sourceQuery.keywords[0] ?? null) : null,
+          },
         },
       });
       await this.db.jobSource.update({
@@ -279,6 +297,9 @@ export class JobCollectionService {
           lastSuccessfulRunAt: new Date(),
           consecutiveFailures: 0,
           cooldownUntil: null,
+          ...(rotatesKeyword && search.keywords.length > 1
+            ? { keywordCursor: (source.keywordCursor + 1) % search.keywords.length }
+            : {}),
         },
       });
       await this.audit.record('COLLECTION_COMPLETED', 'CollectionRun', run.id, {

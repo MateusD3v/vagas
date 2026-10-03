@@ -18,19 +18,27 @@ const envSchema = z
     DEFAULT_PAGE_SIZE: z.coerce.number().int().positive().max(100).default(20),
     MAX_PAGE_SIZE: z.coerce.number().int().positive().max(500).default(100),
     ADMIN_API_KEY: z.string().optional(),
+    WORKER_MODE: z.enum(['continuous', 'cron']).default('continuous'),
+    WORKER_HEALTH_TTL_SECONDS: z.coerce.number().int().positive().default(90),
     JOB_COLLECTION_CRON: z.string().default('0 */6 * * *'),
     JOB_SOURCE_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     JOB_SOURCE_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(3),
-    JOB_SOURCE_USER_AGENT: z.string().default('JobApplicationAgent/0.2 (+local-development)'),
+    JOB_SOURCE_USER_AGENT: z.string().default('JobApplicationAgent/0.3 (+local-development)'),
     SOURCE_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(5),
     SOURCE_COOLDOWN_MINUTES: z.coerce.number().int().positive().default(30),
+    COLLECTION_RUN_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+    AUDIT_LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
+    JOB_STALE_AFTER_DAYS: z.coerce.number().int().positive().default(14),
+    JOB_CLOSED_AFTER_DAYS: z.coerce.number().int().positive().default(30),
+    JOB_STATUS_SYNC_INTERVAL_MINUTES: z.coerce.number().int().positive().default(360),
+    JOB_STATUS_SYNC_BATCH_SIZE: z.coerce.number().int().positive().max(100).default(100),
     AUTO_ANALYZE_NEW_JOBS: z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
     LLM_MAX_ANALYSES_PER_RUN: z.coerce.number().int().positive().default(25),
     LLM_MAX_ANALYSES_PER_DAY: z.coerce.number().int().positive().default(100),
-    MATCHING_ENGINE_VERSION: z.coerce.number().int().positive().default(1),
+    MATCHING_ENGINE_VERSION: z.coerce.number().int().positive().default(3),
     MAX_JOB_AGE_DAYS: z.coerce.number().int().positive().default(14),
     ENABLE_REAL_JOB_SOURCES: z
       .string()
@@ -40,10 +48,21 @@ const envSchema = z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
+    AUTO_PREPARE_APPLICATIONS: z
+      .string()
+      .default('true')
+      .transform((value) => value === 'true'),
+    APPLICATION_PREPARATION_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
+    APPLICATION_PREPARATION_BATCH_SIZE: z.coerce.number().int().positive().max(100).default(25),
     ENABLE_NOTIFICATIONS: z
       .string()
       .default('false')
       .transform((value) => value === 'true'),
+    NOTIFICATION_WEBHOOK_URL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().url().optional(),
+    ),
+    NOTIFICATION_WEBHOOK_TIMEOUT_MS: z.coerce.number().int().positive().max(30_000).default(5_000),
     ENABLE_SCHEDULER: z
       .string()
       .default('true')
@@ -60,6 +79,10 @@ const envSchema = z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
+    JOBICY_ENABLED: z
+      .string()
+      .default('true')
+      .transform((value) => value === 'true'),
     RAW_DATA_MAX_BYTES: z.coerce.number().int().positive().max(250_000).default(50_000),
   })
   .superRefine((value, context) => {
@@ -68,6 +91,13 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['ADMIN_API_KEY'],
         message: 'ADMIN_API_KEY é obrigatório em production',
+      });
+    }
+    if (value.JOB_CLOSED_AFTER_DAYS <= value.JOB_STALE_AFTER_DAYS) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JOB_CLOSED_AFTER_DAYS'],
+        message: 'JOB_CLOSED_AFTER_DAYS deve ser maior que JOB_STALE_AFTER_DAYS',
       });
     }
   });

@@ -8,11 +8,15 @@ import { ZodError } from 'zod';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
 import { applicationRoutes } from './modules/applications/application.routes.js';
+import { auditRoutes } from './modules/audit/audit.routes.js';
+import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { jobRoutes } from './modules/jobs/job.routes.js';
 import { matchRoutes } from './modules/matching/match.routes.js';
+import { candidateAnswerRoutes } from './modules/profile/candidate-answer.routes.js';
 import { profileRoutes } from './modules/profile/profile.routes.js';
 import { statsRoutes } from './modules/stats/stats.routes.js';
 import { sourceRoutes } from './modules/sources/source.routes.js';
+import { requireAdmin } from './shared/admin-security.js';
 import { AppError } from './shared/http.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -28,7 +32,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       info: {
         title: 'Job Application Agent API',
         description: 'Coleta, matching auditável e preparação local de candidaturas.',
-        version: '0.2.0',
+        version: '0.3.0',
       },
       tags: [
         { name: 'System' },
@@ -36,6 +40,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         { name: 'Jobs' },
         { name: 'Matching' },
         { name: 'Applications' },
+        { name: 'Audit' },
         { name: 'Stats' },
         { name: 'Sources' },
       ],
@@ -48,23 +53,46 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
   await app.register(swaggerUi, { routePrefix: '/docs' });
 
+  app.addHook('onRequest', async (request, reply) => {
+    const path = request.url.split('?')[0] ?? request.url;
+    const publicPath =
+      path === '/health' ||
+      path === '/dashboard' ||
+      path.startsWith('/docs') ||
+      path.startsWith('/documentation');
+    if (!publicPath) await requireAdmin(request, reply);
+  });
+
   app.get(
     '/health',
     { schema: { tags: ['System'], summary: 'Verifica API e banco de dados' } },
     async () => {
-      const [, worker] = await Promise.all([
+      const [, worker, profile] = await Promise.all([
         prisma.$queryRaw`SELECT 1`,
         prisma.workerHeartbeat.findUnique({ where: { workerName: 'job-collection-worker' } }),
+        prisma.candidateProfile.findFirst({
+          orderBy: { createdAt: 'asc' },
+          select: { isDemo: true },
+        }),
       ]);
+      const workerStatusAllowed =
+        worker?.status === 'RUNNING' || (env.WORKER_MODE === 'cron' && worker?.status === 'IDLE');
       const workerAlive = Boolean(
-        worker && Date.now() - worker.lastSeenAt.getTime() < 90_000 && worker.status === 'RUNNING',
+        worker &&
+        Date.now() - worker.lastSeenAt.getTime() < env.WORKER_HEALTH_TTL_SECONDS * 1000 &&
+        workerStatusAllowed,
       );
       return {
         status: 'ok',
         database: 'connected',
         worker: {
           status: workerAlive ? 'healthy' : 'unavailable',
+          mode: env.WORKER_MODE,
           lastSeenAt: worker?.lastSeenAt ?? null,
+        },
+        profile: {
+          status: !profile ? 'missing' : profile.isDemo ? 'demo' : 'ready',
+          collectionReady: Boolean(profile && !profile.isDemo),
         },
         timestamp: new Date().toISOString(),
       };
@@ -72,10 +100,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   );
 
   await app.register(profileRoutes);
+  await app.register(candidateAnswerRoutes);
   await app.register(jobRoutes);
   await app.register(matchRoutes);
   await app.register(applicationRoutes);
+  await app.register(auditRoutes);
   await app.register(statsRoutes);
+  await app.register(dashboardRoutes);
   await app.register(sourceRoutes);
 
   app.setErrorHandler((error, request, reply) => {

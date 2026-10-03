@@ -1,5 +1,6 @@
 import type { RemoteType } from '@prisma/client';
 import { includesText, normalizeText } from '../../shared/text.js';
+import { evaluateRoleAlignment } from '../matching/role-alignment.js';
 
 export interface PreFilterCandidate {
   skills: string[];
@@ -38,6 +39,17 @@ export interface PreFilterResult {
 
 const seniorTerms = ['senior', 'sr', 'staff', 'principal', 'lead'];
 const earlyCareerTerms = ['intern', 'entry', 'junior', 'jr', 'trainee', 'estagio'];
+const genericEvidenceSkills = new Set(['git', 'docker', 'rest api']);
+const knownEmploymentTypes = new Set([
+  'FULL_TIME',
+  'PART_TIME',
+  'CONTRACT',
+  'INTERNSHIP',
+  'ESTAGIO',
+  'CLT',
+  'TEMPORARY',
+  'FREELANCE',
+]);
 
 export class JobPreFilterService {
   evaluate(
@@ -48,9 +60,11 @@ export class JobPreFilterService {
     now = new Date(),
   ): PreFilterResult {
     const reasons: string[] = [];
-    const searchable = `${job.title} ${job.description}`;
+    const exclusionTarget = `${job.title} ${job.seniority ?? ''}`;
 
-    const excluded = search.excludedKeywords.find((keyword) => includesText(searchable, keyword));
+    const excluded = search.excludedKeywords.find((keyword) =>
+      includesText(exclusionTarget, keyword),
+    );
     if (excluded) reasons.push(`Palavra-chave excluída: ${excluded}`);
 
     const targetSeniorities = search.seniorityLevels.length
@@ -64,6 +78,13 @@ export class JobPreFilterService {
     const jobSeniority = normalizeText(`${job.seniority ?? ''} ${job.title}`);
     if (onlyEarlyCareer && seniorTerms.some((term) => jobSeniority.includes(term))) {
       reasons.push('Senioridade incompatível: vaga sênior para perfil de início de carreira');
+    }
+    if (
+      job.seniority &&
+      targetSeniorities.length &&
+      !targetSeniorities.some((level) => includesText(level, job.seniority ?? ''))
+    ) {
+      reasons.push(`Senioridade não desejada: ${job.seniority}`);
     }
 
     if (search.remoteTypes.length && !search.remoteTypes.includes(job.remoteType)) {
@@ -92,6 +113,7 @@ export class JobPreFilterService {
     if (
       search.employmentTypes.length &&
       job.employmentType &&
+      knownEmploymentTypes.has(job.employmentType.toUpperCase()) &&
       !search.employmentTypes.some((type) => includesText(job.employmentType ?? '', type))
     ) {
       reasons.push(`Tipo de contratação não desejado: ${job.employmentType}`);
@@ -102,11 +124,25 @@ export class JobPreFilterService {
       reasons.push(`Vaga mais antiga que ${maxAgeHours} horas`);
     }
 
-    const keywordMatch = search.keywords.some((keyword) => includesText(searchable, keyword));
-    const matchedSkills = job.skills.filter((requirement) =>
-      candidate.skills.some((skill) => normalizeText(skill) === normalizeText(requirement.skill)),
-    ).length;
-    const skillRatio = job.skills.length ? matchedSkills / job.skills.length : 0.5;
+    const roleAlignment = evaluateRoleAlignment({
+      title: job.title,
+      jobSkills: job.skills.map((requirement) => requirement.skill),
+      targetRoles: search.keywords,
+      targetTechnologies: candidate.skills,
+    });
+    const matchedSkillNames = job.skills
+      .filter((requirement) =>
+        candidate.skills.some((skill) => normalizeText(skill) === normalizeText(requirement.skill)),
+      )
+      .map((requirement) => requirement.skill);
+    const matchedSkills = matchedSkillNames.length;
+    const hasSubstantiveSkillEvidence = matchedSkillNames.some(
+      (skill) => !genericEvidenceSkills.has(normalizeText(skill)),
+    );
+    if (!roleAlignment.aligned && !hasSubstantiveSkillEvidence) {
+      reasons.push('Sem evidência de alinhamento por cargo ou competência relevante');
+    }
+    const skillRatio = job.skills.length ? matchedSkills / job.skills.length : 0;
     const modalityMatch =
       !search.remoteTypes.length || search.remoteTypes.includes(job.remoteType) ? 1 : 0;
     const seniorityMatch =
@@ -116,7 +152,7 @@ export class JobPreFilterService {
         ? 1
         : 0;
     const preliminaryScore = Math.round(
-      (keywordMatch ? 40 : 0) + skillRatio * 30 + modalityMatch * 15 + seniorityMatch * 15,
+      (roleAlignment.aligned ? 40 : 0) + skillRatio * 30 + modalityMatch * 15 + seniorityMatch * 15,
     );
 
     return { passed: reasons.length === 0, reasons, preliminaryScore };

@@ -1,6 +1,6 @@
 {
   "name": "job-application-agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Backend auditável para coleta, análise e preparação de candidaturas",
@@ -15,6 +15,8 @@
     "start": "node dist/src/server.js",
     "start:api": "node dist/src/server.js",
     "start:worker": "node dist/src/worker.js",
+    "start:worker-once": "node dist/src/worker-once.js",
+    "reprocess:jobs": "node dist/src/reprocess.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

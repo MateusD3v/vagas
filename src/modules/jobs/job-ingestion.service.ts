@@ -53,14 +53,15 @@ export class JobIngestionService {
   }
 
   private async ingestNormalized(input: NormalizedJobInput): Promise<IngestItemResult> {
+    const isManualSource = input.source === 'manual' || input.source.endsWith('-manual');
     const source = await this.db.jobSource.upsert({
       where: { slug: input.source },
       create: {
         slug: input.source,
         name: input.source,
-        type: input.source === 'mock' ? 'MOCK' : 'API',
-        enabled: true,
-        configuration: {},
+        type: input.source === 'mock' ? 'MOCK' : isManualSource ? 'FEED' : 'API',
+        enabled: !isManualSource,
+        configuration: isManualSource ? { scheduled: false } : {},
       },
       update: {},
     });
@@ -146,12 +147,51 @@ export class JobIngestionService {
     sourceId: string,
     input: NormalizedJobInput,
   ): Promise<IngestItemResult> {
-    await this.db.$transaction([
-      this.db.job.update({
-        where: { id: job.id },
-        data: { lastSeenAt: new Date(), isActive: true },
-      }),
-      this.db.jobSourceReference.upsert({
+    const now = new Date();
+    const refreshed = await this.db.$transaction(async (tx) => {
+      let updatedJob: Job;
+      if (job.source === input.source) {
+        const rawData = JSON.parse(JSON.stringify(input.rawData)) as Prisma.InputJsonValue;
+        updatedJob = await tx.job.update({
+          where: { id: job.id },
+          data: {
+            title: input.title,
+            company: input.company,
+            description: input.description,
+            location: input.location,
+            city: input.city,
+            state: input.state,
+            country: input.country,
+            remoteType: input.remoteType,
+            employmentType: input.employmentType,
+            seniority: input.seniority,
+            salaryMin: input.salaryMin,
+            salaryMax: input.salaryMax,
+            salaryCurrency: input.salaryCurrency,
+            applicationUrl: input.applicationUrl,
+            originalUrl: input.originalUrl,
+            publishedAt: input.publishedAt,
+            rawData,
+            requiredEducationLevel: input.requiredEducationLevel,
+            requiredCertifications: input.requiredCertifications,
+            lastSeenAt: now,
+            isActive: true,
+          },
+        });
+        await tx.jobSkill.deleteMany({ where: { jobId: job.id } });
+        if (input.skills.length) {
+          await tx.jobSkill.createMany({
+            data: input.skills.map((skill) => ({ ...skill, jobId: job.id })),
+          });
+        }
+      } else {
+        updatedJob = await tx.job.update({
+          where: { id: job.id },
+          data: { lastSeenAt: now, isActive: true },
+        });
+      }
+
+      await tx.jobSourceReference.upsert({
         where: { jobId_sourceId: { jobId: job.id, sourceId } },
         create: {
           jobId: job.id,
@@ -162,14 +202,16 @@ export class JobIngestionService {
         update: {
           externalId: input.externalId,
           originalUrl: input.originalUrl,
-          lastSeenAt: new Date(),
+          lastSeenAt: now,
         },
-      }),
-    ]);
+      });
+      return updatedJob;
+    });
     await this.audit.record('JOB_DUPLICATED', 'Job', job.id, {
       source: input.source,
       externalId: input.externalId ?? null,
+      refreshedFromSameSource: job.source === input.source,
     });
-    return { job: { ...job, lastSeenAt: new Date() }, inserted: false, duplicated: true };
+    return { job: refreshed, inserted: false, duplicated: true };
   }
 }

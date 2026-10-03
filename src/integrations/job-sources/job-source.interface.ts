@@ -51,6 +51,13 @@ export interface NormalizedJob extends RawJob {
   rawData: Record<string, unknown>;
 }
 
+export type ExternalJobStatus = 'ACTIVE' | 'CLOSED' | 'UNKNOWN';
+
+export interface ExternalJobStatusResult {
+  externalId: string;
+  status: ExternalJobStatus;
+}
+
 export interface JobSourceAdapter {
   readonly source: string;
   readonly sourceName: string;
@@ -58,5 +65,6 @@ export interface JobSourceAdapter {
   readonly rateLimit: JobSourceRateLimit;
   searchJobs(query?: JobSearchQuery): Promise<unknown[]>;
   getJobDetails?(externalId: string): Promise<unknown>;
+  checkJobStatuses?(externalIds: string[]): Promise<ExternalJobStatusResult[]>;
   normalizeJob(raw: unknown): NormalizedJob;
 }

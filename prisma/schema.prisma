@@ -86,6 +86,7 @@ model CandidateProfile {
   institution         String?
   graduationDate      DateTime?
   professionalSummary String
+  isDemo              Boolean    @default(false)
   yearsOfExperience   Float      @default(0)
   desiredJobTypes     String[]
   desiredRoles        String[]
@@ -287,6 +288,7 @@ model JobSource {
   lastFailedRunAt     DateTime?
   consecutiveFailures Int                  @default(0)
   cooldownUntil       DateTime?
+  keywordCursor       Int                  @default(0)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   references          JobSourceReference[]
@@ -301,15 +303,18 @@ model JobSourceReference {
   sourceId    String
   externalId  String?
   originalUrl String?
-  firstSeenAt DateTime  @default(now())
-  lastSeenAt  DateTime  @default(now())
-  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  statusCheckedAt DateTime?
+  externalStatus  String?
+  job             Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
   source      JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, externalId])
   @@unique([sourceId, originalUrl])
   @@unique([jobId, sourceId])
   @@index([jobId])
+  @@index([statusCheckedAt])
 }
 
 model JobSearchProfile {
@@ -402,11 +407,26 @@ model Application {
   submittedAt           DateTime?
   externalApplicationId String?
   notes                 String?
-  candidate             CandidateProfile  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  job                   Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate             CandidateProfile         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job                   Job                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  preparation           ApplicationPreparation?
 
   @@unique([candidateId, jobId])
   @@index([status])
+}
+
+model ApplicationPreparation {
+  id                 String      @id @default(uuid())
+  applicationId      String      @unique
+  payload            Json
+  reusableAnswers    Json
+  missingInformation String[]
+  version            Int         @default(1)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  application        Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
 }
 
 model AuditLog {
