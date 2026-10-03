@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { env } from '../../config/env.js';
 import { prisma } from '../../database/client.js';
 import { MockJobSource } from '../../integrations/job-sources/mock/mock.adapter.js';
+import { JobSourceHttpClient } from '../../integrations/job-sources/shared/http-client.js';
 import { createLLMProvider } from '../../integrations/llm/provider.factory.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { idParamsSchema } from '../../shared/http.js';
@@ -9,9 +10,10 @@ import { AnalyzeJobWorker } from '../../workers/analyze-job.worker.js';
 import { CollectJobsWorker } from '../../workers/collect-jobs.worker.js';
 import { ApplicationPreparationService } from '../applications/application-preparation.service.js';
 import { JobMatchingService } from '../matching/job-matching.service.js';
+import { AtsJobResolverService } from './ats-job-resolver.service.js';
 import { JobIngestionService } from './job-ingestion.service.js';
 import { JobReprocessService } from './job-reprocess.service.js';
-import { jobsQuerySchema, manualJobImportSchema } from './job.schemas.js';
+import { jobUrlResolveSchema, jobsQuerySchema, manualJobImportSchema } from './job.schemas.js';
 import { ManualJobIntakeService } from './manual-job-intake.service.js';
 import { JobService } from './job.service.js';
 
@@ -29,6 +31,13 @@ export function jobRoutes(app: FastifyInstance): void {
   const collector = new CollectJobsWorker(ingestion, analyzer, app.log);
   const preparation = new ApplicationPreparationService(prisma);
   const manualIntake = new ManualJobIntakeService(ingestion, matching, preparation);
+  const atsResolver = new AtsJobResolverService(
+    new JobSourceHttpClient({
+      timeoutMs: env.JOB_SOURCE_TIMEOUT_MS,
+      maxRetries: env.JOB_SOURCE_MAX_RETRIES,
+      userAgent: env.JOB_SOURCE_USER_AGENT,
+    }),
+  );
 
   app.get('/jobs', { schema: { tags: ['Jobs'], summary: 'Lista e filtra vagas' } }, (request) =>
     jobs.list(jobsQuerySchema.parse(request.query)),
@@ -53,6 +62,20 @@ export function jobRoutes(app: FastifyInstance): void {
       const result = await collector.run(new MockJobSource());
       return reply.code(201).send(result);
     },
+  );
+
+  app.post(
+    '/jobs/resolve-url',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Jobs'],
+        summary: 'Obtém dados públicos de uma URL ATS suportada sem submeter candidatura',
+        security: [{ adminKey: [] }],
+      },
+    },
+    (request) => atsResolver.resolve(jobUrlResolveSchema.parse(request.body).url),
   );
 
   app.post(
