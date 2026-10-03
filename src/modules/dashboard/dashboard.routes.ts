@@ -383,16 +383,30 @@ const dashboardHtml = `<!doctype html>
         const questions = Array.isArray(kit.applicationQuestions) ? kit.applicationQuestions : [];
         const questionReadiness = Array.isArray(kit.questionReadiness) ? kit.questionReadiness : [];
         const missing = Array.isArray(kit.missingInformation) ? kit.missingInformation : [];
-        const answerText = answers
-          .map(answer => (answer.question || answer.questionKey || 'Pergunta') + ': ' + (answer.answer || ''))
-          .join('\n\n');
+        const preparedQuestionText = questionReadiness.flatMap(question => {
+          if (question.answer) return [question.label + ': ' + question.answer];
+          const profileValues = Array.isArray(question.profileValues) ? question.profileValues : [];
+          if (question.status === 'PROFILE_READY' && profileValues.length) {
+            return [
+              question.label + ': ' +
+                profileValues.map(value => (value.field ? value.field + '=' : '') + value.value).join(' | '),
+            ];
+          }
+          return [];
+        });
+        const reusableAnswerText = answers.map(
+          answer => (answer.question || answer.questionKey || 'Pergunta') + ': ' + (answer.answer || ''),
+        );
+        const answerText = (preparedQuestionText.length ? preparedQuestionText : reusableAnswerText).join(
+          '\n\n',
+        );
         const content = document.getElementById('kitContent');
         content.innerHTML =
           '<div><strong>Canal:</strong> ' + esc(kit.channel?.label || 'Externa') + '</div>' +
           '<div><strong>Fluxo:</strong> ' + esc(kit.channel?.flow || 'MANUAL') + '</div>' +
           (missing.length ? '<p class="warn"><strong>Pendências:</strong> ' + missing.map(esc).join(' · ') + '</p>' : '<p class="ok">Sem pendências conhecidas no pacote.</p>') +
           '<div class="modal-actions">' +
-          '<button type="button" id="copyKitAnswers">Copiar respostas</button>' +
+          '<button type="button" id="copyKitAnswers">Copiar respostas preparadas</button>' +
           '<button type="button" id="downloadKitResume">Baixar currículo</button>' +
           '</div>' +
           '<h3>Perguntas do ATS</h3>' +
@@ -409,9 +423,15 @@ const dashboardHtml = `<!doctype html>
                     : question.status === 'MANUAL_SENSITIVE'
                       ? '<span class="warn">Manual — sensível/consentimento</span>'
                       : '<span class="warn">Responder manualmente</span>';
+                const profileValues = Array.isArray(question.profileValues) ? question.profileValues : [];
+                const preparedValue = question.answer
+                  ? question.answer
+                  : profileValues.map(value => value.value).filter(Boolean).join(' | ');
                 return '<div class="answer"><strong>' + esc(question.label) + '</strong><div>' +
                   (question.required ? '<span class="warn">Obrigatória</span> · ' : '<span class="muted">Opcional</span> · ') +
-                  statusLabel + '</div></div>';
+                  statusLabel + '</div>' +
+                  (preparedValue ? '<div><code>' + esc(preparedValue) + '</code></div>' : '') +
+                  '</div>';
               }).join('')
             : '<div class="muted">O ATS não expôs perguntas públicas para esta vaga.</div>') +
           '<h3>Respostas reutilizáveis autorizadas</h3>' +
