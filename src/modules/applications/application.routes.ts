@@ -11,6 +11,7 @@ import {
   readFastApplyHint,
 } from './application-channel.js';
 import { ApplicationEligibilityService } from './application-eligibility.service.js';
+import { evaluateApplicationQuestionReadiness } from './application-question-readiness.js';
 import { ApplicationPreparationService } from './application-preparation.service.js';
 import { ApplicationService } from './application.service.js';
 import { ApplicationSubmissionService } from './application-submission.service.js';
@@ -107,11 +108,35 @@ export function applicationRoutes(app: FastifyInstance): void {
       const applicationId = idParamsSchema.parse(request.params).id;
       const application = await prisma.application.findUnique({
         where: { id: applicationId },
-        include: { job: true },
+        include: {
+          job: true,
+          candidate: {
+            select: {
+              fullName: true,
+              email: true,
+              phone: true,
+              city: true,
+              state: true,
+              linkedinUrl: true,
+              githubUrl: true,
+              portfolioUrl: true,
+              answers: true,
+            },
+          },
+        },
       });
       if (!application) throw new AppError('Candidatura não encontrada', 404);
       const prepared = await preparation.get(applicationId);
       const resumeMarkdown = await preparation.getResumeMarkdown(applicationId);
+      const applicationQuestions = readApplicationQuestions(application.job.rawData);
+      const questionReadiness = evaluateApplicationQuestionReadiness(
+        applicationQuestions,
+        application.candidate,
+        application.candidate.answers,
+      );
+      const requiredQuestionsPending = questionReadiness.filter(
+        (question) => question.required && question.source === 'MANUAL',
+      ).length;
       return {
         applicationId,
         applicationUrl: application.job.applicationUrl,
@@ -122,7 +147,10 @@ export function applicationRoutes(app: FastifyInstance): void {
         ),
         resumeMarkdown,
         reusableAnswers: prepared.reusableAnswers,
-        applicationQuestions: readApplicationQuestions(application.job.rawData),
+        applicationQuestions,
+        questionReadiness,
+        requiredQuestionsPending,
+        readyForAssistedApply: requiredQuestionsPending === 0,
         missingInformation: prepared.missingInformation,
       };
     },
