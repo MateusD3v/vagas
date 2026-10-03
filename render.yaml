@@ -2,7 +2,8 @@ services:
   - type: web
     name: vagas-api
     runtime: docker
-    plan: starter
+    plan: free
+    region: virginia
     dockerfilePath: ./Dockerfile
     dockerContext: .
     dockerCommand: ./docker-entrypoint.sh node dist/src/server.js
@@ -37,6 +38,7 @@ services:
     name: vagas-worker-cron
     runtime: docker
     plan: starter
+    region: virginia
     schedule: '0 */6 * * *'
     dockerfilePath: ./Dockerfile
     dockerContext: .
@@ -71,7 +73,6 @@ services:
 databases:
   - name: vagas-db
     plan: free
+    region: virginia
     postgresMajorVersion: '17'
-    databaseName: vagas
-    user: vagas
     ipAllowList: []
