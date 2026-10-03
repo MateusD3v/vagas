@@ -323,8 +323,7 @@ export class AtsJobResolverService {
       };
     }
 
-    const endpoint =
-      `https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(companyIdentifier)}/postings/${encodeURIComponent(postingId)}`;
+    const endpoint = `https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(companyIdentifier)}/postings/${encodeURIComponent(postingId)}`;
     const raw = await this.http.getJson<unknown>(endpoint, {
       source: 'smartrecruiters-resolver',
       requestsPerSecond: 1,
