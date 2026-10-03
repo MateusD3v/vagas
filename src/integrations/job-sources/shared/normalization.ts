@@ -42,10 +42,24 @@ export function inferSeniority(title: string): string | undefined {
   return undefined;
 }
 
+function normalizeSkillSearchText(value: string): string {
+  return normalizeText(value)
+    .split(/\s+/)
+    .map((token) => token.replace(/^\.+|\.+$/g, ''))
+    .filter(Boolean)
+    .join(' ');
+}
+
+function containsNormalizedTerm(haystack: string, term: string): boolean {
+  const normalized = normalizeSkillSearchText(term);
+  const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(haystack);
+}
+
 export function extractKnownSkills(title: string, description: string, tags: string[] = []) {
-  const haystack = normalizeText(`${title} ${description} ${tags.join(' ')}`);
+  const haystack = normalizeSkillSearchText(`${title} ${description} ${tags.join(' ')}`);
   return knownSkills
-    .filter((skill) => haystack.includes(normalizeText(skill)))
+    .filter((skill) => containsNormalizedTerm(haystack, skill))
     .map((skill) => ({ skill, required: false }));
 }
 

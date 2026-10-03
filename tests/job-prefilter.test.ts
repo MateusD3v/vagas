@@ -123,6 +123,23 @@ describe('JobPreFilterService', () => {
     expect(result.reasons.join(' ')).toMatch(/Sem evidência de alinhamento/);
   });
 
+  it('não considera Git isoladamente evidência suficiente para cargo não relacionado', () => {
+    const result = service.evaluate(
+      {
+        ...job,
+        title: 'Inside Sales Contractor',
+        description: 'Sales operations using Git for documentation.',
+        seniority: null,
+        skills: [{ skill: 'Git' }],
+      },
+      search,
+      { ...candidate, skills: [...candidate.skills, 'Git'] },
+      14,
+    );
+    expect(result.passed).toBe(false);
+    expect(result.reasons.join(' ')).toMatch(/competência relevante/);
+  });
+
   it('rejeita nível MID quando o perfil busca apenas início de carreira', () => {
     const result = service.evaluate(
       { ...job, title: 'Backend Developer', seniority: 'MID' },

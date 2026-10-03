@@ -2,7 +2,10 @@ import type { MatchDecision } from '@prisma/client';
 import { includesText, normalizeText, sameText } from '../../shared/text.js';
 import { evaluateHardConstraints } from './hard-constraints.js';
 import { clampScore, MATCHING_WEIGHTS } from './matching.config.js';
+import { evaluateRoleAlignment } from './role-alignment.js';
 import type { DeterministicMatch, MatchCandidate, MatchJob } from './matching.types.js';
+
+const genericEvidenceSkills = new Set(['git', 'docker', 'rest api']);
 
 function decide(score: number, candidate: MatchCandidate, constrained: boolean): MatchDecision {
   if (constrained) return 'SKIP';
@@ -53,9 +56,13 @@ export function calculateDeterministicMatch(
     MATCHING_WEIGHTS.experience *
     (requiredYears === 0 ? 1 : Math.min(1, candidate.yearsOfExperience / requiredYears));
 
-  const roleMatch = candidate.preferences.desiredRoles.some(
-    (role) => includesText(job.title, role) || includesText(role, job.title),
-  );
+  const roleAlignment = evaluateRoleAlignment({
+    title: job.title,
+    jobSkills: job.skills.map((requirement) => requirement.skill),
+    targetRoles: candidate.preferences.desiredRoles,
+    targetTechnologies: candidate.preferences.desiredTechnologies,
+  });
+  const roleMatch = roleAlignment.aligned;
   const role = roleMatch ? MATCHING_WEIGHTS.role : 0;
 
   const locationAllowed =
@@ -85,8 +92,11 @@ export function calculateDeterministicMatch(
   const components = { skills, experience, role, location, seniority, education, salary };
   const score = clampScore(Object.values(components).reduce((sum, value) => sum + value, 0));
   const hardConstraints = evaluateHardConstraints(candidate, job);
-  if (!roleMatch && matchedSkills.length === 0) {
-    hardConstraints.push('Sem evidência de alinhamento com cargo ou competências do candidato');
+  const hasSubstantiveSkillEvidence = matchedSkills.some(
+    (skill) => !genericEvidenceSkills.has(normalizeText(skill)),
+  );
+  if (!roleMatch && !hasSubstantiveSkillEvidence) {
+    hardConstraints.push('Sem evidência de alinhamento com cargo ou competências relevantes');
   }
   const strengths = [
     ...(matchedSkills.length ? [`Competências compatíveis: ${matchedSkills.join(', ')}`] : []),
@@ -101,9 +111,12 @@ export function calculateDeterministicMatch(
     ...hardConstraints,
   ];
 
+  const thresholdDecision = decide(score, candidate, hardConstraints.length > 0);
+  const decision = !roleMatch && thresholdDecision === 'APPLY' ? 'REVIEW' : thresholdDecision;
+
   return {
     score,
-    decision: decide(score, candidate, hardConstraints.length > 0),
+    decision,
     matchedSkills,
     missingSkills,
     strengths,
