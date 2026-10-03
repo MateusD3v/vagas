@@ -48,7 +48,9 @@ export class CandidateAnswerService {
   }
 
   private questionKey(label: string): string {
-    const slug = normalizeText(label).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const slug = normalizeText(label)
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
     return `ats_${slug.slice(0, 100) || 'question'}`;
   }
 
