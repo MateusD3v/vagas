@@ -4,7 +4,7 @@ Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pr�
 
 ## Stack e arquitetura
 
-Node.js 20+, TypeScript, Fastify, PostgreSQL, Prisma, Zod, Vitest, Docker Compose e Swagger. Fastify mantém API e worker pequenos, com logs JSON via Pino. Domínio, persistência e integrações ficam separados:
+Node.js 22.12+, TypeScript, Fastify, PostgreSQL, Prisma, Zod, Vitest, Docker Compose e Swagger. Fastify mantém API e worker pequenos, com logs JSON via Pino. Domínio, persistência e integrações ficam separados:
 
 ```text
 src/

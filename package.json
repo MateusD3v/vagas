@@ -6,7 +6,7 @@
   "description": "Backend auditável para coleta, análise e preparação de candidaturas",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -56,6 +56,6 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.42.0",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.3"
   }
 }
