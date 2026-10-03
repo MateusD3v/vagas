@@ -415,7 +415,7 @@ const dashboardHtml = `<!doctype html>
               (kit.readyForAssistedApply
                 ? 'Todas as perguntas obrigatórias conhecidas têm dados preparados.'
                 : esc(kit.requiredQuestionsPending || 0) + ' pergunta(s) obrigatória(s) ainda precisam de resposta manual.') +
-              '</p>' + questionReadiness.map(question => {
+              '</p>' + questionReadiness.map((question, index) => {
                 const statusLabel = question.status === 'PROFILE_READY'
                   ? '<span class="ok">No perfil</span>'
                   : question.status === 'SAVED_ANSWER_READY'
@@ -427,10 +427,17 @@ const dashboardHtml = `<!doctype html>
                 const preparedValue = question.answer
                   ? question.answer
                   : profileValues.map(value => value.value).filter(Boolean).join(' | ');
+                const manualEditor = question.status === 'MANUAL_REQUIRED'
+                  ? '<div style="margin-top:8px">' +
+                    '<textarea data-question-answer="' + index + '" placeholder="Digite sua resposta"></textarea>' +
+                    '<div style="margin-top:8px"><button type="button" data-save-question="' + index + '">Salvar e reutilizar</button></div>' +
+                    '</div>'
+                  : '';
                 return '<div class="answer"><strong>' + esc(question.label) + '</strong><div>' +
                   (question.required ? '<span class="warn">Obrigatória</span> · ' : '<span class="muted">Opcional</span> · ') +
                   statusLabel + '</div>' +
                   (preparedValue ? '<div><code>' + esc(preparedValue) + '</code></div>' : '') +
+                  manualEditor +
                   '</div>';
               }).join('')
             : '<div class="muted">O ATS não expôs perguntas públicas para esta vaga.</div>') +
@@ -455,6 +462,48 @@ const dashboardHtml = `<!doctype html>
           anchor.click();
           anchor.remove();
           URL.revokeObjectURL(url);
+        });
+        content.querySelectorAll('[data-save-question]').forEach(button => {
+          button.addEventListener('click', async () => {
+            if (!(button instanceof HTMLButtonElement)) return;
+            const index = Number(button.dataset.saveQuestion);
+            const question = questionReadiness[index];
+            const textarea = content.querySelector('[data-question-answer="' + index + '"]');
+            if (!question || !(textarea instanceof HTMLTextAreaElement)) return;
+            const answer = textarea.value.trim();
+            if (!answer) {
+              statusEl.textContent = 'Digite a resposta antes de salvar.';
+              statusEl.className = 'warn';
+              return;
+            }
+
+            try {
+              button.disabled = true;
+              button.textContent = 'Salvando...';
+              await api('/applications/' + encodeURIComponent(applicationId) + '/questions/answers', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  question: question.label,
+                  answer,
+                  allowedForAutomaticUse: true,
+                }),
+              });
+              statusEl.textContent = 'Resposta salva e autorizada para perguntas iguais.';
+              statusEl.className = 'ok';
+              modal.classList.add('hidden');
+              await refresh();
+              const reopen = Array.from(document.querySelectorAll('[data-fast-kit]')).find(
+                element => element instanceof HTMLElement && element.dataset.fastKit === applicationId,
+              );
+              if (reopen instanceof HTMLElement) reopen.click();
+            } catch (error) {
+              statusEl.textContent = error instanceof Error ? error.message : 'Falha ao salvar resposta';
+              statusEl.className = 'bad';
+              button.disabled = false;
+              button.textContent = 'Salvar e reutilizar';
+            }
+          });
         });
         return;
       }

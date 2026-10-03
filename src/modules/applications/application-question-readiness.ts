@@ -142,7 +142,7 @@ function profileQuestionReadiness(
   );
 }
 
-function includesSensitiveTerm(label: string): boolean {
+export function isSensitiveApplicationQuestion(label: string): boolean {
   const normalized = normalizeText(label);
   return sensitiveTerms.some((term) => normalized.includes(normalizeText(term)));
 }
@@ -166,7 +166,7 @@ export function evaluateApplicationQuestionReadiness(
   answers: ReusableAnswer[],
 ): QuestionReadinessResult[] {
   return questions.map((question) => {
-    const sensitive = includesSensitiveTerm(question.label);
+    const sensitive = isSensitiveApplicationQuestion(question.label);
     if (sensitive) {
       return {
         label: question.label,
