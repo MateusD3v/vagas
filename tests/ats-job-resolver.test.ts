@@ -182,10 +182,8 @@ describe('AtsJobResolverService SmartRecruiters', () => {
       },
       typeOfEmployment: { label: 'Full-time' },
       experienceLevel: { label: 'Entry Level' },
-      postingUrl:
-        'https://jobs.smartrecruiters.com/acme/884352026-junior-backend-developer',
-      applyUrl:
-        'https://jobs.smartrecruiters.com/acme/884352026-junior-backend-developer?oga=true',
+      postingUrl: 'https://jobs.smartrecruiters.com/acme/884352026-junior-backend-developer',
+      applyUrl: 'https://jobs.smartrecruiters.com/acme/884352026-junior-backend-developer?oga=true',
       releasedDate: '2026-10-03T12:00:00Z',
       jobAd: {
         sections: {
