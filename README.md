@@ -82,7 +82,7 @@ A resposta `202` contém `collectionRunIds`. Consulte o progresso em `GET /colle
 Compatibilidade da Fase 1 preservada:
 
 - `GET /health`
-- `GET|POST|PUT|PATCH /profile`, `GET /profile/readiness`
+- `GET|POST|PUT|PATCH /profile`, `GET /profile/readiness`, `GET /profile/export`, `POST /profile/import`
 - `GET|POST /candidate-answers`, `PUT|DELETE /candidate-answers/:id`
 - `GET /jobs`, `GET /jobs/:id`
 - `POST /jobs/import/mock`, `POST /jobs/resolve-url`, `POST /jobs/import/manual`, `POST /jobs/:id/analyze`, `POST /jobs/reprocess`
@@ -103,6 +103,10 @@ Fase 2:
 - `GET /job-search-profile`, `PUT /job-search-profile`
 
 Listagens usam `page`/`pageSize`, limitados a 100. Collection runs aceitam `source`, `status`, `from` e `to`. `/stats` inclui métricas agregadas por fonte.
+
+### Backup privado do perfil
+
+`GET /profile/export` gera um JSON portátil com perfil, competências, idiomas, experiências, preferências, política, respostas reutilizáveis e `JobSearchProfile`. `POST /profile/import` restaura esse bundle em uma instalação vazia ou substitui o perfil atual, sem migrar IDs internos, vagas, matches ou histórico de candidaturas. O arquivo contém dados pessoais: mantenha-o privado e não o adicione ao Git. Os nomes `vagas-profile-backup*.json` e `profile-backup*.json` ficam ignorados pelo repositório.
 
 ## Scheduler e worker
 

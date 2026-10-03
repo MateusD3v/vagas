@@ -58,6 +58,11 @@ const dashboardHtml = `<!doctype html>
   <section>
     <h2>Readiness</h2>
     <div id="readiness" class="card muted">Sem dados.</div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="exportProfile" type="button">Exportar backup do perfil</button>
+      <button id="importProfile" type="button">Importar backup do perfil</button>
+      <input id="profileBackupFile" class="hidden" type="file" accept="application/json,.json" />
+    </div>
   </section>
 
   <section>
@@ -421,6 +426,51 @@ const dashboardHtml = `<!doctype html>
       statusEl.textContent = error instanceof Error ? error.message : 'Falha na ação';
       statusEl.className = 'bad';
       target.removeAttribute('disabled');
+    }
+  });
+
+  document.getElementById('exportProfile').addEventListener('click', async () => {
+    try {
+      const response = await request('/profile/export');
+      const bundle = await response.json();
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'vagas-profile-backup.json';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = 'Backup privado do perfil exportado.';
+      statusEl.className = 'ok';
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Falha ao exportar perfil';
+      statusEl.className = 'bad';
+    }
+  });
+
+  document.getElementById('importProfile').addEventListener('click', () => {
+    document.getElementById('profileBackupFile').click();
+  });
+  document.getElementById('profileBackupFile').addEventListener('change', async (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.files?.length) return;
+    try {
+      const bundle = JSON.parse(await input.files[0].text());
+      await api('/profile/import', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(bundle),
+      });
+      statusEl.textContent = 'Backup do perfil importado com sucesso.';
+      statusEl.className = 'ok';
+      await refresh();
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Falha ao importar perfil';
+      statusEl.className = 'bad';
+    } finally {
+      input.value = '';
     }
   });
 
