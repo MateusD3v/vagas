@@ -8,6 +8,7 @@ import { ZodError } from 'zod';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
 import { applicationRoutes } from './modules/applications/application.routes.js';
+import { auditRoutes } from './modules/audit/audit.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { jobRoutes } from './modules/jobs/job.routes.js';
 import { matchRoutes } from './modules/matching/match.routes.js';
@@ -39,6 +40,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         { name: 'Jobs' },
         { name: 'Matching' },
         { name: 'Applications' },
+        { name: 'Audit' },
         { name: 'Stats' },
         { name: 'Sources' },
       ],
@@ -97,6 +99,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(jobRoutes);
   await app.register(matchRoutes);
   await app.register(applicationRoutes);
+  await app.register(auditRoutes);
   await app.register(statsRoutes);
   await app.register(dashboardRoutes);
   await app.register(sourceRoutes);

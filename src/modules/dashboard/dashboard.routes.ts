@@ -65,6 +65,14 @@ const dashboardHtml = `<!doctype html>
       <tbody id="runs"><tr><td colspan="6" class="muted">Sem dados.</td></tr></tbody>
     </table>
   </section>
+
+  <section>
+    <h2>Auditoria recente</h2>
+    <table>
+      <thead><tr><th>Evento</th><th>Entidade</th><th>ID</th><th>Quando</th></tr></thead>
+      <tbody id="audit"><tr><td colspan="4" class="muted">Sem dados.</td></tr></tbody>
+    </table>
+  </section>
 </main>
 <script>
   const keyInput = document.getElementById('apiKey');
@@ -105,12 +113,13 @@ const dashboardHtml = `<!doctype html>
     statusEl.textContent = 'Carregando...';
     statusEl.className = 'muted';
     try {
-      const [health, stats, readiness, applications, runs] = await Promise.all([
+      const [health, stats, readiness, applications, runs, audit] = await Promise.all([
         api('/health'),
         api('/stats'),
         api('/profile/readiness'),
         api('/applications?status=READY&pageSize=10'),
         api('/collection-runs?pageSize=10'),
+        api('/audit-logs?pageSize=12'),
       ]);
 
       document.getElementById('cards').innerHTML = [
@@ -159,6 +168,13 @@ const dashboardHtml = `<!doctype html>
       );
       document.getElementById('runs').innerHTML =
         runRows.join('') || '<tr><td colspan="6" class="muted">Nenhuma coleta registrada.</td></tr>';
+
+      const auditRows = (audit.data || []).map(item =>
+        '<tr><td>' + esc(item.event) + '</td><td>' + esc(item.entityType) + '</td><td><code>' +
+        esc(item.entityId || '—') + '</code></td><td>' + esc(new Date(item.createdAt).toLocaleString('pt-BR')) + '</td></tr>'
+      );
+      document.getElementById('audit').innerHTML =
+        auditRows.join('') || '<tr><td colspan="4" class="muted">Nenhum evento registrado.</td></tr>';
 
       statusEl.textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR');
       statusEl.className = 'ok';
