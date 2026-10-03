@@ -106,14 +106,8 @@ const smartRecruitersPostingSchema = z
       })
       .passthrough()
       .optional(),
-    experienceLevel: z
-      .object({ label: z.string().nullish() })
-      .passthrough()
-      .nullish(),
-    typeOfEmployment: z
-      .object({ label: z.string().nullish() })
-      .passthrough()
-      .nullish(),
+    experienceLevel: z.object({ label: z.string().nullish() }).passthrough().nullish(),
+    typeOfEmployment: z.object({ label: z.string().nullish() }).passthrough().nullish(),
     postingUrl: z.string().url().nullish(),
     applyUrl: z.string().url().nullish(),
     releasedDate: z.string().nullish(),
@@ -346,11 +340,7 @@ export class AtsJobResolverService {
       .map((value) => stripHtml(value).trim())
       .filter(Boolean)
       .join('\n\n');
-    const location = [
-      job.location?.city,
-      job.location?.region,
-      job.location?.country,
-    ]
+    const location = [job.location?.city, job.location?.region, job.location?.country]
       .filter((value): value is string => Boolean(value))
       .join(', ');
 
