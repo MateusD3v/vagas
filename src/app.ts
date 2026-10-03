@@ -10,6 +10,7 @@ import { prisma } from './database/client.js';
 import { applicationRoutes } from './modules/applications/application.routes.js';
 import { jobRoutes } from './modules/jobs/job.routes.js';
 import { matchRoutes } from './modules/matching/match.routes.js';
+import { candidateAnswerRoutes } from './modules/profile/candidate-answer.routes.js';
 import { profileRoutes } from './modules/profile/profile.routes.js';
 import { statsRoutes } from './modules/stats/stats.routes.js';
 import { sourceRoutes } from './modules/sources/source.routes.js';
@@ -80,6 +81,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   );
 
   await app.register(profileRoutes);
+  await app.register(candidateAnswerRoutes);
   await app.register(jobRoutes);
   await app.register(matchRoutes);
   await app.register(applicationRoutes);

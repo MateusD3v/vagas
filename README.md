@@ -83,6 +83,7 @@ Compatibilidade da Fase 1 preservada:
 
 - `GET /health`
 - `GET|POST|PUT|PATCH /profile`
+- `GET|POST /candidate-answers`, `PUT|DELETE /candidate-answers/:id`
 - `GET /jobs`, `GET /jobs/:id`
 - `POST /jobs/import/mock`, `POST /jobs/:id/analyze`, `POST /jobs/reprocess`
 - `GET /matches`, `GET /matches/:id`
