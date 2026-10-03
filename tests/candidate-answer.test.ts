@@ -50,6 +50,79 @@ describe('CandidateAnswerService', () => {
     expect(upsertCall.update.allowedForAutomaticUse).toBe(true);
     expect(audit).toHaveBeenCalledOnce();
   });
+  it('bloqueia reutilização automática de pergunta sensível', async () => {
+    const db = {
+      candidateProfile: { findFirst: vi.fn() },
+      candidateAnswer: { upsert: vi.fn() },
+      auditLog: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      new CandidateAnswerService(db).upsert({
+        questionKey: 'gender',
+        question: 'Gender',
+        answer: 'Prefiro não informar',
+        answerType: 'SELECT',
+        allowedForAutomaticUse: true,
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('salva resposta somente para pergunta conhecida da candidatura e gera chave estável', async () => {
+    const stored = {
+      id: 'answer-ats',
+      candidateId: 'candidate-1',
+      questionKey: 'ats_why_do_you_want_to_work_here',
+      question: 'Why do you want to work here?',
+      answer: 'Quero contribuir com minha experiência em tecnologia.',
+      answerType: 'textarea',
+      allowedForAutomaticUse: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const upsert = vi.fn().mockResolvedValue(stored);
+    const audit = vi.fn().mockResolvedValue({ id: 'audit-1' });
+    const db = {
+      candidateProfile: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'candidate-1', isDemo: false }),
+      },
+      application: {
+        findFirst: vi.fn().mockResolvedValue({
+          job: {
+            rawData: {
+              applicationQuestions: [
+                {
+                  label: 'Why do you want to work here?',
+                  required: true,
+                  fields: [{ name: 'question_1', type: 'textarea' }],
+                },
+              ],
+            },
+          },
+        }),
+      },
+      candidateAnswer: { upsert },
+      auditLog: { create: audit },
+    } as unknown as PrismaClient;
+
+    const result = await new CandidateAnswerService(db).upsertForApplication('app-1', {
+      question: 'Why do you want to work here?',
+      answer: 'Quero contribuir com minha experiência em tecnologia.',
+      allowedForAutomaticUse: true,
+    });
+
+    expect(result).toBe(stored);
+    expect(upsert).toHaveBeenCalledOnce();
+    const call = upsert.mock.calls[0]?.[0] as {
+      create: { questionKey: string; answerType: string };
+      update: { allowedForAutomaticUse: boolean };
+    };
+    expect(call.create.questionKey).toBe('ats_why_do_you_want_to_work_here');
+    expect(call.create.answerType).toBe('textarea');
+    expect(call.update.allowedForAutomaticUse).toBe(true);
+    expect(audit).toHaveBeenCalledOnce();
+  });
+
   it('não grava respostas no perfil de demonstração', async () => {
     const db = {
       candidateProfile: {
