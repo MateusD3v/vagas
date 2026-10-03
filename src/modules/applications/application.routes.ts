@@ -5,6 +5,7 @@ import { prisma } from '../../database/client.js';
 import { SubmissionProviderRegistry } from '../../integrations/submission/submission.registry.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
+import { classifyApplicationChannel, readFastApplyHint } from './application-channel.js';
 import { ApplicationEligibilityService } from './application-eligibility.service.js';
 import { ApplicationPreparationService } from './application-preparation.service.js';
 import { ApplicationService } from './application.service.js';
@@ -65,7 +66,17 @@ export function applicationRoutes(app: FastifyInstance): void {
         }),
         prisma.application.count({ where }),
       ]);
-      return { data: items, meta: paginationMeta(total, query.page, query.pageSize) };
+      return {
+        data: items.map((item) => ({
+          ...item,
+          applicationChannel: classifyApplicationChannel(
+            item.job.applicationUrl,
+            item.job.source,
+            readFastApplyHint(item.job.rawData),
+          ),
+        })),
+        meta: paginationMeta(total, query.page, query.pageSize),
+      };
     },
   );
 

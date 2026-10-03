@@ -15,6 +15,11 @@ const dashboardHtml = `<!doctype html>
     .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 18px 0 24px; }
     input, button, select { border:1px solid #29324a; background:#11182b; color:#eef2ff; border-radius:10px; padding:10px 12px; }
     input { min-width: 280px; flex:1; }
+    textarea { width:100%; min-height:100px; resize:vertical; border:1px solid #29324a; background:#11182b; color:#eef2ff; border-radius:10px; padding:10px 12px; box-sizing:border-box; }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+    .form-grid label { display:flex; flex-direction:column; gap:6px; color:#aeb8d4; font-size:13px; }
+    .check { display:flex; gap:8px; align-items:center; margin-top:10px; color:#aeb8d4; }
+    .check input { min-width:auto; flex:0; }
     button { cursor:pointer; font-weight:700; }
     button:hover { background:#17213a; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
@@ -51,10 +56,26 @@ const dashboardHtml = `<!doctype html>
   </section>
 
   <section>
+    <h2>Adicionar vaga externa</h2>
+    <div class="card">
+      <div class="form-grid">
+        <label>Cargo<input id="manualTitle" placeholder="Ex.: Analista de Suporte" /></label>
+        <label>Empresa<input id="manualCompany" placeholder="Empresa" /></label>
+        <label>URL<input id="manualUrl" type="url" placeholder="Link da vaga" /></label>
+        <label>Localização<input id="manualLocation" placeholder="Remoto, Belém, Brasil..." /></label>
+        <label>Modalidade<select id="manualRemoteType"><option value="UNSPECIFIED">Não informada</option><option value="REMOTE">Remota</option><option value="HYBRID">Híbrida</option><option value="ONSITE">Presencial</option></select></label>
+      </div>
+      <label class="check"><input id="manualFastApply" type="checkbox" /> A vaga indica candidatura rápida</label>
+      <div style="margin-top:10px"><textarea id="manualDescription" placeholder="Cole a descrição da vaga"></textarea></div>
+      <div style="margin-top:10px"><button id="manualImport">Importar e analisar</button></div>
+    </div>
+  </section>
+
+  <section>
     <h2>Pipeline de candidaturas</h2>
     <table>
-      <thead><tr><th>Vaga</th><th>Empresa</th><th>Score</th><th>Status</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
-      <tbody id="applications"><tr><td colspan="7" class="muted">Sem dados.</td></tr></tbody>
+      <thead><tr><th>Vaga</th><th>Empresa</th><th>Score</th><th>Status</th><th>Canal</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
+      <tbody id="applications"><tr><td colspan="8" class="muted">Sem dados.</td></tr></tbody>
     </table>
   </section>
 
@@ -169,17 +190,23 @@ const dashboardHtml = `<!doctype html>
           ? (missing ? '<span class="warn">' + missing + ' pendência(s)</span>' : '<span class="ok">pronto</span>')
           : '<span class="warn">pendente</span>';
         const applicationUrl = safeHttpUrl(item.job?.applicationUrl);
+        const channel = item.applicationChannel || { label: 'Externa', flow: 'MANUAL' };
+        const openLabel = channel.flow === 'FAST_APPLY' ? 'Abrir candidatura rápida' : 'Abrir vaga';
         const actions = [
-          applicationUrl ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">Abrir vaga</button></a>' : '',
+          applicationUrl ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">' + esc(openLabel) + '</button></a>' : '',
           preparation ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>' : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
           statusAction(item),
         ].filter(Boolean).join(' ');
+        const channelLabel = channel.flow === 'FAST_APPLY'
+          ? '<span class="ok">' + esc(channel.label) + '</span>'
+          : esc(channel.label);
         return '<tr><td>' + esc(item.job?.title) + '</td><td>' + esc(item.job?.company) + '</td><td>' +
-          esc(item.matchScore) + '</td><td><strong>' + esc(item.status) + '</strong></td><td>' + prepLabel +
-          '</td><td>' + actions + '</td><td>' + esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
+          esc(item.matchScore) + '</td><td><strong>' + esc(item.status) + '</strong></td><td>' + channelLabel +
+          '</td><td>' + prepLabel + '</td><td>' + actions + '</td><td>' +
+          esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
       });
       document.getElementById('applications').innerHTML =
-        appRows.join('') || '<tr><td colspan="7" class="muted">Nenhuma candidatura registrada.</td></tr>';
+        appRows.join('') || '<tr><td colspan="8" class="muted">Nenhuma candidatura registrada.</td></tr>';
 
       const runRows = (runs.data || []).map(item =>
         '<tr><td>' + esc(item.source?.name || item.source?.slug) + '</td><td>' + esc(item.status) + '</td><td>' +
@@ -203,6 +230,52 @@ const dashboardHtml = `<!doctype html>
       statusEl.className = 'bad';
     }
   }
+
+  document.getElementById('manualImport').addEventListener('click', async () => {
+    const button = document.getElementById('manualImport');
+    const title = document.getElementById('manualTitle').value.trim();
+    const company = document.getElementById('manualCompany').value.trim();
+    const applicationUrl = document.getElementById('manualUrl').value.trim();
+    const description = document.getElementById('manualDescription').value.trim();
+    if (!title || !company || !applicationUrl || !description) {
+      statusEl.textContent = 'Preencha cargo, empresa, URL e descrição.';
+      statusEl.className = 'warn';
+      return;
+    }
+
+    try {
+      button.setAttribute('disabled', 'true');
+      button.textContent = 'Analisando...';
+      const result = await api('/jobs/import/manual', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          company,
+          description,
+          applicationUrl,
+          location: document.getElementById('manualLocation').value.trim() || undefined,
+          remoteType: document.getElementById('manualRemoteType').value,
+          fastApply: document.getElementById('manualFastApply').checked,
+        }),
+      });
+      statusEl.textContent = 'Vaga analisada: ' + (result.channel?.label || 'canal externo');
+      statusEl.className = 'ok';
+      document.getElementById('manualTitle').value = '';
+      document.getElementById('manualCompany').value = '';
+      document.getElementById('manualUrl').value = '';
+      document.getElementById('manualDescription').value = '';
+      document.getElementById('manualLocation').value = '';
+      document.getElementById('manualFastApply').checked = false;
+      await refresh();
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Falha ao importar vaga';
+      statusEl.className = 'bad';
+    } finally {
+      button.removeAttribute('disabled');
+      button.textContent = 'Importar e analisar';
+    }
+  });
 
   document.getElementById('applications').addEventListener('click', async (event) => {
     const target = event.target;

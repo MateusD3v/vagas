@@ -10,7 +10,8 @@ import { CollectJobsWorker } from '../../workers/collect-jobs.worker.js';
 import { JobMatchingService } from '../matching/job-matching.service.js';
 import { JobIngestionService } from './job-ingestion.service.js';
 import { JobReprocessService } from './job-reprocess.service.js';
-import { jobsQuerySchema } from './job.schemas.js';
+import { jobsQuerySchema, manualJobImportSchema } from './job.schemas.js';
+import { ManualJobIntakeService } from './manual-job-intake.service.js';
 import { JobService } from './job.service.js';
 
 export function jobRoutes(app: FastifyInstance): void {
@@ -22,8 +23,10 @@ export function jobRoutes(app: FastifyInstance): void {
     env.MATCHING_ENGINE_VERSION,
   );
   const analyzer = new AnalyzeJobWorker(matching, app.log);
+  const ingestion = new JobIngestionService(prisma);
   const reprocessor = new JobReprocessService(prisma, matching, env);
-  const collector = new CollectJobsWorker(new JobIngestionService(prisma), analyzer, app.log);
+  const collector = new CollectJobsWorker(ingestion, analyzer, app.log);
+  const manualIntake = new ManualJobIntakeService(ingestion, matching);
 
   app.get('/jobs', { schema: { tags: ['Jobs'], summary: 'Lista e filtra vagas' } }, (request) =>
     jobs.list(jobsQuerySchema.parse(request.query)),
@@ -47,6 +50,23 @@ export function jobRoutes(app: FastifyInstance): void {
     async (_request, reply) => {
       const result = await collector.run(new MockJobSource());
       return reply.code(201).send(result);
+    },
+  );
+
+  app.post(
+    '/jobs/import/manual',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Jobs'],
+        summary: 'Importa uma vaga informada manualmente e executa o matching',
+        security: [{ adminKey: [] }],
+      },
+    },
+    async (request, reply) => {
+      const result = await manualIntake.importAndAnalyze(manualJobImportSchema.parse(request.body));
+      return reply.code(result.inserted ? 201 : 200).send(result);
     },
   );
 

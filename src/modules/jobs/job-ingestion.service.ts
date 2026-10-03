@@ -53,14 +53,15 @@ export class JobIngestionService {
   }
 
   private async ingestNormalized(input: NormalizedJobInput): Promise<IngestItemResult> {
+    const isManualSource = input.source === 'manual' || input.source.endsWith('-manual');
     const source = await this.db.jobSource.upsert({
       where: { slug: input.source },
       create: {
         slug: input.source,
         name: input.source,
-        type: input.source === 'mock' ? 'MOCK' : 'API',
-        enabled: true,
-        configuration: {},
+        type: input.source === 'mock' ? 'MOCK' : isManualSource ? 'FEED' : 'API',
+        enabled: !isManualSource,
+        configuration: isManualSource ? { scheduled: false } : {},
       },
       update: {},
     });
