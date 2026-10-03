@@ -62,7 +62,7 @@ describe('ManualJobIntakeService', () => {
       { ingest } as unknown as JobIngestionService,
       { analyze } as unknown as JobMatchingService,
     ).importAndAnalyze({
-      title: 'Backend Developer',
+      title: 'Junior Backend Developer',
       company: 'Example',
       description: 'Node.js APIs',
       applicationUrl: 'https://jobs.lever.co/example/abc',
@@ -74,5 +74,11 @@ describe('ManualJobIntakeService', () => {
 
     expect(result.channel).toMatchObject({ platform: 'LEVER', flow: 'ATS' });
     expect(result.duplicated).toBe(true);
+    const [, raw] = ingest.mock.calls[0] as unknown as [
+      unknown,
+      { seniority?: string; skills: Array<{ skill: string }> },
+    ];
+    expect(raw.seniority).toBe('JUNIOR');
+    expect(raw.skills.map((skill) => skill.skill)).toContain('Node.js');
   });
 });

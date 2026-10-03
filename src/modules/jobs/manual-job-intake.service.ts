@@ -3,6 +3,10 @@ import type {
   NormalizedJob,
 } from '../../integrations/job-sources/job-source.interface.js';
 import {
+  extractKnownSkills,
+  inferSeniority,
+} from '../../integrations/job-sources/shared/normalization.js';
+import {
   classifyApplicationChannel,
   type ApplicationChannel,
 } from '../applications/application-channel.js';
@@ -70,7 +74,7 @@ export class ManualJobIntakeService {
       country: input.country,
       remoteType: input.remoteType,
       employmentType: input.employmentType,
-      seniority: input.seniority,
+      seniority: input.seniority ?? inferSeniority(input.title),
       salaryMin: input.salaryMin,
       salaryMax: input.salaryMax,
       salaryCurrency: input.salaryCurrency,
@@ -79,7 +83,8 @@ export class ManualJobIntakeService {
       publishedAt: input.publishedAt,
       requiredEducationLevel: input.requiredEducationLevel,
       requiredCertifications: input.requiredCertifications,
-      skills: input.skills,
+      skills:
+        input.skills.length > 0 ? input.skills : extractKnownSkills(input.title, input.description),
       rawData: {
         manualImport: true,
         fastApply: input.fastApply,
