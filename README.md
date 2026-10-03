@@ -88,6 +88,7 @@ Compatibilidade da Fase 1 preservada:
 - `GET /matches`, `GET /matches/:id`
 - `GET /applications`, `GET /applications/:id`
 - `POST /applications/:id/prepare`, `GET /applications/:id/preparation`
+- `PATCH /applications/:id/status` para acompanhamento manual auditável
 - `GET /stats`, `GET /docs`
 
 Fase 2:

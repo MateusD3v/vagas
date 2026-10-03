@@ -4,6 +4,13 @@ import { prisma } from '../../database/client.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
 import { ApplicationPreparationService } from './application-preparation.service.js';
+import { ApplicationService } from './application.service.js';
+
+const statusUpdateSchema = z.object({
+  status: z.enum(['READY', 'SUBMITTED', 'FAILED', 'REJECTED', 'INTERVIEW', 'OFFER', 'WITHDRAWN']),
+  externalApplicationId: z.string().min(1).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
 
 const applicationQuerySchema = paginationSchema.extend({
   status: z
@@ -24,6 +31,7 @@ const applicationQuerySchema = paginationSchema.extend({
 
 export function applicationRoutes(app: FastifyInstance): void {
   const preparation = new ApplicationPreparationService(prisma);
+  const applications = new ApplicationService(prisma);
 
   app.get(
     '/applications',
@@ -65,6 +73,24 @@ export function applicationRoutes(app: FastifyInstance): void {
       },
     },
     (request) => preparation.prepare(idParamsSchema.parse(request.params).id),
+  );
+
+  app.patch(
+    '/applications/:id/status',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Applications'],
+        summary: 'Atualiza manualmente o estágio da candidatura',
+        security: [{ adminKey: [] }],
+      },
+    },
+    (request) =>
+      applications.updateStatus(
+        idParamsSchema.parse(request.params).id,
+        statusUpdateSchema.parse(request.body),
+      ),
   );
 
   app.get(

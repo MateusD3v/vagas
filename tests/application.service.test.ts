@@ -60,3 +60,62 @@ describe('preparação de candidatura', () => {
     expect(remove).not.toHaveBeenCalled();
   });
 });
+
+describe('acompanhamento de candidatura', () => {
+  it('registra submissão manual e data de envio', async () => {
+    const existing = {
+      id: 'application-1',
+      candidateId: 'candidate-1',
+      jobId: 'job-1',
+      status: 'READY',
+      matchScore: 90,
+    };
+    const update = vi
+      .fn()
+      .mockImplementation(({ data }) => Promise.resolve({ ...existing, ...data }));
+    const audit = vi.fn().mockResolvedValue({ id: 'audit-1' });
+    const db = {
+      application: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        update,
+      },
+      auditLog: { create: audit },
+    } as unknown as PrismaClient;
+
+    const result = await new ApplicationService(db).updateStatus('application-1', {
+      status: 'SUBMITTED',
+      externalApplicationId: 'ats-123',
+    });
+
+    expect(result.status).toBe('SUBMITTED');
+    expect(update).toHaveBeenCalledOnce();
+    const updateCall = update.mock.calls[0]?.[0] as {
+      where: { id: string };
+      data: { status: string; submittedAt?: Date; externalApplicationId?: string };
+    };
+    expect(updateCall.where.id).toBe('application-1');
+    expect(updateCall.data.status).toBe('SUBMITTED');
+    expect(updateCall.data.submittedAt).toBeInstanceOf(Date);
+    expect(updateCall.data.externalApplicationId).toBe('ats-123');
+    expect(audit).toHaveBeenCalledOnce();
+  });
+  it('bloqueia salto inválido de READY direto para OFFER', async () => {
+    const db = {
+      application: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'application-1',
+          candidateId: 'candidate-1',
+          jobId: 'job-1',
+          status: 'READY',
+          matchScore: 90,
+        }),
+        update: vi.fn(),
+      },
+      auditLog: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      new ApplicationService(db).updateStatus('application-1', { status: 'OFFER' }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+  });
+});

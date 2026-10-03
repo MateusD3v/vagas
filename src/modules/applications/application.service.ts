@@ -1,5 +1,21 @@
 import type { ApplicationStatus, MatchDecision, PrismaClient } from '@prisma/client';
+import { AppError } from '../../shared/http.js';
 import { AuditService } from '../audit/audit.service.js';
+
+const allowedStatusTransitions: Partial<Record<ApplicationStatus, ApplicationStatus[]>> = {
+  READY: ['SUBMITTED', 'WITHDRAWN'],
+  REVIEW_REQUIRED: ['READY', 'WITHDRAWN'],
+  SUBMITTED: ['INTERVIEW', 'REJECTED', 'FAILED', 'WITHDRAWN'],
+  FAILED: ['READY', 'WITHDRAWN'],
+  INTERVIEW: ['OFFER', 'REJECTED', 'WITHDRAWN'],
+  OFFER: ['WITHDRAWN'],
+};
+
+export interface ApplicationStatusUpdate {
+  status: ApplicationStatus;
+  externalApplicationId?: string | null;
+  notes?: string | null;
+}
 
 export class ApplicationService {
   private readonly audit: AuditService;
@@ -66,5 +82,38 @@ export class ApplicationService {
       await this.audit.record('APPLICATION_READY', 'Application', application.id, { jobId, score });
     }
     return application;
+  }
+
+  async updateStatus(applicationId: string, input: ApplicationStatusUpdate) {
+    const application = await this.db.application.findUnique({ where: { id: applicationId } });
+    if (!application) throw new AppError('Candidatura não encontrada', 404);
+    if (application.status === input.status) return application;
+
+    const allowed = allowedStatusTransitions[application.status] ?? [];
+    if (!allowed.includes(input.status)) {
+      throw new AppError(
+        `Transição de ${application.status} para ${input.status} não é permitida`,
+        409,
+      );
+    }
+
+    const updated = await this.db.application.update({
+      where: { id: applicationId },
+      data: {
+        status: input.status,
+        ...(input.externalApplicationId !== undefined
+          ? { externalApplicationId: input.externalApplicationId }
+          : {}),
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+        ...(input.status === 'SUBMITTED' ? { submittedAt: new Date() } : {}),
+      },
+    });
+
+    await this.audit.record('APPLICATION_STATUS_CHANGED', 'Application', applicationId, {
+      from: application.status,
+      to: input.status,
+      externalApplicationId: input.externalApplicationId ?? null,
+    });
+    return updated;
   }
 }
