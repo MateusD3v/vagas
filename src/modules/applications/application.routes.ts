@@ -5,6 +5,7 @@ import { prisma } from '../../database/client.js';
 import { SubmissionProviderRegistry } from '../../integrations/submission/submission.registry.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
+import { CandidateAnswerService } from '../profile/candidate-answer.service.js';
 import {
   classifyApplicationChannel,
   readApplicationQuestions,
@@ -15,6 +16,12 @@ import { evaluateApplicationQuestionReadiness } from './application-question-rea
 import { ApplicationPreparationService } from './application-preparation.service.js';
 import { ApplicationService } from './application.service.js';
 import { ApplicationSubmissionService } from './application-submission.service.js';
+
+const applicationQuestionAnswerSchema = z.object({
+  question: z.string().min(1),
+  answer: z.string().min(1).max(5000),
+  allowedForAutomaticUse: z.boolean().default(true),
+});
 
 const statusUpdateSchema = z.object({
   status: z.enum(['READY', 'SUBMITTED', 'FAILED', 'REJECTED', 'INTERVIEW', 'OFFER', 'WITHDRAWN']),
@@ -48,6 +55,7 @@ export function applicationRoutes(app: FastifyInstance): void {
     (source, applicationUrl) => Boolean(submissionProviders.find(source, applicationUrl)),
   );
   const applications = new ApplicationService(prisma);
+  const candidateAnswers = new CandidateAnswerService(prisma);
   const submissions = new ApplicationSubmissionService(prisma, env.SAFE_MODE, submissionProviders);
 
   app.get(
@@ -153,6 +161,26 @@ export function applicationRoutes(app: FastifyInstance): void {
         readyForAssistedApply: requiredQuestionsPending === 0,
         missingInformation: prepared.missingInformation,
       };
+    },
+  );
+
+  app.post(
+    '/applications/:id/questions/answers',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Applications'],
+        summary: 'Salva resposta confirmada para uma pergunta conhecida desta candidatura',
+        security: [{ adminKey: [] }],
+      },
+    },
+    async (request) => {
+      const applicationId = idParamsSchema.parse(request.params).id;
+      const input = applicationQuestionAnswerSchema.parse(request.body);
+      const answer = await candidateAnswers.upsertForApplication(applicationId, input);
+      await preparation.prepare(applicationId);
+      return answer;
     },
   );
 
