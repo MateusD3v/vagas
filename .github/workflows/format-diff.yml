@@ -1,0 +1,22 @@
+name: Format Diff
+
+on:
+  push:
+    branches:
+      - phase-4-smartrecruiters
+
+permissions:
+  contents: read
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write src/modules/jobs/ats-job-resolver.service.ts tests/ats-job-resolver.test.ts
+      - run: git diff -- src/modules/jobs/ats-job-resolver.service.ts tests/ats-job-resolver.test.ts
