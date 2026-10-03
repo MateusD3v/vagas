@@ -164,7 +164,6 @@ describe('AtsJobResolverService Ashby', () => {
   });
 });
 
-
 describe('AtsJobResolverService SmartRecruiters', () => {
   it('carrega posting público do SmartRecruiters sem autenticação de candidato', async () => {
     const getJson = vi.fn().mockResolvedValue({
