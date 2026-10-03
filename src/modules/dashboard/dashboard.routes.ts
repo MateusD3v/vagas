@@ -381,6 +381,7 @@ const dashboardHtml = `<!doctype html>
         const kit = await api('/applications/' + encodeURIComponent(applicationId) + '/fast-apply-kit');
         const answers = Array.isArray(kit.reusableAnswers) ? kit.reusableAnswers : [];
         const questions = Array.isArray(kit.applicationQuestions) ? kit.applicationQuestions : [];
+        const questionReadiness = Array.isArray(kit.questionReadiness) ? kit.questionReadiness : [];
         const missing = Array.isArray(kit.missingInformation) ? kit.missingInformation : [];
         const answerText = answers
           .map(answer => (answer.question || answer.questionKey || 'Pergunta') + ': ' + (answer.answer || ''))
@@ -396,7 +397,22 @@ const dashboardHtml = `<!doctype html>
           '</div>' +
           '<h3>Perguntas do ATS</h3>' +
           (questions.length
-            ? questions.map(question => '<div class="answer"><strong>' + esc(question.label) + '</strong><div>' + (question.required ? '<span class="warn">Obrigatória</span>' : '<span class="muted">Opcional</span>') + '</div></div>').join('')
+            ? '<p class="' + (kit.readyForAssistedApply ? 'ok' : 'warn') + '">' +
+              (kit.readyForAssistedApply
+                ? 'Todas as perguntas obrigatórias conhecidas têm dados preparados.'
+                : esc(kit.requiredQuestionsPending || 0) + ' pergunta(s) obrigatória(s) ainda precisam de resposta manual.') +
+              '</p>' + questionReadiness.map(question => {
+                const statusLabel = question.status === 'PROFILE_READY'
+                  ? '<span class="ok">No perfil</span>'
+                  : question.status === 'SAVED_ANSWER_READY'
+                    ? '<span class="ok">Resposta autorizada</span>'
+                    : question.status === 'MANUAL_SENSITIVE'
+                      ? '<span class="warn">Manual — sensível/consentimento</span>'
+                      : '<span class="warn">Responder manualmente</span>';
+                return '<div class="answer"><strong>' + esc(question.label) + '</strong><div>' +
+                  (question.required ? '<span class="warn">Obrigatória</span> · ' : '<span class="muted">Opcional</span> · ') +
+                  statusLabel + '</div></div>';
+              }).join('')
             : '<div class="muted">O ATS não expôs perguntas públicas para esta vaga.</div>') +
           '<h3>Respostas reutilizáveis autorizadas</h3>' +
           (answers.length
