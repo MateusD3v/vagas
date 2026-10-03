@@ -1,0 +1,19 @@
+name: SmartRecruiters Probe
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe public Posting API
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/sr.json -w "%{http_code}" "https://api.smartrecruiters.com/v1/companies/smartrecruiters/postings?limit=1&destination=PUBLIC")
+          echo "HTTP_STATUS=$code"
+          head -c 1000 /tmp/sr.json || true
+          echo
