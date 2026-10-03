@@ -123,6 +123,39 @@ describe('CandidateAnswerService', () => {
     expect(audit).toHaveBeenCalledOnce();
   });
 
+  it('recusa pergunta que não pertence ao formulário conhecido da candidatura', async () => {
+    const db = {
+      candidateProfile: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'candidate-1', isDemo: false }),
+      },
+      application: {
+        findFirst: vi.fn().mockResolvedValue({
+          job: {
+            rawData: {
+              applicationQuestions: [
+                {
+                  label: 'Pergunta conhecida',
+                  required: true,
+                  fields: [],
+                },
+              ],
+            },
+          },
+        }),
+      },
+      candidateAnswer: { upsert: vi.fn() },
+      auditLog: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      new CandidateAnswerService(db).upsertForApplication('app-1', {
+        question: 'Pergunta inventada',
+        answer: 'Resposta',
+        allowedForAutomaticUse: true,
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
   it('não grava respostas no perfil de demonstração', async () => {
     const db = {
       candidateProfile: {
