@@ -13,7 +13,7 @@ const dashboardHtml = `<!doctype html>
     h1 { margin: 0 0 6px; font-size: 28px; }
     .muted { color: #9aa4bf; }
     .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 18px 0 24px; }
-    input, button { border:1px solid #29324a; background:#11182b; color:#eef2ff; border-radius:10px; padding:10px 12px; }
+    input, button, select { border:1px solid #29324a; background:#11182b; color:#eef2ff; border-radius:10px; padding:10px 12px; }
     input { min-width: 280px; flex:1; }
     button { cursor:pointer; font-weight:700; }
     button:hover { background:#17213a; }
@@ -51,10 +51,10 @@ const dashboardHtml = `<!doctype html>
   </section>
 
   <section>
-    <h2>Candidaturas READY</h2>
+    <h2>Pipeline de candidaturas</h2>
     <table>
-      <thead><tr><th>Vaga</th><th>Empresa</th><th>Score</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
-      <tbody id="applications"><tr><td colspan="6" class="muted">Sem dados.</td></tr></tbody>
+      <thead><tr><th>Vaga</th><th>Empresa</th><th>Score</th><th>Status</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
+      <tbody id="applications"><tr><td colspan="7" class="muted">Sem dados.</td></tr></tbody>
     </table>
   </section>
 
@@ -109,6 +109,25 @@ const dashboardHtml = `<!doctype html>
   function card(label, value, cls='') {
     return '<div class="card"><div class="muted">' + esc(label) + '</div><div class="value ' + cls + '">' + esc(value) + '</div></div>';
   }
+
+  const statusTransitions = {
+    READY: ['SUBMITTED', 'WITHDRAWN'],
+    REVIEW_REQUIRED: ['READY', 'WITHDRAWN'],
+    SUBMITTED: ['INTERVIEW', 'REJECTED', 'FAILED', 'WITHDRAWN'],
+    FAILED: ['READY', 'WITHDRAWN'],
+    INTERVIEW: ['OFFER', 'REJECTED', 'WITHDRAWN'],
+    OFFER: ['WITHDRAWN'],
+  };
+
+  function statusAction(item) {
+    const options = statusTransitions[item.status] || [];
+    if (!options.length) return '';
+    const select = '<select data-status-select="' + esc(item.id) + '">' +
+      options.map(status => '<option value="' + esc(status) + '">' + esc(status) + '</option>').join('') +
+      '</select>';
+    return select + ' <button type="button" data-update-status="' + esc(item.id) + '">Atualizar</button>';
+  }
+
   async function refresh() {
     statusEl.textContent = 'Carregando...';
     statusEl.className = 'muted';
@@ -117,7 +136,7 @@ const dashboardHtml = `<!doctype html>
         api('/health'),
         api('/stats'),
         api('/profile/readiness'),
-        api('/applications?status=READY&pageSize=10'),
+        api('/applications?pageSize=25'),
         api('/collection-runs?pageSize=10'),
         api('/audit-logs?pageSize=12'),
       ]);
@@ -153,13 +172,14 @@ const dashboardHtml = `<!doctype html>
         const actions = [
           applicationUrl ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">Abrir vaga</button></a>' : '',
           preparation ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>' : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
+          statusAction(item),
         ].filter(Boolean).join(' ');
         return '<tr><td>' + esc(item.job?.title) + '</td><td>' + esc(item.job?.company) + '</td><td>' +
-          esc(item.matchScore) + '</td><td>' + prepLabel + '</td><td>' + actions + '</td><td>' +
-          esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
+          esc(item.matchScore) + '</td><td><strong>' + esc(item.status) + '</strong></td><td>' + prepLabel +
+          '</td><td>' + actions + '</td><td>' + esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
       });
       document.getElementById('applications').innerHTML =
-        appRows.join('') || '<tr><td colspan="6" class="muted">Nenhuma candidatura READY.</td></tr>';
+        appRows.join('') || '<tr><td colspan="7" class="muted">Nenhuma candidatura registrada.</td></tr>';
 
       const runRows = (runs.data || []).map(item =>
         '<tr><td>' + esc(item.source?.name || item.source?.slug) + '</td><td>' + esc(item.status) + '</td><td>' +
@@ -188,10 +208,27 @@ const dashboardHtml = `<!doctype html>
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
-    const applicationId = target.dataset.prepare || target.dataset.downloadResume;
+    const applicationId =
+      target.dataset.prepare || target.dataset.downloadResume || target.dataset.updateStatus;
     if (!applicationId) return;
 
     try {
+      if (target.dataset.updateStatus) {
+        const select = Array.from(document.querySelectorAll('[data-status-select]')).find(
+          element => element instanceof HTMLSelectElement && element.dataset.statusSelect === applicationId,
+        );
+        if (!(select instanceof HTMLSelectElement)) throw new Error('Status de destino não encontrado');
+        target.setAttribute('disabled', 'true');
+        target.textContent = 'Salvando...';
+        await api('/applications/' + encodeURIComponent(applicationId) + '/status', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ status: select.value }),
+        });
+        await refresh();
+        return;
+      }
+
       if (target.dataset.prepare) {
         target.setAttribute('disabled', 'true');
         target.textContent = 'Preparando...';

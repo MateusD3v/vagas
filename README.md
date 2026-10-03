@@ -91,7 +91,7 @@ Compatibilidade da Fase 1 preservada:
 - `POST /applications/:id/prepare`, `GET /applications/:id/preparation`, `GET /applications/:id/resume.md`
 - `GET /applications/:id/eligibility` para explicar requisitos e bloqueios de automação
 - `POST /applications/:id/submit` para provider de submissão explicitamente autorizado
-- `PATCH /applications/:id/status` para acompanhamento manual auditável
+- `PATCH /applications/:id/status` para acompanhamento manual auditável (também disponível no dashboard)
 - `GET /audit-logs`, `GET /stats`, `GET /docs`, `GET /dashboard`
 
 Fase 2:
