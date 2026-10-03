@@ -53,7 +53,12 @@ export function applicationRoutes(app: FastifyInstance): void {
       const [items, total] = await Promise.all([
         prisma.application.findMany({
           where,
-          include: { job: true },
+          include: {
+            job: true,
+            preparation: {
+              select: { id: true, version: true, missingInformation: true, updatedAt: true },
+            },
+          },
           orderBy: { updatedAt: 'desc' },
           skip: (query.page - 1) * query.pageSize,
           take: query.pageSize,
@@ -61,6 +66,17 @@ export function applicationRoutes(app: FastifyInstance): void {
         prisma.application.count({ where }),
       ]);
       return { data: items, meta: paginationMeta(total, query.page, query.pageSize) };
+    },
+  );
+
+  app.get(
+    '/applications/:id/resume.md',
+    {
+      schema: { tags: ['Applications'], summary: 'Exporta o currículo preparado em Markdown' },
+    },
+    async (request, reply) => {
+      const markdown = await preparation.getResumeMarkdown(idParamsSchema.parse(request.params).id);
+      return reply.type('text/markdown; charset=utf-8').send(markdown);
     },
   );
 

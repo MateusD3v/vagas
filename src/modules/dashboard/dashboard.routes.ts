@@ -53,8 +53,8 @@ const dashboardHtml = `<!doctype html>
   <section>
     <h2>Candidaturas READY</h2>
     <table>
-      <thead><tr><th>Vaga</th><th>Empresa</th><th>Score</th><th>Atualizado</th></tr></thead>
-      <tbody id="applications"><tr><td colspan="4" class="muted">Sem dados.</td></tr></tbody>
+      <thead><tr><th>Vaga</th><th>Empresa</th><th>Score</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
+      <tbody id="applications"><tr><td colspan="6" class="muted">Sem dados.</td></tr></tbody>
     </table>
   </section>
 
@@ -75,15 +75,27 @@ const dashboardHtml = `<!doctype html>
     return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  async function api(path) {
+  async function request(path, options = {}) {
     const key = sessionStorage.getItem('vagas-admin-key') || keyInput.value;
-    const response = await fetch(path, { headers: key ? { 'X-Admin-Key': key } : {} });
+    const headers = { ...(options.headers || {}), ...(key ? { 'X-Admin-Key': key } : {}) };
+    const response = await fetch(path, { ...options, headers });
     if (!response.ok) {
       let message = response.statusText;
       try { message = (await response.json()).message || message; } catch {}
       throw new Error(response.status + ' ' + message);
     }
-    return response.json();
+    return response;
+  }
+
+  async function api(path, options = {}) {
+    return (await request(path, options)).json();
+  }
+
+  function safeHttpUrl(value) {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+    } catch { return null; }
   }
 
   function card(label, value, cls='') {
@@ -122,12 +134,23 @@ const dashboardHtml = `<!doctype html>
         (blockers.length ? '<p class="bad"><strong>Bloqueios:</strong> ' + blockers.map(esc).join(' · ') + '</p>' : '') +
         (recommendations.length ? '<p class="warn"><strong>Recomendado:</strong> ' + recommendations.map(esc).join(' · ') + '</p>' : '');
 
-      const appRows = (applications.data || []).map(item =>
-        '<tr><td>' + esc(item.job?.title) + '</td><td>' + esc(item.job?.company) + '</td><td>' +
-        esc(item.matchScore) + '</td><td>' + esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>'
-      );
+      const appRows = (applications.data || []).map(item => {
+        const preparation = item.preparation;
+        const missing = preparation?.missingInformation?.length ?? 0;
+        const prepLabel = preparation
+          ? (missing ? '<span class="warn">' + missing + ' pendência(s)</span>' : '<span class="ok">pronto</span>')
+          : '<span class="warn">pendente</span>';
+        const applicationUrl = safeHttpUrl(item.job?.applicationUrl);
+        const actions = [
+          applicationUrl ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">Abrir vaga</button></a>' : '',
+          preparation ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>' : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
+        ].filter(Boolean).join(' ');
+        return '<tr><td>' + esc(item.job?.title) + '</td><td>' + esc(item.job?.company) + '</td><td>' +
+          esc(item.matchScore) + '</td><td>' + prepLabel + '</td><td>' + actions + '</td><td>' +
+          esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
+      });
       document.getElementById('applications').innerHTML =
-        appRows.join('') || '<tr><td colspan="4" class="muted">Nenhuma candidatura READY.</td></tr>';
+        appRows.join('') || '<tr><td colspan="6" class="muted">Nenhuma candidatura READY.</td></tr>';
 
       const runRows = (runs.data || []).map(item =>
         '<tr><td>' + esc(item.source?.name || item.source?.slug) + '</td><td>' + esc(item.status) + '</td><td>' +
@@ -144,6 +167,40 @@ const dashboardHtml = `<!doctype html>
       statusEl.className = 'bad';
     }
   }
+
+  document.getElementById('applications').addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const applicationId = target.dataset.prepare || target.dataset.downloadResume;
+    if (!applicationId) return;
+
+    try {
+      if (target.dataset.prepare) {
+        target.setAttribute('disabled', 'true');
+        target.textContent = 'Preparando...';
+        await api('/applications/' + encodeURIComponent(applicationId) + '/prepare', { method: 'POST' });
+        await refresh();
+        return;
+      }
+
+      const response = await request('/applications/' + encodeURIComponent(applicationId) + '/resume.md');
+      const markdown = await response.text();
+      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'curriculo-' + applicationId + '.md';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Falha na ação';
+      statusEl.className = 'bad';
+      target.removeAttribute('disabled');
+    }
+  });
 
   document.getElementById('saveKey').addEventListener('click', () => {
     sessionStorage.setItem('vagas-admin-key', keyInput.value);

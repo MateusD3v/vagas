@@ -3,6 +3,8 @@ import { AppError } from '../../shared/http.js';
 import { normalizeText } from '../../shared/text.js';
 import { AuditService } from '../audit/audit.service.js';
 
+const APPLICATION_PREPARATION_VERSION = 2;
+
 const preparationInclude = {
   candidate: {
     include: {
@@ -224,12 +226,13 @@ export class ApplicationPreparationService {
         payload: preparation.payload,
         reusableAnswers: preparation.reusableAnswers,
         missingInformation: preparation.missingInformation,
+        version: APPLICATION_PREPARATION_VERSION,
       },
       update: {
         payload: preparation.payload,
         reusableAnswers: preparation.reusableAnswers,
         missingInformation: preparation.missingInformation,
-        version: { increment: 1 },
+        version: APPLICATION_PREPARATION_VERSION,
       },
     });
 
@@ -243,8 +246,11 @@ export class ApplicationPreparationService {
     const pending = await this.db.application.findMany({
       where: {
         status: { in: ['READY', 'REVIEW_REQUIRED'] },
-        preparation: { is: null },
         candidate: { isDemo: false },
+        OR: [
+          { preparation: { is: null } },
+          { preparation: { is: { version: { lt: APPLICATION_PREPARATION_VERSION } } } },
+        ],
       },
       select: { id: true },
       orderBy: { updatedAt: 'desc' },
@@ -265,6 +271,19 @@ export class ApplicationPreparationService {
       }
     }
     return { attempted: pending.length, prepared, failed: failures.length, failures };
+  }
+
+  async getResumeMarkdown(applicationId: string): Promise<string> {
+    const preparation = await this.get(applicationId);
+    const payload = preparation.payload;
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+      throw new AppError('Currículo em Markdown não disponível para esta candidatura', 404);
+    }
+    const resumeMarkdown = (payload as Record<string, unknown>).resumeMarkdown;
+    if (typeof resumeMarkdown !== 'string') {
+      throw new AppError('Currículo em Markdown não disponível para esta candidatura', 404);
+    }
+    return resumeMarkdown;
   }
 
   async get(applicationId: string) {

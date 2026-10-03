@@ -153,7 +153,7 @@ describe('ApplicationPreparationService', () => {
       Promise.resolve({
         id: 'prep-1',
         ...create,
-        version: 1,
+        version: 2,
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
@@ -167,7 +167,7 @@ describe('ApplicationPreparationService', () => {
     const service = new ApplicationPreparationService(db);
     const result = await service.prepare('app-1');
 
-    expect(result.version).toBe(1);
+    expect(result.version).toBe(2);
     expect(upsert).toHaveBeenCalledTimes(1);
     const call = upsert.mock.calls[0]?.[0] as {
       create: {
@@ -225,7 +225,7 @@ describe('ApplicationPreparationService', () => {
       payload: {},
       reusableAnswers: [],
       missingInformation: [],
-      version: 1,
+      version: 2,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
