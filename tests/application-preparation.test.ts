@@ -153,7 +153,7 @@ describe('ApplicationPreparationService', () => {
       Promise.resolve({
         id: 'prep-1',
         ...create,
-        version: 2,
+        version: 3,
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
@@ -167,7 +167,7 @@ describe('ApplicationPreparationService', () => {
     const service = new ApplicationPreparationService(db);
     const result = await service.prepare('app-1');
 
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
     expect(upsert).toHaveBeenCalledTimes(1);
     const call = upsert.mock.calls[0]?.[0] as {
       create: {
@@ -178,13 +178,29 @@ describe('ApplicationPreparationService', () => {
             experiences: Array<{ role: string }>;
           };
         };
-        reusableAnswers: Array<{ questionKey: string }>;
+        reusableAnswers: Array<{
+          questionKey: string;
+          answer: string;
+          answerType: string;
+        }>;
         missingInformation: string[];
       };
     };
-    expect(call.create.reusableAnswers).toEqual([
-      expect.objectContaining({ questionKey: 'remote' }),
-    ]);
+    expect(call.create.reusableAnswers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ questionKey: 'full_name', answer: 'Mateus Teste' }),
+        expect.objectContaining({ questionKey: 'city', answer: 'Belém' }),
+        expect.objectContaining({
+          questionKey: 'education_course',
+          answer: 'Sistemas de Informação',
+        }),
+        expect.objectContaining({ questionKey: 'graduation_date', answerType: 'DATE' }),
+        expect.objectContaining({ questionKey: 'remote', answer: 'Sim' }),
+      ]),
+    );
+    expect(call.create.reusableAnswers).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ questionKey: 'salary' })]),
+    );
     expect(call.create.payload.resume.skills[0]).toMatchObject({
       name: 'Node.js',
       matchedToJob: true,
@@ -225,7 +241,7 @@ describe('ApplicationPreparationService', () => {
       payload: {},
       reusableAnswers: [],
       missingInformation: [],
-      version: 2,
+      version: 3,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

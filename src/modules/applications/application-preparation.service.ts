@@ -3,7 +3,7 @@ import { AppError } from '../../shared/http.js';
 import { normalizeText } from '../../shared/text.js';
 import { AuditService } from '../audit/audit.service.js';
 
-const APPLICATION_PREPARATION_VERSION = 2;
+const APPLICATION_PREPARATION_VERSION = 3;
 
 const preparationInclude = {
   candidate: {
@@ -104,6 +104,50 @@ function renderResumeMarkdown(
     .trim();
 }
 
+function profileDerivedAnswers(candidate: PreparationApplication['candidate']) {
+  const answers: Array<{
+    questionKey: string;
+    question: string;
+    answer: string;
+    answerType: string;
+  }> = [];
+  const push = (
+    questionKey: string,
+    question: string,
+    value: string | number | boolean | null | undefined,
+    answerType = 'TEXT',
+  ) => {
+    if (value === null || value === undefined || value === '') return;
+    answers.push({ questionKey, question, answer: String(value), answerType });
+  };
+
+  push('full_name', 'Nome completo', candidate.fullName);
+  push('email', 'E-mail', candidate.email);
+  push('phone', 'Telefone', candidate.phone);
+  push('city', 'Cidade', candidate.city);
+  push('state', 'Estado', candidate.state);
+  push('country', 'País', candidate.country);
+  push('linkedin_url', 'LinkedIn', candidate.linkedinUrl);
+  push('github_url', 'GitHub', candidate.githubUrl);
+  push('education_course', 'Curso', candidate.course);
+  push('education_institution', 'Instituição de ensino', candidate.institution);
+  push(
+    'graduation_date',
+    'Conclusão prevista',
+    candidate.graduationDate?.toISOString().slice(0, 10),
+    'DATE',
+  );
+  push('years_of_experience', 'Anos de experiência', candidate.yearsOfExperience, 'NUMBER');
+  for (const language of candidate.languages) {
+    push(
+      `language_${normalizeText(language.language).replace(/\s+/g, '_')}`,
+      `Nível de ${language.language}`,
+      language.level,
+    );
+  }
+  return answers;
+}
+
 function buildPreparation(application: PreparationApplication) {
   const candidate = application.candidate;
   const job = application.job;
@@ -123,14 +167,18 @@ function buildPreparation(application: PreparationApplication) {
     return relevance || b.startDate.getTime() - a.startDate.getTime();
   });
 
-  const reusableAnswers = candidate.answers
-    .filter((answer) => answer.allowedForAutomaticUse)
-    .map((answer) => ({
+  const answerMap = new Map(
+    profileDerivedAnswers(candidate).map((answer) => [answer.questionKey, answer]),
+  );
+  for (const answer of candidate.answers.filter((item) => item.allowedForAutomaticUse)) {
+    answerMap.set(answer.questionKey, {
       questionKey: answer.questionKey,
       question: answer.question,
       answer: answer.answer,
       answerType: answer.answerType,
-    }));
+    });
+  }
+  const reusableAnswers = [...answerMap.values()];
   const missingInformation: string[] = [];
   if (!candidate.phone) missingInformation.push('Telefone do candidato não informado');
   if (!candidate.linkedinUrl) missingInformation.push('LinkedIn do candidato não informado');
