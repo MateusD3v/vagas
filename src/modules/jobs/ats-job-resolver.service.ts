@@ -60,6 +60,24 @@ const greenhouseBoardSchema = z.object({
   name: z.string().min(1),
 });
 
+const ashbyPostingSchema = z.object({
+  title: z.string().min(1),
+  location: z.string().nullish(),
+  isRemote: z.boolean().optional(),
+  workplaceType: z.enum(['OnSite', 'Remote', 'Hybrid']).nullish(),
+  descriptionPlain: z.string().nullish(),
+  descriptionHtml: z.string().nullish(),
+  publishedAt: z.string().nullish(),
+  employmentType: z.enum(['FullTime', 'PartTime', 'Intern', 'Contract', 'Temporary']).nullish(),
+  jobUrl: z.string().url(),
+  applyUrl: z.string().url(),
+});
+
+const ashbyBoardSchema = z.object({
+  apiVersion: z.string(),
+  jobs: z.array(ashbyPostingSchema),
+});
+
 export interface ResolvedJobUrl {
   supported: boolean;
   platform: string;
@@ -89,6 +107,11 @@ function remoteTypeFromText(value?: string | null): 'REMOTE' | 'HYBRID' | 'ONSIT
   return 'UNSPECIFIED';
 }
 
+function canonicalPublicUrl(value: string): string {
+  const url = new URL(value);
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+}
+
 export class AtsJobResolverService {
   constructor(private readonly http: JobSourceHttpClient) {}
 
@@ -103,6 +126,9 @@ export class AtsJobResolverService {
     }
     if (host === 'boards.greenhouse.io' || host === 'job-boards.greenhouse.io') {
       return this.resolveGreenhouse(url, channel.flow);
+    }
+    if (host === 'jobs.ashbyhq.com') {
+      return this.resolveAshby(url, channel.flow);
     }
     if (host.includes('linkedin.com') || host.includes('indeed.com')) {
       return {
@@ -167,6 +193,63 @@ export class AtsJobResolverService {
       },
       missingFields: ['company'],
       message: 'Dados públicos da vaga Lever carregados; confirme a empresa antes de importar.',
+    };
+  }
+
+  private async resolveAshby(
+    url: URL,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    const [boardName] = url.pathname.split('/').filter(Boolean);
+    if (!boardName) {
+      return {
+        supported: false,
+        platform: 'ASHBY',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'URL Ashby sem nome de job board reconhecível.',
+      };
+    }
+
+    const endpoint = `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(boardName)}`;
+    const raw = await this.http.getJson<unknown>(endpoint, {
+      source: 'ashby-resolver',
+      requestsPerSecond: 1,
+    });
+    const board = ashbyBoardSchema.parse(raw);
+    const requested = canonicalPublicUrl(url.toString());
+    const job = board.jobs.find(
+      (posting) =>
+        canonicalPublicUrl(posting.jobUrl) === requested ||
+        canonicalPublicUrl(posting.applyUrl) === requested,
+    );
+
+    if (!job) {
+      return {
+        supported: false,
+        platform: 'ASHBY',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'A vaga não foi localizada entre as publicações atuais desse job board Ashby.',
+      };
+    }
+
+    const description = (job.descriptionPlain ?? stripHtml(job.descriptionHtml ?? '')).trim();
+    return {
+      supported: true,
+      platform: 'ASHBY',
+      flow: 'ATS',
+      data: {
+        title: job.title,
+        description: description || job.title,
+        location: job.location ?? undefined,
+        remoteType: remoteTypeFromText(job.workplaceType ?? (job.isRemote ? 'Remote' : null)),
+        employmentType: job.employmentType ?? undefined,
+        applicationUrl: job.applyUrl,
+        publishedAt: job.publishedAt ?? undefined,
+      },
+      missingFields: ['company'],
+      message: 'Dados públicos da vaga Ashby carregados; confirme a empresa antes de importar.',
     };
   }
 

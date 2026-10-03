@@ -107,3 +107,59 @@ describe('AtsJobResolverService', () => {
     expect(String(getJson.mock.calls[0]?.[0])).toContain('questions=true');
   });
 });
+
+describe('AtsJobResolverService Ashby', () => {
+  it('carrega vaga publicada usando o Job Postings API público da Ashby', async () => {
+    const getJson = vi.fn().mockResolvedValue({
+      apiVersion: '1',
+      jobs: [
+        {
+          title: 'Technical Support Agent',
+          location: 'Brazil',
+          isRemote: true,
+          workplaceType: 'Remote',
+          descriptionPlain: 'Technical support and troubleshooting.',
+          descriptionHtml: '<p>Technical support and troubleshooting.</p>',
+          publishedAt: '2026-10-03T12:00:00Z',
+          employmentType: 'FullTime',
+          jobUrl: 'https://jobs.ashbyhq.com/acme/posting-1',
+          applyUrl: 'https://jobs.ashbyhq.com/acme/posting-1/application',
+        },
+      ],
+    });
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://jobs.ashbyhq.com/acme/posting-1/');
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'ASHBY',
+      flow: 'ATS',
+      missingFields: ['company'],
+      data: {
+        title: 'Technical Support Agent',
+        description: 'Technical support and troubleshooting.',
+        location: 'Brazil',
+        remoteType: 'REMOTE',
+        employmentType: 'FullTime',
+        applicationUrl: 'https://jobs.ashbyhq.com/acme/posting-1/application',
+      },
+    });
+    expect(String(getJson.mock.calls[0]?.[0])).toBe(
+      'https://api.ashbyhq.com/posting-api/job-board/acme',
+    );
+  });
+
+  it('não inventa dados quando a URL não corresponde a uma vaga publicada', async () => {
+    const getJson = vi.fn().mockResolvedValue({ apiVersion: '1', jobs: [] });
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://jobs.ashbyhq.com/acme/missing');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'ASHBY',
+      missingFields: ['title', 'company', 'description'],
+    });
+  });
+});
