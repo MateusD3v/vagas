@@ -66,11 +66,11 @@ Durante desenvolvimento, use `npm run dev` e `npm run dev:worker`.
 
 ## Coleta manual
 
-Endpoints administrativos usam `X-Admin-Key` quando `ADMIN_API_KEY` está configurada e possuem rate limit de cinco chamadas por minuto.
+Em `production`, todos os endpoints de dados exigem `X-Admin-Key`; apenas `/health`, `/docs` e a casca pública de `/dashboard` permanecem acessíveis sem credencial. Operações administrativas continuam com rate limit de cinco chamadas por minuto.
 
 ```bash
 curl -X POST http://localhost:3000/job-sources/run \
-  -H "X-Admin-Key: local-admin-key" \
+  -H "X-Admin-Key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```

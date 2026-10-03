@@ -8,12 +8,14 @@ import { ZodError } from 'zod';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
 import { applicationRoutes } from './modules/applications/application.routes.js';
+import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { jobRoutes } from './modules/jobs/job.routes.js';
 import { matchRoutes } from './modules/matching/match.routes.js';
 import { candidateAnswerRoutes } from './modules/profile/candidate-answer.routes.js';
 import { profileRoutes } from './modules/profile/profile.routes.js';
 import { statsRoutes } from './modules/stats/stats.routes.js';
 import { sourceRoutes } from './modules/sources/source.routes.js';
+import { requireAdmin } from './shared/admin-security.js';
 import { AppError } from './shared/http.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -48,6 +50,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
   });
   await app.register(swaggerUi, { routePrefix: '/docs' });
+
+  app.addHook('onRequest', async (request, reply) => {
+    const path = request.url.split('?')[0] ?? request.url;
+    const publicPath =
+      path === '/health' ||
+      path === '/dashboard' ||
+      path.startsWith('/docs') ||
+      path.startsWith('/documentation');
+    if (!publicPath) await requireAdmin(request, reply);
+  });
 
   app.get(
     '/health',
@@ -86,6 +98,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(matchRoutes);
   await app.register(applicationRoutes);
   await app.register(statsRoutes);
+  await app.register(dashboardRoutes);
   await app.register(sourceRoutes);
 
   app.setErrorHandler((error, request, reply) => {
