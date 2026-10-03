@@ -1,9 +1,7 @@
 name: Format Diff
 
 on:
-  push:
-    branches:
-      - phase-4-smartrecruiters
+  pull_request:
 
 permissions:
   contents: read
