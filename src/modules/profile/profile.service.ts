@@ -21,6 +21,42 @@ export class ProfileService {
     return profile;
   }
 
+  async readiness() {
+    const profile = await this.get();
+    const searchProfile = await this.db.jobSearchProfile.findUnique({
+      where: { candidateId: profile.id },
+    });
+
+    const blocking: string[] = [];
+    if (profile.isDemo) blocking.push('Perfil ainda é de demonstração');
+    if (!profile.skills.length) blocking.push('Nenhuma competência cadastrada');
+    if (!profile.experiences.length) blocking.push('Nenhuma experiência cadastrada');
+    if (!profile.preferences) blocking.push('Preferências de vaga não configuradas');
+    if (!searchProfile?.enabled || !searchProfile.keywords.length) {
+      blocking.push('Perfil de busca não configurado ou sem keywords');
+    }
+
+    const recommended: string[] = [];
+    if (!profile.phone) recommended.push('Telefone não informado');
+    if (!profile.city || !profile.state) recommended.push('Cidade/estado não informados');
+    if (!profile.linkedinUrl) recommended.push('LinkedIn não informado');
+    if (!profile.institution) recommended.push('Instituição de ensino não informada');
+    if (!profile.graduationDate) recommended.push('Data prevista de conclusão não informada');
+    if (!profile.answers.length) recommended.push('Nenhuma resposta reutilizável cadastrada');
+
+    return {
+      candidateId: profile.id,
+      isDemo: profile.isDemo,
+      matchingReady: !profile.isDemo && profile.skills.length > 0 && Boolean(profile.preferences),
+      collectionReady:
+        !profile.isDemo &&
+        Boolean(searchProfile?.enabled) &&
+        Boolean(searchProfile?.keywords.length),
+      blocking,
+      recommended,
+    };
+  }
+
   async create(input: ProfileCreateInput) {
     if (await this.repository.findSingleton()) {
       throw new AppError('Esta instalação já possui um perfil; use PUT ou PATCH', 409);

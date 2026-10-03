@@ -82,7 +82,7 @@ A resposta `202` contém `collectionRunIds`. Consulte o progresso em `GET /colle
 Compatibilidade da Fase 1 preservada:
 
 - `GET /health`
-- `GET|POST|PUT|PATCH /profile`
+- `GET|POST|PUT|PATCH /profile`, `GET /profile/readiness`
 - `GET|POST /candidate-answers`, `PUT|DELETE /candidate-answers/:id`
 - `GET /jobs`, `GET /jobs/:id`
 - `POST /jobs/import/mock`, `POST /jobs/:id/analyze`, `POST /jobs/reprocess`
