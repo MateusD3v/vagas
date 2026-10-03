@@ -18,6 +18,8 @@ const envSchema = z
     DEFAULT_PAGE_SIZE: z.coerce.number().int().positive().max(100).default(20),
     MAX_PAGE_SIZE: z.coerce.number().int().positive().max(500).default(100),
     ADMIN_API_KEY: z.string().optional(),
+    WORKER_MODE: z.enum(['continuous', 'cron']).default('continuous'),
+    WORKER_HEALTH_TTL_SECONDS: z.coerce.number().int().positive().default(90),
     JOB_COLLECTION_CRON: z.string().default('0 */6 * * *'),
     JOB_SOURCE_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     JOB_SOURCE_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(3),

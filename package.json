@@ -15,6 +15,7 @@
     "start": "node dist/src/server.js",
     "start:api": "node dist/src/server.js",
     "start:worker": "node dist/src/worker.js",
+    "start:worker-once": "node dist/src/worker-once.js",
     "reprocess:jobs": "node dist/src/reprocess.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

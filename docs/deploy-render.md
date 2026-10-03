@@ -10,6 +10,14 @@ O repositório inclui `render.yaml` para criar a infraestrutura mínima do agent
 
 O Blueprint usa `starter` para API/worker e `free` para o PostgreSQL. Revise os planos no Render antes de sincronizar o Blueprint, porque API/worker 24/7 podem gerar cobrança e um banco gratuito não é a opção recomendada para retenção permanente de produção.
 
+## Alternativa sem worker 24/7
+
+Quando o objetivo for reduzir custo, a API pode continuar como Web Service e o processamento em segundo plano pode usar um Cron Job executando `node dist/src/worker-once.js` a cada seis horas. Nesse modo use `WORKER_MODE=cron` na API e no cron, com `WORKER_HEALTH_TTL_SECONDS` maior que o intervalo entre execuções (por exemplo, `25200` para sete horas).
+
+O ciclo único executa coleta, retomada de `PENDING_ANALYSIS`, sincronização de disponibilidade, preparação das candidaturas pendentes e retenção, grava `IDLE` no heartbeat e encerra normalmente. Isso evita manter um processo de worker contínuo quando a plataforma oferece execução agendada.
+
+O `render.yaml` continua descrevendo a opção de worker contínuo. A alternativa com Cron Job deve usar a mesma `DATABASE_URL`, `ADMIN_API_KEY` e flags operacionais da API, mantendo `SAFE_MODE=true`.
+
 ## Segurança de bootstrap
 
 A API executa:

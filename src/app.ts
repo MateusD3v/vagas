@@ -75,14 +75,19 @@ export async function buildApp(): Promise<FastifyInstance> {
           select: { isDemo: true },
         }),
       ]);
+      const workerStatusAllowed =
+        worker?.status === 'RUNNING' || (env.WORKER_MODE === 'cron' && worker?.status === 'IDLE');
       const workerAlive = Boolean(
-        worker && Date.now() - worker.lastSeenAt.getTime() < 90_000 && worker.status === 'RUNNING',
+        worker &&
+        Date.now() - worker.lastSeenAt.getTime() < env.WORKER_HEALTH_TTL_SECONDS * 1000 &&
+        workerStatusAllowed,
       );
       return {
         status: 'ok',
         database: 'connected',
         worker: {
           status: workerAlive ? 'healthy' : 'unavailable',
+          mode: env.WORKER_MODE,
           lastSeenAt: worker?.lastSeenAt ?? null,
         },
         profile: {
