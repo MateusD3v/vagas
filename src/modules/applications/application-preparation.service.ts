@@ -239,6 +239,34 @@ export class ApplicationPreparationService {
     });
     return stored;
   }
+  async preparePending(limit = 25) {
+    const pending = await this.db.application.findMany({
+      where: {
+        status: { in: ['READY', 'REVIEW_REQUIRED'] },
+        preparation: { is: null },
+        candidate: { isDemo: false },
+      },
+      select: { id: true },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
+
+    let prepared = 0;
+    const failures: Array<{ applicationId: string; message: string }> = [];
+    for (const item of pending) {
+      try {
+        await this.prepare(item.id);
+        prepared += 1;
+      } catch (error) {
+        failures.push({
+          applicationId: item.id,
+          message: error instanceof Error ? error.message : 'Erro desconhecido',
+        });
+      }
+    }
+    return { attempted: pending.length, prepared, failed: failures.length, failures };
+  }
+
   async get(applicationId: string) {
     const preparation = await this.db.applicationPreparation.findUnique({
       where: { applicationId },

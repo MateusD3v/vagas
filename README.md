@@ -119,7 +119,7 @@ Hard constraints continuam soberanas. A IA nunca altera o perfil nem cria compet
 
 ## Preparação de candidatura
 
-`POST /applications/:id/prepare` gera um pacote estruturado a partir exclusivamente do perfil salvo e da vaga: contato, formação, competências, idiomas, experiências priorizadas por relevância, currículo em Markdown e respostas marcadas como reutilizáveis. O pacote registra informações ausentes em vez de inventá-las e permanece local em `ApplicationPreparation`; nenhuma submissão externa é realizada. `GET /applications/:id/preparation` recupera a versão mais recente. `GET /applications/:id/eligibility` avalia a política configurada, limite diário, fonte, score, dados faltantes e separa esses requisitos dos bloqueios operacionais (`SAFE_MODE` e ausência de um provider de submissão autorizado).
+`POST /applications/:id/prepare` gera um pacote estruturado a partir exclusivamente do perfil salvo e da vaga: contato, formação, competências, idiomas, experiências priorizadas por relevância, currículo em Markdown e respostas marcadas como reutilizáveis. O pacote registra informações ausentes em vez de inventá-las e permanece local em `ApplicationPreparation`. Com `AUTO_PREPARE_APPLICATIONS=true`, o worker também prepara automaticamente candidaturas `READY`/`REVIEW_REQUIRED` que ainda não possuem pacote, em lotes configuráveis. `GET /applications/:id/preparation` recupera a versão mais recente. `GET /applications/:id/eligibility` avalia a política configurada, limite diário, fonte, score, dados faltantes e separa esses requisitos dos bloqueios operacionais (`SAFE_MODE` e ausência de um provider de submissão autorizado).
 
 ## HTTP, retry e circuit breaker
 
@@ -137,34 +137,37 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 
 ## Variáveis principais
 
-| Variável                          | Padrão        | Finalidade                                     |
-| --------------------------------- | ------------- | ---------------------------------------------- |
-| `DATABASE_URL`                    | local         | PostgreSQL padrão/Supabase PostgreSQL          |
-| `ADMIN_API_KEY`                   | vazio         | Proteção temporária; obrigatória em production |
-| `JOB_COLLECTION_CRON`             | `0 */6 * * *` | Agenda do worker                               |
-| `JOB_SOURCE_TIMEOUT_MS`           | `10000`       | Timeout HTTP                                   |
-| `JOB_SOURCE_MAX_RETRIES`          | `3`           | Tentativas adicionais                          |
-| `JOB_SOURCE_USER_AGENT`           | identificável | Identidade da aplicação                        |
-| `SOURCE_FAILURE_THRESHOLD`        | `5`           | Falhas antes do cooldown                       |
-| `SOURCE_COOLDOWN_MINUTES`         | `30`          | Duração do cooldown                            |
-| `COLLECTION_RUN_RETENTION_DAYS`   | `30`          | Retenção de execuções finalizadas              |
-| `AUDIT_LOG_RETENTION_DAYS`        | `90`          | Retenção de logs de auditoria                  |
-| `JOB_STALE_AFTER_DAYS`            | `14`          | Dias sem reaparecer antes de `STALE`           |
-| `JOB_CLOSED_AFTER_DAYS`           | `30`          | Dias sem reaparecer antes de `CLOSED`          |
-| `AUTO_ANALYZE_NEW_JOBS`           | `true`        | Análise após ingestão                          |
-| `LLM_MAX_ANALYSES_PER_RUN`        | `25`          | Limite por execução                            |
-| `LLM_MAX_ANALYSES_PER_DAY`        | `100`         | Limite diário                                  |
-| `MATCHING_ENGINE_VERSION`         | `1`           | Versão auditável                               |
-| `MAX_JOB_AGE_DAYS`                | `14`          | Freshness padrão                               |
-| `ENABLE_REAL_JOB_SOURCES`         | `true`        | Liga adapters reais                            |
-| `ENABLE_AUTO_ANALYSIS`            | `true`        | Feature flag de análise                        |
-| `ENABLE_NOTIFICATIONS`            | `false`       | Liga notificações locais/externas              |
-| `NOTIFICATION_WEBHOOK_URL`        | vazio         | Webhook HTTP opcional para eventos             |
-| `NOTIFICATION_WEBHOOK_TIMEOUT_MS` | `5000`        | Timeout do webhook                             |
-| `ENABLE_SCHEDULER`                | `true`        | Agenda periódica                               |
-| `REMOTIVE_ENABLED`                | `true`        | Adapter Remotive                               |
-| `ARBEITNOW_ENABLED`               | `true`        | Adapter Arbeitnow                              |
-| `SAFE_MODE`                       | `true`        | Proíbe futuras escritas externas               |
+| Variável                                   | Padrão        | Finalidade                                     |
+| ------------------------------------------ | ------------- | ---------------------------------------------- |
+| `DATABASE_URL`                             | local         | PostgreSQL padrão/Supabase PostgreSQL          |
+| `ADMIN_API_KEY`                            | vazio         | Proteção temporária; obrigatória em production |
+| `JOB_COLLECTION_CRON`                      | `0 */6 * * *` | Agenda do worker                               |
+| `JOB_SOURCE_TIMEOUT_MS`                    | `10000`       | Timeout HTTP                                   |
+| `JOB_SOURCE_MAX_RETRIES`                   | `3`           | Tentativas adicionais                          |
+| `JOB_SOURCE_USER_AGENT`                    | identificável | Identidade da aplicação                        |
+| `SOURCE_FAILURE_THRESHOLD`                 | `5`           | Falhas antes do cooldown                       |
+| `SOURCE_COOLDOWN_MINUTES`                  | `30`          | Duração do cooldown                            |
+| `COLLECTION_RUN_RETENTION_DAYS`            | `30`          | Retenção de execuções finalizadas              |
+| `AUDIT_LOG_RETENTION_DAYS`                 | `90`          | Retenção de logs de auditoria                  |
+| `JOB_STALE_AFTER_DAYS`                     | `14`          | Dias sem reaparecer antes de `STALE`           |
+| `JOB_CLOSED_AFTER_DAYS`                    | `30`          | Dias sem reaparecer antes de `CLOSED`          |
+| `AUTO_ANALYZE_NEW_JOBS`                    | `true`        | Análise após ingestão                          |
+| `LLM_MAX_ANALYSES_PER_RUN`                 | `25`          | Limite por execução                            |
+| `LLM_MAX_ANALYSES_PER_DAY`                 | `100`         | Limite diário                                  |
+| `MATCHING_ENGINE_VERSION`                  | `1`           | Versão auditável                               |
+| `MAX_JOB_AGE_DAYS`                         | `14`          | Freshness padrão                               |
+| `ENABLE_REAL_JOB_SOURCES`                  | `true`        | Liga adapters reais                            |
+| `ENABLE_AUTO_ANALYSIS`                     | `true`        | Feature flag de análise                        |
+| `AUTO_PREPARE_APPLICATIONS`                | `true`        | Prepara pacotes pendentes no worker            |
+| `APPLICATION_PREPARATION_INTERVAL_SECONDS` | `60`          | Intervalo da preparação automática             |
+| `APPLICATION_PREPARATION_BATCH_SIZE`       | `25`          | Máximo preparado por ciclo                     |
+| `ENABLE_NOTIFICATIONS`                     | `false`       | Liga notificações locais/externas              |
+| `NOTIFICATION_WEBHOOK_URL`                 | vazio         | Webhook HTTP opcional para eventos             |
+| `NOTIFICATION_WEBHOOK_TIMEOUT_MS`          | `5000`        | Timeout do webhook                             |
+| `ENABLE_SCHEDULER`                         | `true`        | Agenda periódica                               |
+| `REMOTIVE_ENABLED`                         | `true`        | Adapter Remotive                               |
+| `ARBEITNOW_ENABLED`                        | `true`        | Adapter Arbeitnow                              |
+| `SAFE_MODE`                                | `true`        | Proíbe futuras escritas externas               |
 
 A lista completa está em `.env.example`. Nenhum segredo é salvo em `JobSource.configuration` ou logs.
 

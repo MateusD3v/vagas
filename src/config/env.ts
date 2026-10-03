@@ -44,6 +44,12 @@ const envSchema = z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
+    AUTO_PREPARE_APPLICATIONS: z
+      .string()
+      .default('true')
+      .transform((value) => value === 'true'),
+    APPLICATION_PREPARATION_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
+    APPLICATION_PREPARATION_BATCH_SIZE: z.coerce.number().int().positive().max(100).default(25),
     ENABLE_NOTIFICATIONS: z
       .string()
       .default('false')

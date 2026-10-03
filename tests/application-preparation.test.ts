@@ -216,4 +216,32 @@ describe('ApplicationPreparationService', () => {
     const service = new ApplicationPreparationService(db);
     await expect(service.prepare('app-1')).rejects.toMatchObject({ statusCode: 409 });
   });
+
+  it('prepara automaticamente candidaturas pendentes em lote', async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: 'app-1' }]);
+    const upsert = vi.fn().mockResolvedValue({
+      id: 'prep-1',
+      applicationId: 'app-1',
+      payload: {},
+      reusableAnswers: [],
+      missingInformation: [],
+      version: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const db = {
+      application: {
+        findMany,
+        findUnique: vi.fn().mockResolvedValue(createApplication()),
+      },
+      applicationPreparation: { upsert },
+      auditLog: { create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+    } as unknown as PrismaClient;
+
+    const result = await new ApplicationPreparationService(db).preparePending(10);
+
+    expect(result).toMatchObject({ attempted: 1, prepared: 1, failed: 0 });
+    expect(findMany).toHaveBeenCalledOnce();
+    expect(upsert).toHaveBeenCalledOnce();
+  });
 });

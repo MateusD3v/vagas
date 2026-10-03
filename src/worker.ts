@@ -1,12 +1,14 @@
 import pino from 'pino';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
+import { ApplicationPreparationService } from './modules/applications/application-preparation.service.js';
 import { RetentionService } from './modules/maintenance/retention.service.js';
 import { createCollectionService } from './modules/sources/collection.factory.js';
 import { CollectionScheduler } from './workers/collection-scheduler.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
 const collection = createCollectionService(prisma, env, logger);
+const applicationPreparation = new ApplicationPreparationService(prisma);
 const retention = new RetentionService(
   prisma,
   env.COLLECTION_RUN_RETENTION_DAYS,
@@ -44,6 +46,18 @@ async function runMaintenance(): Promise<void> {
   }
 }
 
+async function runApplicationPreparation(): Promise<void> {
+  const result = await applicationPreparation.preparePending(
+    env.APPLICATION_PREPARATION_BATCH_SIZE,
+  );
+  if (result.attempted || result.failed) {
+    logger.info(
+      { applicationPreparation: result },
+      'Preparação automática de candidaturas concluída',
+    );
+  }
+}
+
 await heartbeat();
 void runMaintenance().catch((error: unknown) =>
   logger.error({ err: error }, 'Manutenção de retenção falhou'),
@@ -56,6 +70,19 @@ const maintenanceTimer = setInterval(
   },
   24 * 60 * 60 * 1000,
 );
+
+let applicationPreparationTimer: ReturnType<typeof setInterval> | null = null;
+if (env.AUTO_PREPARE_APPLICATIONS) {
+  void runApplicationPreparation().catch((error: unknown) =>
+    logger.error({ err: error }, 'Preparação automática de candidaturas falhou'),
+  );
+  applicationPreparationTimer = setInterval(() => {
+    void runApplicationPreparation().catch((error: unknown) =>
+      logger.error({ err: error }, 'Preparação automática de candidaturas falhou'),
+    );
+  }, env.APPLICATION_PREPARATION_INTERVAL_SECONDS * 1000);
+}
+
 const heartbeatTimer = setInterval(() => {
   void heartbeat().catch((error: unknown) => logger.error({ err: error }, 'Heartbeat falhou'));
 }, 30_000);
@@ -78,6 +105,7 @@ async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Encerrando worker');
   scheduler.stop();
   clearInterval(maintenanceTimer);
+  if (applicationPreparationTimer) clearInterval(applicationPreparationTimer);
   clearInterval(heartbeatTimer);
   await heartbeat('STOPPED').catch(() => undefined);
   await prisma.$disconnect();
