@@ -45,8 +45,9 @@ O produto é um agente auditável para descobrir, classificar e preparar candida
 
 ## Prioridades atuais
 
-1. Concluir e estabilizar a Fase 2: fontes reais permitidas, worker, agendamento, pré-filtro, deduplicação conservadora, orçamento e observabilidade.
-2. Garantir que vagas em `PENDING_ANALYSIS` sejam retomadas sem depender de uma nova importação.
-3. Tornar a reserva do orçamento diário segura para múltiplas instâncias antes de escalar workers.
-4. Manter o README alinhado ao comportamento entregue.
-5. Só iniciar dashboard ou auto-application após a Fase 2 passar por teste integrado com PostgreSQL.
+1. Tratar a Fase 2 como estabilizada: preserve coleta autorizada, retomada de `PENDING_ANALYSIS`, deduplicação conservadora, orçamento atômico e observabilidade como regressões obrigatórias.
+2. Evoluir a Fase 4 por integrações permitidas de ATS/job boards públicos, priorizando leitura/enriquecimento e preparação assistida antes de qualquer escrita externa.
+3. Manter LinkedIn/Indeed no fluxo manual/FAST APPLY assistido enquanto não houver API/autorização compatível; não introduza automação de navegador.
+4. Melhorar readiness, perguntas de candidatura, portabilidade do perfil, dashboard e deploy sem inventar respostas nem dados do candidato.
+5. Só habilitar um provider de submissão quando houver credencial oficialmente autorizada para aquela integração, política elegível e uma mudança explícita de `SAFE_MODE`; mantenha a configuração padrão bloqueada.
+6. Manter README, docs de ATS/deploy e testes alinhados ao comportamento realmente entregue.

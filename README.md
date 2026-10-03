@@ -1,4 +1,4 @@
-# Job Application Agent — Fase 3 foundation
+# Job Application Agent — Fase 4 integrations
 
 Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa, reprocessa e prepara candidaturas locais. O sistema **não envia candidaturas**, não automatiza LinkedIn/Indeed e não usa navegador, CAPTCHA bypass ou evasão anti-bot.
 
@@ -110,7 +110,7 @@ Listagens usam `page`/`pageSize`, limitados a 100. Collection runs aceitam `sour
 
 ## Scheduler e worker
 
-O worker usa cron no próprio processo, sem Redis. `JOB_COLLECTION_CRON` segue o formato cron de cinco campos e o padrão `0 */6 * * *` executa a cada seis horas, respeitando a recomendação da Remotive de no máximo quatro coletas diárias. A opção `protect` impede sobreposição dentro do scheduler e as fontes de uma execução são processadas em sequência para compartilhar corretamente o orçamento diário.
+No Compose/local, o worker contínuo usa cron no próprio processo, sem Redis. `JOB_COLLECTION_CRON` segue o formato cron de cinco campos e o padrão `0 */6 * * *` executa a cada seis horas, respeitando a recomendação da Remotive de no máximo quatro coletas diárias. A opção `protect` impede sobreposição dentro do scheduler e as fontes de uma execução são processadas em sequência para compartilhar corretamente o orçamento diário. No Render, o Blueprint usa `worker-once` como Cron Job a cada seis horas para evitar manter um worker contínuo 24/7.
 
 O heartbeat é atualizado a cada 30 segundos. `/health` considera o worker indisponível após 90 segundos sem atualização e também informa se o perfil ainda é de demonstração. `SIGTERM` e `SIGINT` interrompem scheduler/heartbeat e fecham Prisma. A manutenção diária remove runs/logs expirados e marca vagas reais não vistas como `STALE` e depois `CLOSED` usando janelas configuráveis.
 
@@ -149,6 +149,8 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 | `DATABASE_URL`                             | local         | PostgreSQL padrão/Supabase PostgreSQL              |
 | `ADMIN_API_KEY`                            | vazio         | Proteção temporária; obrigatória em production     |
 | `SEED_DEMO_DATA`                           | `true`        | Popula perfil/vagas mock apenas em desenvolvimento |
+| `WORKER_MODE`                              | `continuous`  | `continuous` local ou `cron` no worker agendado    |
+| `WORKER_HEALTH_TTL_SECONDS`                | `90`          | Janela máxima do heartbeat considerada saudável    |
 | `JOB_COLLECTION_CRON`                      | `0 */6 * * *` | Agenda do worker                                   |
 | `JOB_SOURCE_TIMEOUT_MS`                    | `10000`       | Timeout HTTP                                       |
 | `JOB_SOURCE_MAX_RETRIES`                   | `3`           | Tentativas adicionais                              |
@@ -197,15 +199,11 @@ Testes de adapters e HTTP usam mocks; a suíte automatizada não depende da inte
 
 ## Deploy no Render
 
-O repositório já inclui `render.yaml` e o guia `docs/deploy-render.md`. O Blueprint prepara os três recursos abaixo; ele não cria nada até ser sincronizado manualmente no Render.
+O repositório já inclui `render.yaml` e o guia `docs/deploy-render.md`. O Blueprint descreve três recursos na mesma região (`virginia`): PostgreSQL `vagas-db`, Web Service `vagas-api` e Cron Job `vagas-worker-cron` executado a cada seis horas. Ele não cria/sincroniza nada até o Blueprint ser confirmado no Render.
 
-Crie três recursos usando o mesmo repositório/imagem:
+A API usa `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `SEED_DEMO_DATA=false` e `HOST=0.0.0.0`. O cron usa `./docker-entrypoint.sh node dist/src/worker-once.js`, `RUN_MIGRATIONS=false`, `RUN_SEED=false`, `WORKER_MODE=cron` e compartilha `DATABASE_URL`/`ADMIN_API_KEY` por referências do Blueprint. `SAFE_MODE=true` permanece explícito nos dois serviços.
 
-1. PostgreSQL gerenciado (ou Supabase apenas como PostgreSQL) e copie sua URL TLS para `DATABASE_URL`.
-2. Web Service/API com start command `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `SEED_DEMO_DATA=false`, `HOST=0.0.0.0` e uma `ADMIN_API_KEY` forte. O seed de produção registra apenas as fontes; não cria perfil/vagas de demonstração.
-3. Background Worker com `./docker-entrypoint.sh node dist/src/worker.js`, `RUN_MIGRATIONS=false` e `RUN_SEED=false`.
-
-Compartilhe as demais variáveis entre API e worker. Use health path `/health`. Não use hostname `postgres` fora do Compose; ele existe apenas na rede Docker local.
+Use health path `/health`. Não use hostname `postgres` fora do Compose; ele existe apenas na rede Docker local. Para detalhes de custo, bootstrap e primeira publicação, siga `docs/deploy-render.md`.
 
 ## Troubleshooting
 
@@ -226,4 +224,4 @@ Compartilhe as demais variáveis entre API e worker. Use health path `/health`. 
 - Notificações externas suportam webhook genérico, mas ainda não existem providers específicos de e-mail/Slack/Discord.
 - Reprocessamento completo existe por `POST /jobs/reprocess` e CLI `npm run reprocess:jobs`, mas requer um perfil real; o seed permanece deliberadamente de demonstração.
 - O currículo personalizado em Markdown e o acompanhamento manual de candidatura já existem. A submissão automática possui interface/registry e endpoint, porém nenhum provider externo está habilitado por padrão; `SAFE_MODE=true` continua bloqueando qualquer envio.
-- O dashboard local e a proteção por API key já existem. Ainda faltam autenticação multiusuário/OAuth e integrações externas autorizadas para acompanhamento/submissão; esses itens continuam para as próximas etapas da Fase 3.
+- O dashboard e a proteção por API key já existem. Ainda faltam autenticação multiusuário/OAuth e integrações externas autorizadas para acompanhamento/submissão; esses itens continuam para as próximas etapas da Fase 4.
