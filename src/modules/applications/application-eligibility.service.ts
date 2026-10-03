@@ -20,6 +20,10 @@ export class ApplicationEligibilityService {
   constructor(
     private readonly db: PrismaClient,
     private readonly safeMode: boolean,
+    private readonly hasSubmissionProvider: (
+      source: string,
+      applicationUrl: string | null,
+    ) => boolean = () => false,
   ) {}
 
   async evaluate(applicationId: string, now = new Date()): Promise<ApplicationEligibility> {
@@ -94,7 +98,9 @@ export class ApplicationEligibilityService {
 
     const policyEligible = reasons.length === 0;
     if (this.safeMode) automationBlockers.push('SAFE_MODE está ativo');
-    automationBlockers.push('Nenhum provider de submissão externa autorizado foi configurado');
+    if (!this.hasSubmissionProvider(application.job.source, application.job.applicationUrl)) {
+      automationBlockers.push('Nenhum provider de submissão externa autorizado foi configurado');
+    }
 
     return {
       applicationId,

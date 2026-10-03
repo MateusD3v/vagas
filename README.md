@@ -90,6 +90,7 @@ Compatibilidade da Fase 1 preservada:
 - `GET /applications`, `GET /applications/:id`
 - `POST /applications/:id/prepare`, `GET /applications/:id/preparation`
 - `GET /applications/:id/eligibility` para explicar requisitos e bloqueios de automação
+- `POST /applications/:id/submit` para provider de submissão explicitamente autorizado
 - `PATCH /applications/:id/status` para acompanhamento manual auditável
 - `GET /stats`, `GET /docs`
 
@@ -208,4 +209,5 @@ Compartilhe as demais variáveis entre API e worker. Use health path `/health`. 
 - `STALE` e `CLOSED` usam ausência temporal (`lastSeenAt`) como evidência; confirmação explícita por API/ATS pode ser adicionada no futuro.
 - Notificações externas suportam webhook genérico, mas ainda não existem providers específicos de e-mail/Slack/Discord.
 - Reprocessamento completo existe por `POST /jobs/reprocess` e CLI `npm run reprocess:jobs`, mas requer um perfil real; o seed permanece deliberadamente de demonstração.
-- Não há dashboard, autenticação completa, OAuth, candidatura automática, currículo personalizado ou acompanhamento externo. Esses itens continuam para as próximas etapas da Fase 3.
+- O currículo personalizado em Markdown e o acompanhamento manual de candidatura já existem. A submissão automática possui interface/registry e endpoint, porém nenhum provider externo está habilitado por padrão; `SAFE_MODE=true` continua bloqueando qualquer envio.
+- Ainda não há dashboard, autenticação completa, OAuth nem integração de acompanhamento externo. Esses itens continuam para as próximas etapas da Fase 3.

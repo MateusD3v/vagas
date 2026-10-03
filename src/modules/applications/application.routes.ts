@@ -2,11 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { prisma } from '../../database/client.js';
+import { SubmissionProviderRegistry } from '../../integrations/submission/submission.registry.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
 import { ApplicationEligibilityService } from './application-eligibility.service.js';
 import { ApplicationPreparationService } from './application-preparation.service.js';
 import { ApplicationService } from './application.service.js';
+import { ApplicationSubmissionService } from './application-submission.service.js';
 
 const statusUpdateSchema = z.object({
   status: z.enum(['READY', 'SUBMITTED', 'FAILED', 'REJECTED', 'INTERVIEW', 'OFFER', 'WITHDRAWN']),
@@ -32,9 +34,15 @@ const applicationQuerySchema = paginationSchema.extend({
 });
 
 export function applicationRoutes(app: FastifyInstance): void {
+  const submissionProviders = new SubmissionProviderRegistry();
   const preparation = new ApplicationPreparationService(prisma);
-  const eligibility = new ApplicationEligibilityService(prisma, env.SAFE_MODE);
+  const eligibility = new ApplicationEligibilityService(
+    prisma,
+    env.SAFE_MODE,
+    (source, applicationUrl) => Boolean(submissionProviders.find(source, applicationUrl)),
+  );
   const applications = new ApplicationService(prisma);
+  const submissions = new ApplicationSubmissionService(prisma, env.SAFE_MODE, submissionProviders);
 
   app.get(
     '/applications',
@@ -87,6 +95,20 @@ export function applicationRoutes(app: FastifyInstance): void {
       },
     },
     (request) => eligibility.evaluate(idParamsSchema.parse(request.params).id),
+  );
+
+  app.post(
+    '/applications/:id/submit',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Applications'],
+        summary: 'Submete via provider explicitamente autorizado quando elegível',
+        security: [{ adminKey: [] }],
+      },
+    },
+    (request) => submissions.submit(idParamsSchema.parse(request.params).id),
   );
 
   app.patch(
