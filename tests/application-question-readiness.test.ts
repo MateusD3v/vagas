@@ -33,6 +33,52 @@ describe('application question readiness', () => {
       'PROFILE_READY',
       'PROFILE_READY',
     ]);
+    expect(result[0]).toMatchObject({
+      answer: 'Mateus',
+      profileValues: [{ field: 'first_name', value: 'Mateus' }],
+    });
+    expect(result[1]).toMatchObject({
+      answer: 'candidate@example.com',
+      profileValues: [{ field: 'email', value: 'candidate@example.com' }],
+    });
+    expect(result[2]?.answer).toBeUndefined();
+  });
+
+  it('prepara todos os campos conhecidos e não marca pergunta parcialmente conhecida como pronta', () => {
+    const result = evaluateApplicationQuestionReadiness(
+      [
+        {
+          label: 'Name',
+          required: true,
+          fields: [
+            { name: 'first_name', type: 'input_text' },
+            { name: 'last_name', type: 'input_text' },
+          ],
+        },
+        {
+          label: 'Contact',
+          required: true,
+          fields: [
+            { name: 'email', type: 'input_text' },
+            { name: 'unknown_field', type: 'input_text' },
+          ],
+        },
+      ],
+      candidate,
+      [],
+    );
+
+    expect(result[0]).toMatchObject({
+      status: 'PROFILE_READY',
+      profileValues: [
+        { field: 'first_name', value: 'Mateus' },
+        { field: 'last_name', value: 'Arruda' },
+      ],
+    });
+    expect(result[1]).toMatchObject({
+      status: 'MANUAL_REQUIRED',
+      source: 'MANUAL',
+    });
   });
 
   it('usa somente resposta salva explicitamente autorizada e com pergunta correspondente', () => {
