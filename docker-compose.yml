@@ -63,6 +63,7 @@ services:
       PORT: 3000
       RUN_MIGRATIONS: 'true'
       RUN_SEED: 'true'
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
     depends_on:
       postgres:
         condition: service_healthy

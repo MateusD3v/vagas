@@ -7,10 +7,64 @@ import { JobMatchingService } from '../src/modules/matching/job-matching.service
 import { ProfileService } from '../src/modules/profile/profile.service.js';
 
 const db = new PrismaClient();
+const seedDemoData = process.env.SEED_DEMO_DATA === 'true';
+
+const sourceDefinitions = [
+  {
+    name: 'Mock Job Source',
+    slug: 'mock',
+    type: 'MOCK' as const,
+    baseUrl: null,
+    configuration: { purpose: 'development-and-tests' },
+  },
+  {
+    name: 'Remotive',
+    slug: 'remotive',
+    type: 'API' as const,
+    baseUrl: 'https://remotive.com/api/remote-jobs',
+    configuration: { attributionRequired: true, recommendedRunsPerDay: 4 },
+  },
+  {
+    name: 'Arbeitnow',
+    slug: 'arbeitnow',
+    type: 'API' as const,
+    baseUrl: 'https://www.arbeitnow.com/api/job-board-api',
+    configuration: { authentication: 'none' },
+  },
+  {
+    name: 'Jobicy',
+    slug: 'jobicy',
+    type: 'API' as const,
+    baseUrl: 'https://jobicy.com/api/v2/remote-jobs',
+    configuration: {
+      authentication: 'none',
+      attributionRequired: true,
+      publicWindowDays: 7,
+      recommendedPolling: 'few-times-per-day',
+    },
+  },
+];
+
+async function seedSources() {
+  for (const definition of sourceDefinitions) {
+    await db.jobSource.upsert({
+      where: { slug: definition.slug },
+      create: { ...definition, enabled: definition.slug !== 'mock' },
+      update: {
+        name: definition.name,
+        type: definition.type,
+        enabled: definition.slug !== 'mock',
+        baseUrl: definition.baseUrl,
+        configuration: definition.configuration,
+      },
+    });
+  }
+}
 
 async function main() {
+  await seedSources();
   const existingProfile = await db.candidateProfile.findFirst();
-  if (!existingProfile) {
+  if (!existingProfile && seedDemoData) {
     await new ProfileService(db).create({
       fullName: 'Candidato Demonstração',
       email: 'candidato@example.test',
@@ -114,6 +168,8 @@ async function main() {
     });
   }
 
+  if (!seedDemoData) return;
+
   await db.candidateProfile.updateMany({
     where: { email: 'candidato@example.test' },
     data: { isDemo: true },
@@ -124,55 +180,6 @@ async function main() {
   for (const jobId of imported.jobIds) await matcher.analyze(jobId);
 
   const candidate = await db.candidateProfile.findFirstOrThrow({ orderBy: { createdAt: 'asc' } });
-  const sourceDefinitions = [
-    {
-      name: 'Mock Job Source',
-      slug: 'mock',
-      type: 'MOCK' as const,
-      baseUrl: null,
-      configuration: { purpose: 'development-and-tests' },
-    },
-    {
-      name: 'Remotive',
-      slug: 'remotive',
-      type: 'API' as const,
-      baseUrl: 'https://remotive.com/api/remote-jobs',
-      configuration: { attributionRequired: true, recommendedRunsPerDay: 4 },
-    },
-    {
-      name: 'Arbeitnow',
-      slug: 'arbeitnow',
-      type: 'API' as const,
-      baseUrl: 'https://www.arbeitnow.com/api/job-board-api',
-      configuration: { authentication: 'none' },
-    },
-    {
-      name: 'Jobicy',
-      slug: 'jobicy',
-      type: 'API' as const,
-      baseUrl: 'https://jobicy.com/api/v2/remote-jobs',
-      configuration: {
-        authentication: 'none',
-        attributionRequired: true,
-        publicWindowDays: 7,
-        recommendedPolling: 'few-times-per-day',
-      },
-    },
-  ];
-  for (const definition of sourceDefinitions) {
-    await db.jobSource.upsert({
-      where: { slug: definition.slug },
-      create: { ...definition, enabled: definition.slug !== 'mock' },
-      update: {
-        name: definition.name,
-        type: definition.type,
-        enabled: definition.slug !== 'mock',
-        baseUrl: definition.baseUrl,
-        configuration: definition.configuration,
-      },
-    });
-  }
-
   await db.jobSearchProfile.upsert({
     where: { candidateId: candidate.id },
     create: {

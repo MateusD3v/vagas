@@ -137,40 +137,41 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 
 ## Variáveis principais
 
-| Variável                                   | Padrão        | Finalidade                                     |
-| ------------------------------------------ | ------------- | ---------------------------------------------- |
-| `DATABASE_URL`                             | local         | PostgreSQL padrão/Supabase PostgreSQL          |
-| `ADMIN_API_KEY`                            | vazio         | Proteção temporária; obrigatória em production |
-| `JOB_COLLECTION_CRON`                      | `0 */6 * * *` | Agenda do worker                               |
-| `JOB_SOURCE_TIMEOUT_MS`                    | `10000`       | Timeout HTTP                                   |
-| `JOB_SOURCE_MAX_RETRIES`                   | `3`           | Tentativas adicionais                          |
-| `JOB_SOURCE_USER_AGENT`                    | identificável | Identidade da aplicação                        |
-| `SOURCE_FAILURE_THRESHOLD`                 | `5`           | Falhas antes do cooldown                       |
-| `SOURCE_COOLDOWN_MINUTES`                  | `30`          | Duração do cooldown                            |
-| `COLLECTION_RUN_RETENTION_DAYS`            | `30`          | Retenção de execuções finalizadas              |
-| `AUDIT_LOG_RETENTION_DAYS`                 | `90`          | Retenção de logs de auditoria                  |
-| `JOB_STALE_AFTER_DAYS`                     | `14`          | Dias sem reaparecer antes de `STALE`           |
-| `JOB_CLOSED_AFTER_DAYS`                    | `30`          | Dias sem reaparecer antes de `CLOSED`          |
-| `JOB_STATUS_SYNC_INTERVAL_MINUTES`         | `360`         | Intervalo de status explícito quando suportado |
-| `JOB_STATUS_SYNC_BATCH_SIZE`               | `100`         | IDs verificados por fonte/ciclo                |
-| `AUTO_ANALYZE_NEW_JOBS`                    | `true`        | Análise após ingestão                          |
-| `LLM_MAX_ANALYSES_PER_RUN`                 | `25`          | Limite por execução                            |
-| `LLM_MAX_ANALYSES_PER_DAY`                 | `100`         | Limite diário                                  |
-| `MATCHING_ENGINE_VERSION`                  | `3`           | Versão auditável                               |
-| `MAX_JOB_AGE_DAYS`                         | `14`          | Freshness padrão                               |
-| `ENABLE_REAL_JOB_SOURCES`                  | `true`        | Liga adapters reais                            |
-| `ENABLE_AUTO_ANALYSIS`                     | `true`        | Feature flag de análise                        |
-| `AUTO_PREPARE_APPLICATIONS`                | `true`        | Prepara pacotes pendentes no worker            |
-| `APPLICATION_PREPARATION_INTERVAL_SECONDS` | `60`          | Intervalo da preparação automática             |
-| `APPLICATION_PREPARATION_BATCH_SIZE`       | `25`          | Máximo preparado por ciclo                     |
-| `ENABLE_NOTIFICATIONS`                     | `false`       | Liga notificações locais/externas              |
-| `NOTIFICATION_WEBHOOK_URL`                 | vazio         | Webhook HTTP opcional para eventos             |
-| `NOTIFICATION_WEBHOOK_TIMEOUT_MS`          | `5000`        | Timeout do webhook                             |
-| `ENABLE_SCHEDULER`                         | `true`        | Agenda periódica                               |
-| `REMOTIVE_ENABLED`                         | `true`        | Adapter Remotive                               |
-| `ARBEITNOW_ENABLED`                        | `true`        | Adapter Arbeitnow                              |
-| `JOBICY_ENABLED`                           | `true`        | Adapter Jobicy                                 |
-| `SAFE_MODE`                                | `true`        | Proíbe futuras escritas externas               |
+| Variável                                   | Padrão        | Finalidade                                         |
+| ------------------------------------------ | ------------- | -------------------------------------------------- |
+| `DATABASE_URL`                             | local         | PostgreSQL padrão/Supabase PostgreSQL              |
+| `ADMIN_API_KEY`                            | vazio         | Proteção temporária; obrigatória em production     |
+| `SEED_DEMO_DATA`                           | `true`        | Popula perfil/vagas mock apenas em desenvolvimento |
+| `JOB_COLLECTION_CRON`                      | `0 */6 * * *` | Agenda do worker                                   |
+| `JOB_SOURCE_TIMEOUT_MS`                    | `10000`       | Timeout HTTP                                       |
+| `JOB_SOURCE_MAX_RETRIES`                   | `3`           | Tentativas adicionais                              |
+| `JOB_SOURCE_USER_AGENT`                    | identificável | Identidade da aplicação                            |
+| `SOURCE_FAILURE_THRESHOLD`                 | `5`           | Falhas antes do cooldown                           |
+| `SOURCE_COOLDOWN_MINUTES`                  | `30`          | Duração do cooldown                                |
+| `COLLECTION_RUN_RETENTION_DAYS`            | `30`          | Retenção de execuções finalizadas                  |
+| `AUDIT_LOG_RETENTION_DAYS`                 | `90`          | Retenção de logs de auditoria                      |
+| `JOB_STALE_AFTER_DAYS`                     | `14`          | Dias sem reaparecer antes de `STALE`               |
+| `JOB_CLOSED_AFTER_DAYS`                    | `30`          | Dias sem reaparecer antes de `CLOSED`              |
+| `JOB_STATUS_SYNC_INTERVAL_MINUTES`         | `360`         | Intervalo de status explícito quando suportado     |
+| `JOB_STATUS_SYNC_BATCH_SIZE`               | `100`         | IDs verificados por fonte/ciclo                    |
+| `AUTO_ANALYZE_NEW_JOBS`                    | `true`        | Análise após ingestão                              |
+| `LLM_MAX_ANALYSES_PER_RUN`                 | `25`          | Limite por execução                                |
+| `LLM_MAX_ANALYSES_PER_DAY`                 | `100`         | Limite diário                                      |
+| `MATCHING_ENGINE_VERSION`                  | `3`           | Versão auditável                                   |
+| `MAX_JOB_AGE_DAYS`                         | `14`          | Freshness padrão                                   |
+| `ENABLE_REAL_JOB_SOURCES`                  | `true`        | Liga adapters reais                                |
+| `ENABLE_AUTO_ANALYSIS`                     | `true`        | Feature flag de análise                            |
+| `AUTO_PREPARE_APPLICATIONS`                | `true`        | Prepara pacotes pendentes no worker                |
+| `APPLICATION_PREPARATION_INTERVAL_SECONDS` | `60`          | Intervalo da preparação automática                 |
+| `APPLICATION_PREPARATION_BATCH_SIZE`       | `25`          | Máximo preparado por ciclo                         |
+| `ENABLE_NOTIFICATIONS`                     | `false`       | Liga notificações locais/externas                  |
+| `NOTIFICATION_WEBHOOK_URL`                 | vazio         | Webhook HTTP opcional para eventos                 |
+| `NOTIFICATION_WEBHOOK_TIMEOUT_MS`          | `5000`        | Timeout do webhook                                 |
+| `ENABLE_SCHEDULER`                         | `true`        | Agenda periódica                                   |
+| `REMOTIVE_ENABLED`                         | `true`        | Adapter Remotive                                   |
+| `ARBEITNOW_ENABLED`                        | `true`        | Adapter Arbeitnow                                  |
+| `JOBICY_ENABLED`                           | `true`        | Adapter Jobicy                                     |
+| `SAFE_MODE`                                | `true`        | Proíbe futuras escritas externas                   |
 
 A lista completa está em `.env.example`. Nenhum segredo é salvo em `JobSource.configuration` ou logs.
 
@@ -189,10 +190,12 @@ Testes de adapters e HTTP usam mocks; a suíte automatizada não depende da inte
 
 ## Deploy no Render
 
+O repositório já inclui `render.yaml` e o guia `docs/deploy-render.md`. O Blueprint prepara os três recursos abaixo; ele não cria nada até ser sincronizado manualmente no Render.
+
 Crie três recursos usando o mesmo repositório/imagem:
 
 1. PostgreSQL gerenciado (ou Supabase apenas como PostgreSQL) e copie sua URL TLS para `DATABASE_URL`.
-2. Web Service/API com start command `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `HOST=0.0.0.0` e uma `ADMIN_API_KEY` forte.
+2. Web Service/API com start command `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `SEED_DEMO_DATA=false`, `HOST=0.0.0.0` e uma `ADMIN_API_KEY` forte. O seed de produção registra apenas as fontes; não cria perfil/vagas de demonstração.
 3. Background Worker com `./docker-entrypoint.sh node dist/src/worker.js`, `RUN_MIGRATIONS=false` e `RUN_SEED=false`.
 
 Compartilhe as demais variáveis entre API e worker. Use health path `/health`. Não use hostname `postgres` fora do Compose; ele existe apenas na rede Docker local.
