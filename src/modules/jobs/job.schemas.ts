@@ -36,6 +36,19 @@ export const jobUrlResolveSchema = z.object({
   url: z.string().url(),
 });
 
+export const applicationQuestionSchema = z.object({
+  label: z.string().min(1),
+  required: z.boolean().default(false),
+  fields: z
+    .array(
+      z.object({
+        name: z.string().optional(),
+        type: z.string().optional(),
+      }),
+    )
+    .default([]),
+});
+
 export const manualJobImportSchema = z.object({
   externalId: z.string().min(1).optional(),
   title: z.string().min(1),
@@ -65,6 +78,7 @@ export const manualJobImportSchema = z.object({
     )
     .default([]),
   fastApply: z.boolean().default(false),
+  applicationQuestions: z.array(applicationQuestionSchema).default([]),
 });
 
 export const jobsQuerySchema = paginationSchema.extend({

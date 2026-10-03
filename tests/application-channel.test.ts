@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   classifyApplicationChannel,
+  readApplicationQuestions,
   readFastApplyHint,
 } from '../src/modules/applications/application-channel.js';
 
@@ -51,5 +52,27 @@ describe('application channel', () => {
     expect(readFastApplyHint({ fastApply: true })).toBe(true);
     expect(readFastApplyHint({ fastApply: 'true' })).toBe(false);
     expect(readFastApplyHint(null)).toBe(false);
+  });
+
+  it('lê perguntas do ATS de forma defensiva', () => {
+    expect(
+      readApplicationQuestions({
+        applicationQuestions: [
+          {
+            label: 'Motivação',
+            required: true,
+            fields: [{ name: 'question_1', type: 'textarea', ignored: 'x' }],
+          },
+          { label: 123, required: true },
+        ],
+      }),
+    ).toEqual([
+      {
+        label: 'Motivação',
+        required: true,
+        fields: [{ name: 'question_1', type: 'textarea' }],
+      },
+    ]);
+    expect(readApplicationQuestions(null)).toEqual([]);
   });
 });
