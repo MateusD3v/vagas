@@ -44,6 +44,12 @@ describe('application channel', () => {
       flow: 'ATS',
     });
     expect(
+      classifyApplicationChannel(
+        'https://jobs.smartrecruiters.com/acme/123456-junior-developer',
+        'manual',
+      ),
+    ).toMatchObject({ platform: 'SMARTRECRUITERS', flow: 'ATS' });
+    expect(
       classifyApplicationChannel('https://acme.wd5.myworkdayjobs.com/job/1', 'manual'),
     ).toMatchObject({ platform: 'WORKDAY', flow: 'ATS' });
   });
