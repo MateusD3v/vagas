@@ -303,15 +303,18 @@ model JobSourceReference {
   sourceId    String
   externalId  String?
   originalUrl String?
-  firstSeenAt DateTime  @default(now())
-  lastSeenAt  DateTime  @default(now())
-  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  statusCheckedAt DateTime?
+  externalStatus  String?
+  job             Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
   source      JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, externalId])
   @@unique([sourceId, originalUrl])
   @@unique([jobId, sourceId])
   @@index([jobId])
+  @@index([statusCheckedAt])
 }
 
 model JobSearchProfile {

@@ -40,7 +40,7 @@ export function calculateDeterministicMatch(
     }
   }
 
-  const skillRatio = job.skills.length ? matchedSkills.length / job.skills.length : 1;
+  const skillRatio = job.skills.length ? matchedSkills.length / job.skills.length : 0;
   const skills = MATCHING_WEIGHTS.skills * skillRatio;
 
   const requiredYears = Math.max(
@@ -85,6 +85,9 @@ export function calculateDeterministicMatch(
   const components = { skills, experience, role, location, seniority, education, salary };
   const score = clampScore(Object.values(components).reduce((sum, value) => sum + value, 0));
   const hardConstraints = evaluateHardConstraints(candidate, job);
+  if (!roleMatch && matchedSkills.length === 0) {
+    hardConstraints.push('Sem evidência de alinhamento com cargo ou competências do candidato');
+  }
   const strengths = [
     ...(matchedSkills.length ? [`Competências compatíveis: ${matchedSkills.join(', ')}`] : []),
     ...(roleMatch ? ['Cargo alinhado aos objetivos'] : []),

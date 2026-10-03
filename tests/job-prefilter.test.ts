@@ -90,4 +90,32 @@ describe('JobPreFilterService', () => {
     );
     expect(result.passed).toBe(true);
   });
+
+  it('rejeita vaga sem qualquer evidência de alinhamento', () => {
+    const result = service.evaluate(
+      {
+        ...job,
+        title: 'RPG AS400 Developer',
+        description: 'JD Edwards EnterpriseOne and DB2',
+        seniority: null,
+        skills: [],
+      },
+      search,
+      candidate,
+      14,
+    );
+    expect(result.passed).toBe(false);
+    expect(result.reasons.join(' ')).toMatch(/Sem evidência de alinhamento/);
+  });
+
+  it('rejeita nível MID quando o perfil busca apenas início de carreira', () => {
+    const result = service.evaluate(
+      { ...job, title: 'Backend Developer', seniority: 'MID' },
+      search,
+      candidate,
+      14,
+    );
+    expect(result.passed).toBe(false);
+    expect(result.reasons.join(' ')).toMatch(/Senioridade não desejada/);
+  });
 });

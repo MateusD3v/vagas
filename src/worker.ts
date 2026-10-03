@@ -1,13 +1,17 @@
 import pino from 'pino';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
+import { createJobSourceRegistry } from './integrations/job-sources/registry.factory.js';
 import { ApplicationPreparationService } from './modules/applications/application-preparation.service.js';
+import { JobAvailabilitySyncService } from './modules/maintenance/job-availability-sync.service.js';
 import { RetentionService } from './modules/maintenance/retention.service.js';
 import { createCollectionService } from './modules/sources/collection.factory.js';
 import { CollectionScheduler } from './workers/collection-scheduler.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
-const collection = createCollectionService(prisma, env, logger);
+const sourceRegistry = createJobSourceRegistry(env);
+const collection = createCollectionService(prisma, env, logger, sourceRegistry);
+const availabilitySync = new JobAvailabilitySyncService(prisma, sourceRegistry, logger);
 const applicationPreparation = new ApplicationPreparationService(prisma);
 const retention = new RetentionService(
   prisma,
@@ -58,6 +62,13 @@ async function runApplicationPreparation(): Promise<void> {
   }
 }
 
+async function runAvailabilitySync(): Promise<void> {
+  const result = await availabilitySync.run(env.JOB_STATUS_SYNC_BATCH_SIZE);
+  if (result.jobsChecked || result.failures) {
+    logger.info({ availabilitySync: result }, 'Disponibilidade das vagas sincronizada');
+  }
+}
+
 await heartbeat();
 void runMaintenance().catch((error: unknown) =>
   logger.error({ err: error }, 'Manutenção de retenção falhou'),
@@ -83,6 +94,15 @@ if (env.AUTO_PREPARE_APPLICATIONS) {
   }, env.APPLICATION_PREPARATION_INTERVAL_SECONDS * 1000);
 }
 
+void runAvailabilitySync().catch((error: unknown) =>
+  logger.error({ err: error }, 'Sincronização de disponibilidade falhou'),
+);
+const availabilitySyncTimer = setInterval(() => {
+  void runAvailabilitySync().catch((error: unknown) =>
+    logger.error({ err: error }, 'Sincronização de disponibilidade falhou'),
+  );
+}, env.JOB_STATUS_SYNC_INTERVAL_MINUTES * 60_000);
+
 const heartbeatTimer = setInterval(() => {
   void heartbeat().catch((error: unknown) => logger.error({ err: error }, 'Heartbeat falhou'));
 }, 30_000);
@@ -106,6 +126,7 @@ async function shutdown(signal: string): Promise<void> {
   scheduler.stop();
   clearInterval(maintenanceTimer);
   if (applicationPreparationTimer) clearInterval(applicationPreparationTimer);
+  clearInterval(availabilitySyncTimer);
   clearInterval(heartbeatTimer);
   await heartbeat('STOPPED').catch(() => undefined);
   await prisma.$disconnect();

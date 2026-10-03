@@ -127,8 +127,9 @@ export class JobCollectionService {
         ? { publishedAfter: new Date(Date.now() - search.publishedWithinHours * 3_600_000) }
         : {}),
     };
+    const rotatesKeyword = source.slug === 'remotive' || source.slug === 'jobicy';
     const selectedKeyword =
-      source.slug === 'remotive' && query.keywords.length
+      rotatesKeyword && query.keywords.length
         ? query.keywords[source.keywordCursor % query.keywords.length]
         : undefined;
     const sourceQuery: JobSearchQuery = selectedKeyword
@@ -286,7 +287,7 @@ export class JobCollectionService {
           metadata: {
             durationMs: Date.now() - started,
             safeMode: this.config.SAFE_MODE,
-            selectedKeyword: source.slug === 'remotive' ? (sourceQuery.keywords[0] ?? null) : null,
+            selectedKeyword: rotatesKeyword ? (sourceQuery.keywords[0] ?? null) : null,
           },
         },
       });
@@ -296,7 +297,7 @@ export class JobCollectionService {
           lastSuccessfulRunAt: new Date(),
           consecutiveFailures: 0,
           cooldownUntil: null,
-          ...(source.slug === 'remotive' && search.keywords.length > 1
+          ...(rotatesKeyword && search.keywords.length > 1
             ? { keywordCursor: (source.keywordCursor + 1) % search.keywords.length }
             : {}),
         },

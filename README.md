@@ -13,7 +13,7 @@ src/
   integrations/
     job-sources/
       mock/                     fonte determinística
-      providers/                Remotive e Arbeitnow
+      providers/                Remotive, Arbeitnow e Jobicy
       shared/                   HTTP, normalização e erros
       job-source.registry.ts
     llm/                        mock/OpenAI e validação
@@ -151,10 +151,12 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 | `AUDIT_LOG_RETENTION_DAYS`                 | `90`          | Retenção de logs de auditoria                  |
 | `JOB_STALE_AFTER_DAYS`                     | `14`          | Dias sem reaparecer antes de `STALE`           |
 | `JOB_CLOSED_AFTER_DAYS`                    | `30`          | Dias sem reaparecer antes de `CLOSED`          |
+| `JOB_STATUS_SYNC_INTERVAL_MINUTES`         | `360`         | Intervalo de status explícito quando suportado |
+| `JOB_STATUS_SYNC_BATCH_SIZE`               | `100`         | IDs verificados por fonte/ciclo                |
 | `AUTO_ANALYZE_NEW_JOBS`                    | `true`        | Análise após ingestão                          |
 | `LLM_MAX_ANALYSES_PER_RUN`                 | `25`          | Limite por execução                            |
 | `LLM_MAX_ANALYSES_PER_DAY`                 | `100`         | Limite diário                                  |
-| `MATCHING_ENGINE_VERSION`                  | `1`           | Versão auditável                               |
+| `MATCHING_ENGINE_VERSION`                  | `2`           | Versão auditável                               |
 | `MAX_JOB_AGE_DAYS`                         | `14`          | Freshness padrão                               |
 | `ENABLE_REAL_JOB_SOURCES`                  | `true`        | Liga adapters reais                            |
 | `ENABLE_AUTO_ANALYSIS`                     | `true`        | Feature flag de análise                        |
@@ -167,6 +169,7 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 | `ENABLE_SCHEDULER`                         | `true`        | Agenda periódica                               |
 | `REMOTIVE_ENABLED`                         | `true`        | Adapter Remotive                               |
 | `ARBEITNOW_ENABLED`                        | `true`        | Adapter Arbeitnow                              |
+| `JOBICY_ENABLED`                           | `true`        | Adapter Jobicy                                 |
 | `SAFE_MODE`                                | `true`        | Proíbe futuras escritas externas               |
 
 A lista completa está em `.env.example`. Nenhum segredo é salvo em `JobSource.configuration` ou logs.
@@ -209,7 +212,7 @@ Compartilhe as demais variáveis entre API e worker. Use health path `/health`. 
 - Arbeitnow pagina de forma limitada (até cinco páginas por execução) para manter coleta conservadora.
 - Remotive alterna uma keyword por execução, em vez de disparar várias chamadas no mesmo ciclo.
 - O limite diário possui reserva atômica compartilhada, mas cada processo ainda limita apenas sua própria concorrência por execução; dimensione múltiplos workers com cautela para não sobrecarregar as fontes.
-- `STALE` e `CLOSED` usam ausência temporal (`lastSeenAt`) como evidência; confirmação explícita por API/ATS pode ser adicionada no futuro.
+- Jobicy usa confirmação explícita de `active/closed/unknown`; Remotive e Arbeitnow continuam usando ausência temporal (`lastSeenAt`) como evidência de `STALE`/`CLOSED`.
 - Notificações externas suportam webhook genérico, mas ainda não existem providers específicos de e-mail/Slack/Discord.
 - Reprocessamento completo existe por `POST /jobs/reprocess` e CLI `npm run reprocess:jobs`, mas requer um perfil real; o seed permanece deliberadamente de demonstração.
 - O currículo personalizado em Markdown e o acompanhamento manual de candidatura já existem. A submissão automática possui interface/registry e endpoint, porém nenhum provider externo está habilitado por padrão; `SAFE_MODE=true` continua bloqueando qualquer envio.

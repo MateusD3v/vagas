@@ -37,8 +37,8 @@ export function inferSeniority(title: string): string | undefined {
   const normalized = normalizeText(title);
   if (/\b(intern|internship|estagio)\b/.test(normalized)) return 'INTERN';
   if (/\b(trainee|entry|junior|jr)\b/.test(normalized)) return 'JUNIOR';
-  if (/\b(mid|pleno)\b/.test(normalized)) return 'MID';
   if (/\b(senior|sr|staff|principal|lead)\b/.test(normalized)) return 'SENIOR';
+  if (/\b(mid|midweight|midlevel|pleno|intermediate)\b/.test(normalized)) return 'MID';
   return undefined;
 }
 

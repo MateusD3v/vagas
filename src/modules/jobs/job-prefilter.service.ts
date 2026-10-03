@@ -65,6 +65,13 @@ export class JobPreFilterService {
     if (onlyEarlyCareer && seniorTerms.some((term) => jobSeniority.includes(term))) {
       reasons.push('Senioridade incompatível: vaga sênior para perfil de início de carreira');
     }
+    if (
+      job.seniority &&
+      targetSeniorities.length &&
+      !targetSeniorities.some((level) => includesText(level, job.seniority ?? ''))
+    ) {
+      reasons.push(`Senioridade não desejada: ${job.seniority}`);
+    }
 
     if (search.remoteTypes.length && !search.remoteTypes.includes(job.remoteType)) {
       reasons.push(`Modalidade não desejada: ${job.remoteType}`);
@@ -106,7 +113,10 @@ export class JobPreFilterService {
     const matchedSkills = job.skills.filter((requirement) =>
       candidate.skills.some((skill) => normalizeText(skill) === normalizeText(requirement.skill)),
     ).length;
-    const skillRatio = job.skills.length ? matchedSkills / job.skills.length : 0.5;
+    if (!keywordMatch && matchedSkills === 0) {
+      reasons.push('Sem evidência de alinhamento por palavra-chave ou competência');
+    }
+    const skillRatio = job.skills.length ? matchedSkills / job.skills.length : 0;
     const modalityMatch =
       !search.remoteTypes.length || search.remoteTypes.includes(job.remoteType) ? 1 : 0;
     const seniorityMatch =

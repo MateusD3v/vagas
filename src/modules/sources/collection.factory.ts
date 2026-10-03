@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Environment } from '../../config/env.js';
+import type { JobSourceRegistry } from '../../integrations/job-sources/job-source.registry.js';
 import { createJobSourceRegistry } from '../../integrations/job-sources/registry.factory.js';
 import { createLLMProvider } from '../../integrations/llm/provider.factory.js';
 import { ConsoleNotificationProvider } from '../../integrations/notifications/console.provider.js';
@@ -14,6 +15,7 @@ export function createCollectionService(
   db: PrismaClient,
   config: Environment,
   logger: AppLogger,
+  registry: JobSourceRegistry = createJobSourceRegistry(config),
 ): JobCollectionService {
   const notifications: NotificationProvider[] = [];
   if (config.ENABLE_NOTIFICATIONS) {
@@ -31,7 +33,7 @@ export function createCollectionService(
   const events = new DomainEventBus(notifications);
   return new JobCollectionService(
     db,
-    createJobSourceRegistry(config),
+    registry,
     new JobMatchingService(
       db,
       createLLMProvider(config),

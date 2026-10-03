@@ -64,4 +64,19 @@ describe('matching determinístico', () => {
     expect(result.matchedSkills).toContain('Node.js');
     expect(result.missingSkills).toContain('Java');
   });
+
+  it('não concede APPLY quando cargo e competências não têm evidência de alinhamento', () => {
+    const result = calculateDeterministicMatch(
+      candidateFixture(),
+      jobFixture({
+        title: 'RPG AS400 Developer',
+        description: 'JD Edwards EnterpriseOne and DB2',
+        skills: [],
+        seniority: null,
+      }),
+    );
+    expect(result.decision).toBe('SKIP');
+    expect(result.hardConstraints.join(' ')).toMatch(/Sem evidência de alinhamento/);
+    expect(result.components.skills).toBe(0);
+  });
 });

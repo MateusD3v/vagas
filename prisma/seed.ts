@@ -146,6 +146,18 @@ async function main() {
       baseUrl: 'https://www.arbeitnow.com/api/job-board-api',
       configuration: { authentication: 'none' },
     },
+    {
+      name: 'Jobicy',
+      slug: 'jobicy',
+      type: 'API' as const,
+      baseUrl: 'https://jobicy.com/api/v2/remote-jobs',
+      configuration: {
+        authentication: 'none',
+        attributionRequired: true,
+        publicWindowDays: 7,
+        recommendedPolling: 'few-times-per-day',
+      },
+    },
   ];
   for (const definition of sourceDefinitions) {
     await db.jobSource.upsert({

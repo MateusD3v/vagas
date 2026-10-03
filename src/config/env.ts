@@ -28,13 +28,15 @@ const envSchema = z
     AUDIT_LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
     JOB_STALE_AFTER_DAYS: z.coerce.number().int().positive().default(14),
     JOB_CLOSED_AFTER_DAYS: z.coerce.number().int().positive().default(30),
+    JOB_STATUS_SYNC_INTERVAL_MINUTES: z.coerce.number().int().positive().default(360),
+    JOB_STATUS_SYNC_BATCH_SIZE: z.coerce.number().int().positive().max(100).default(100),
     AUTO_ANALYZE_NEW_JOBS: z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
     LLM_MAX_ANALYSES_PER_RUN: z.coerce.number().int().positive().default(25),
     LLM_MAX_ANALYSES_PER_DAY: z.coerce.number().int().positive().default(100),
-    MATCHING_ENGINE_VERSION: z.coerce.number().int().positive().default(1),
+    MATCHING_ENGINE_VERSION: z.coerce.number().int().positive().default(2),
     MAX_JOB_AGE_DAYS: z.coerce.number().int().positive().default(14),
     ENABLE_REAL_JOB_SOURCES: z
       .string()
@@ -72,6 +74,10 @@ const envSchema = z
       .default('true')
       .transform((value) => value === 'true'),
     ARBEITNOW_ENABLED: z
+      .string()
+      .default('true')
+      .transform((value) => value === 'true'),
+    JOBICY_ENABLED: z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
