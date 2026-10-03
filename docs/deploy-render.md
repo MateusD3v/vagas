@@ -6,9 +6,11 @@ O repositório inclui `render.yaml` para criar a infraestrutura mínima do agent
 
 - `vagas-api`: Web Service Docker, com `/health` como health check.
 - `vagas-worker-cron`: Cron Job Docker usando a mesma imagem, executado a cada seis horas.
-- `vagas-db`: PostgreSQL privado para API e cron.
+- `vagas-db`: PostgreSQL privado para API e cron, na região `virginia`.
 
-O Blueprint foi ajustado para a opção de menor custo operacional: API como Web Service e processamento em segundo plano via Cron Job. O cron usa `node dist/src/worker-once.js`, `WORKER_MODE=cron` e `WORKER_HEALTH_TTL_SECONDS=25200`, suficiente para uma janela de sete horas entre heartbeats.
+API, cron e banco ficam explicitamente na mesma região (`virginia`) para preservar conectividade privada e evitar diferenças de latência/região. Como já existe um `vagas-db` nesse workspace, o Blueprint referencia o recurso pelo nome e não fixa `databaseName`/`user`, que são propriedades imutáveis do banco existente.
+
+O Blueprint foi ajustado para a opção de menor custo operacional: API no plano `free` e processamento em segundo plano via Cron Job. O cron não possui plano gratuito; a plataforma cobra pelo tempo ativo e mantém cobrança mínima mensal para esse tipo de serviço. O cron usa `node dist/src/worker-once.js`, `WORKER_MODE=cron` e `WORKER_HEALTH_TTL_SECONDS=25200`, suficiente para uma janela de sete horas entre heartbeats.
 
 O ciclo único executa coleta, retomada de `PENDING_ANALYSIS`, sincronização de disponibilidade, preparação das candidaturas pendentes e retenção, grava `IDLE` no heartbeat e encerra normalmente. Isso evita manter um worker contínuo 24/7.
 
