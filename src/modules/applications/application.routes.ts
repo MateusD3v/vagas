@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../database/client.js';
+import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
+import { ApplicationPreparationService } from './application-preparation.service.js';
 
 const applicationQuerySchema = paginationSchema.extend({
   status: z
@@ -21,6 +23,8 @@ const applicationQuerySchema = paginationSchema.extend({
 });
 
 export function applicationRoutes(app: FastifyInstance): void {
+  const preparation = new ApplicationPreparationService(prisma);
+
   app.get(
     '/applications',
     { schema: { tags: ['Applications'], summary: 'Lista candidaturas preparadas' } },
@@ -39,6 +43,28 @@ export function applicationRoutes(app: FastifyInstance): void {
       ]);
       return { data: items, meta: paginationMeta(total, query.page, query.pageSize) };
     },
+  );
+
+  app.get(
+    '/applications/:id/preparation',
+    {
+      schema: { tags: ['Applications'], summary: 'Obtém o pacote preparado da candidatura' },
+    },
+    (request) => preparation.get(idParamsSchema.parse(request.params).id),
+  );
+
+  app.post(
+    '/applications/:id/prepare',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Applications'],
+        summary: 'Gera ou atualiza o pacote local para candidatura',
+        security: [{ adminKey: [] }],
+      },
+    },
+    (request) => preparation.prepare(idParamsSchema.parse(request.params).id),
   );
 
   app.get(

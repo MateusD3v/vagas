@@ -87,6 +87,7 @@ Compatibilidade da Fase 1 preservada:
 - `POST /jobs/import/mock`, `POST /jobs/:id/analyze`, `POST /jobs/reprocess`
 - `GET /matches`, `GET /matches/:id`
 - `GET /applications`, `GET /applications/:id`
+- `POST /applications/:id/prepare`, `GET /applications/:id/preparation`
 - `GET /stats`, `GET /docs`
 
 Fase 2:
@@ -111,6 +112,10 @@ Antes do matching, regras baratas verificam palavras excluídas, senioridade, mo
 `LLM_MAX_ANALYSES_PER_RUN` e `LLM_MAX_ANALYSES_PER_DAY` deixam excedentes em `PENDING_ANALYSIS`; cada ciclo do worker retoma essa fila por prioridade, mesmo quando nenhuma vaga nova é importada ou a criação de uma coleta falha. A cota diária é reservada por atualização condicional atômica no PostgreSQL, portanto permanece segura com processos concorrentes. Resultados encontrados no cache devolvem a reserva. O hash de vaga + perfil + configuração e `MATCHING_ENGINE_VERSION` evitam nova chamada quando nada mudou. Sem `OPENAI_API_KEY`, o provider mock mantém o pipeline funcional.
 
 Hard constraints continuam soberanas. A IA nunca altera o perfil nem cria competências ou respostas.
+
+## Preparação de candidatura
+
+`POST /applications/:id/prepare` gera um pacote estruturado a partir exclusivamente do perfil salvo e da vaga: contato, formação, competências, idiomas, experiências priorizadas por relevância e respostas marcadas como reutilizáveis. O pacote registra informações ausentes em vez de inventá-las e permanece local em `ApplicationPreparation`; nenhuma submissão externa é realizada. `GET /applications/:id/preparation` recupera a versão mais recente.
 
 ## HTTP, retry e circuit breaker
 

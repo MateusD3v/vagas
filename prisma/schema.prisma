@@ -404,11 +404,26 @@ model Application {
   submittedAt           DateTime?
   externalApplicationId String?
   notes                 String?
-  candidate             CandidateProfile  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  job                   Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate             CandidateProfile         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job                   Job                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  preparation           ApplicationPreparation?
 
   @@unique([candidateId, jobId])
   @@index([status])
+}
+
+model ApplicationPreparation {
+  id                 String      @id @default(uuid())
+  applicationId      String      @unique
+  payload            Json
+  reusableAnswers    Json
+  missingInformation String[]
+  version            Int         @default(1)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  application        Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
 }
 
 model AuditLog {
