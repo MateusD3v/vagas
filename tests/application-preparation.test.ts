@@ -172,6 +172,7 @@ describe('ApplicationPreparationService', () => {
     const call = upsert.mock.calls[0]?.[0] as {
       create: {
         payload: {
+          resumeMarkdown: string;
           resume: {
             skills: Array<{ name: string; matchedToJob: boolean }>;
             experiences: Array<{ role: string }>;
@@ -189,6 +190,10 @@ describe('ApplicationPreparationService', () => {
       matchedToJob: true,
     });
     expect(call.create.payload.resume.experiences[0]?.role).toBe('Desenvolvedor');
+    expect(call.create.payload.resumeMarkdown).toContain('# Mateus Teste');
+    expect(call.create.payload.resumeMarkdown).toContain('Node.js — JUNIOR');
+    expect(call.create.payload.resumeMarkdown).toContain('Desenvolvedor — Órgão');
+    expect(call.create.payload.resumeMarkdown).not.toContain('AWS');
     expect(call.create.missingInformation).toEqual(
       expect.arrayContaining([
         'Telefone do candidato não informado',

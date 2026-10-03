@@ -29,6 +29,79 @@ function experienceRelevance(
     return score + (jobSkills.has(normalized) || jobText.includes(normalized) ? 1 : 0);
   }, 0);
 }
+
+function monthYear(value: Date | null): string {
+  if (!value) return 'Atual';
+  return new Intl.DateTimeFormat('pt-BR', { month: '2-digit', year: 'numeric' }).format(value);
+}
+
+function renderResumeMarkdown(
+  candidate: PreparationApplication['candidate'],
+  skills: PreparationApplication['candidate']['skills'],
+  experiences: PreparationApplication['candidate']['experiences'],
+): string {
+  const contact = [
+    candidate.email,
+    candidate.phone,
+    [candidate.city, candidate.state].filter(Boolean).join(' - '),
+    candidate.linkedinUrl,
+    candidate.githubUrl,
+    candidate.portfolioUrl,
+  ].filter((value): value is string => Boolean(value));
+
+  const lines = [
+    `# ${candidate.fullName}`,
+    contact.join(' | '),
+    '',
+    '## Resumo profissional',
+    candidate.professionalSummary,
+    '',
+    '## Competências',
+    skills.map((skill) => `- ${skill.name} — ${skill.level}`).join('\n'),
+    '',
+    '## Experiência',
+  ];
+
+  for (const experience of experiences) {
+    lines.push(
+      `### ${experience.role} — ${experience.company}`,
+      `${monthYear(experience.startDate)} – ${monthYear(experience.endDate)}`,
+      experience.description,
+      experience.technologies.length ? `Tecnologias: ${experience.technologies.join(', ')}` : '',
+      ...experience.achievements.map((achievement) => `- ${achievement}`),
+      '',
+    );
+  }
+
+  if (candidate.course || candidate.institution || candidate.educationLevel) {
+    lines.push(
+      '## Formação',
+      [candidate.course, candidate.institution, candidate.educationLevel]
+        .filter(Boolean)
+        .join(' — '),
+      candidate.graduationDate ? `Conclusão prevista: ${monthYear(candidate.graduationDate)}` : '',
+      '',
+    );
+  }
+
+  if (candidate.languages.length) {
+    lines.push(
+      '## Idiomas',
+      ...candidate.languages.map((language) => `- ${language.language} — ${language.level}`),
+      '',
+    );
+  }
+
+  if (candidate.certifications.length) {
+    lines.push('## Certificações', ...candidate.certifications.map((item) => `- ${item}`), '');
+  }
+
+  return lines
+    .filter((line, index) => line !== '' || lines[index - 1] !== '')
+    .join('\n')
+    .trim();
+}
+
 function buildPreparation(application: PreparationApplication) {
   const candidate = application.candidate;
   const job = application.job;
@@ -82,6 +155,7 @@ function buildPreparation(application: PreparationApplication) {
       employmentType: job.employmentType,
       applicationUrl: job.applicationUrl,
     },
+    resumeMarkdown: renderResumeMarkdown(candidate, skills, experiences),
     resume: {
       fullName: candidate.fullName,
       contact: {

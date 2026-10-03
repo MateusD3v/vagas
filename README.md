@@ -118,7 +118,7 @@ Hard constraints continuam soberanas. A IA nunca altera o perfil nem cria compet
 
 ## Preparação de candidatura
 
-`POST /applications/:id/prepare` gera um pacote estruturado a partir exclusivamente do perfil salvo e da vaga: contato, formação, competências, idiomas, experiências priorizadas por relevância e respostas marcadas como reutilizáveis. O pacote registra informações ausentes em vez de inventá-las e permanece local em `ApplicationPreparation`; nenhuma submissão externa é realizada. `GET /applications/:id/preparation` recupera a versão mais recente. `GET /applications/:id/eligibility` avalia a política configurada, limite diário, fonte, score, dados faltantes e separa esses requisitos dos bloqueios operacionais (`SAFE_MODE` e ausência de um provider de submissão autorizado).
+`POST /applications/:id/prepare` gera um pacote estruturado a partir exclusivamente do perfil salvo e da vaga: contato, formação, competências, idiomas, experiências priorizadas por relevância, currículo em Markdown e respostas marcadas como reutilizáveis. O pacote registra informações ausentes em vez de inventá-las e permanece local em `ApplicationPreparation`; nenhuma submissão externa é realizada. `GET /applications/:id/preparation` recupera a versão mais recente. `GET /applications/:id/eligibility` avalia a política configurada, limite diário, fonte, score, dados faltantes e separa esses requisitos dos bloqueios operacionais (`SAFE_MODE` e ausência de um provider de submissão autorizado).
 
 ## HTTP, retry e circuit breaker
 
