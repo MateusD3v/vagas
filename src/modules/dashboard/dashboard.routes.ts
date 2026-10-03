@@ -72,7 +72,7 @@ const dashboardHtml = `<!doctype html>
       </div>
       <label class="check"><input id="manualFastApply" type="checkbox" /> A vaga indica candidatura rápida</label>
       <div style="margin-top:10px"><textarea id="manualDescription" placeholder="Cole a descrição da vaga"></textarea></div>
-      <div style="margin-top:10px"><button id="manualImport">Importar e analisar</button></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button id="resolveUrl" type="button">Buscar dados do link</button><button id="manualImport">Importar e analisar</button></div>
     </div>
   </section>
 
@@ -243,6 +243,46 @@ const dashboardHtml = `<!doctype html>
       statusEl.className = 'bad';
     }
   }
+
+  document.getElementById('resolveUrl').addEventListener('click', async () => {
+    const button = document.getElementById('resolveUrl');
+    const applicationUrl = document.getElementById('manualUrl').value.trim();
+    if (!applicationUrl) {
+      statusEl.textContent = 'Informe a URL da vaga.';
+      statusEl.className = 'warn';
+      return;
+    }
+
+    try {
+      button.setAttribute('disabled', 'true');
+      button.textContent = 'Buscando...';
+      const result = await api('/jobs/resolve-url', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: applicationUrl }),
+      });
+
+      if (result.data) {
+        if (result.data.title) document.getElementById('manualTitle').value = result.data.title;
+        if (result.data.company) document.getElementById('manualCompany').value = result.data.company;
+        if (result.data.description) document.getElementById('manualDescription').value = result.data.description;
+        if (result.data.location) document.getElementById('manualLocation').value = result.data.location;
+        if (result.data.remoteType) document.getElementById('manualRemoteType').value = result.data.remoteType;
+        if (result.data.applicationUrl) document.getElementById('manualUrl').value = result.data.applicationUrl;
+      }
+
+      statusEl.textContent = result.supported
+        ? 'Dados carregados de ' + (result.platform || 'ATS') + '.'
+        : (result.message || 'Esse link precisa de preenchimento manual.');
+      statusEl.className = result.supported ? 'ok' : 'warn';
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Falha ao buscar dados do link';
+      statusEl.className = 'bad';
+    } finally {
+      button.removeAttribute('disabled');
+      button.textContent = 'Buscar dados do link';
+    }
+  });
 
   document.getElementById('manualImport').addEventListener('click', async () => {
     const button = document.getElementById('manualImport');

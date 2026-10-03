@@ -32,6 +32,10 @@ export const normalizedJobSchema = z.object({
   rawData: z.record(z.unknown()),
 });
 
+export const jobUrlResolveSchema = z.object({
+  url: z.string().url(),
+});
+
 export const manualJobImportSchema = z.object({
   externalId: z.string().min(1).optional(),
   title: z.string().min(1),

@@ -85,7 +85,7 @@ Compatibilidade da Fase 1 preservada:
 - `GET|POST|PUT|PATCH /profile`, `GET /profile/readiness`
 - `GET|POST /candidate-answers`, `PUT|DELETE /candidate-answers/:id`
 - `GET /jobs`, `GET /jobs/:id`
-- `POST /jobs/import/mock`, `POST /jobs/import/manual`, `POST /jobs/:id/analyze`, `POST /jobs/reprocess`
+- `POST /jobs/import/mock`, `POST /jobs/resolve-url`, `POST /jobs/import/manual`, `POST /jobs/:id/analyze`, `POST /jobs/reprocess`
 - `GET /matches`, `GET /matches/:id`
 - `GET /applications`, `GET /applications/:id`
 - `POST /applications/:id/prepare`, `GET /applications/:id/preparation`, `GET /applications/:id/resume.md`
@@ -120,7 +120,7 @@ Hard constraints continuam soberanas. A IA nunca altera o perfil nem cria compet
 
 ## Preparação de candidatura
 
-`POST /jobs/import/manual` permite registrar uma vaga externa informada pelo usuário, inclusive links de LinkedIn/Indeed ou ATS conhecidos, sem fazer scraping ou automação de navegador. O campo `fastApply=true` é apenas um hint explícito para classificar a vaga como candidatura rápida no dashboard; não dispara cliques nem submissão.
+`POST /jobs/resolve-url` enriquece links públicos de ATS suportados sem submeter candidatura. Nesta etapa Lever e Greenhouse usam seus endpoints públicos para preencher o que for verificável; LinkedIn/Indeed continuam no fluxo manual/FAST APPLY porque não há extração por API pública de candidato. `POST /jobs/import/manual` registra a vaga externa, executa o matching e, quando uma candidatura é criada, já prepara o pacote local. O campo `fastApply=true` é apenas um hint explícito para classificar a vaga como candidatura rápida no dashboard; não dispara cliques nem submissão.
 
 `POST /applications/:id/prepare` gera um pacote estruturado a partir exclusivamente do perfil salvo e da vaga: contato, formação, competências, idiomas, experiências priorizadas por relevância, currículo em Markdown e respostas marcadas como reutilizáveis. O pacote registra informações ausentes em vez de inventá-las e permanece local em `ApplicationPreparation`. Com `AUTO_PREPARE_APPLICATIONS=true`, o worker também prepara automaticamente candidaturas `READY`/`REVIEW_REQUIRED` que ainda não possuem pacote, em lotes configuráveis. `GET /applications/:id/preparation` recupera a versão mais recente. `GET /applications/:id/eligibility` avalia a política configurada, limite diário, fonte, score, dados faltantes e separa esses requisitos dos bloqueios operacionais (`SAFE_MODE` e ausência de um provider de submissão autorizado).
 
