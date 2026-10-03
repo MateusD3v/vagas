@@ -33,6 +33,11 @@ const dashboardHtml = `<!doctype html>
     .warn { color:#f2cc60; }
     .bad { color:#ff7b72; }
     .hidden { display:none; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(3,7,18,.78); display:flex; align-items:center; justify-content:center; padding:20px; z-index:20; }
+    .modal { width:min(760px,100%); max-height:85vh; overflow:auto; background:#11182b; border:1px solid #29324a; border-radius:16px; padding:18px; }
+    .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+    .answer { padding:10px 0; border-bottom:1px solid #222b42; }
     code { color:#c9d1ff; }
   </style>
 </head>
@@ -86,6 +91,13 @@ const dashboardHtml = `<!doctype html>
       <tbody id="runs"><tr><td colspan="6" class="muted">Sem dados.</td></tr></tbody>
     </table>
   </section>
+
+  <div id="kitModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head"><h2>Kit de candidatura</h2><button id="closeKit" type="button">Fechar</button></div>
+      <div id="kitContent" class="muted">Carregando...</div>
+    </div>
+  </div>
 
   <section>
     <h2>Auditoria recente</h2>
@@ -195,6 +207,7 @@ const dashboardHtml = `<!doctype html>
         const actions = [
           applicationUrl ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">' + esc(openLabel) + '</button></a>' : '',
           preparation ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>' : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
+          preparation ? '<button type="button" data-fast-kit="' + esc(item.id) + '">Kit rápido</button>' : '',
           statusAction(item),
         ].filter(Boolean).join(' ');
         const channelLabel = channel.flow === 'FAST_APPLY'
@@ -282,7 +295,10 @@ const dashboardHtml = `<!doctype html>
     if (!(target instanceof HTMLElement)) return;
 
     const applicationId =
-      target.dataset.prepare || target.dataset.downloadResume || target.dataset.updateStatus;
+      target.dataset.prepare ||
+      target.dataset.downloadResume ||
+      target.dataset.fastKit ||
+      target.dataset.updateStatus;
     if (!applicationId) return;
 
     try {
@@ -310,6 +326,46 @@ const dashboardHtml = `<!doctype html>
         return;
       }
 
+      if (target.dataset.fastKit) {
+        const kit = await api('/applications/' + encodeURIComponent(applicationId) + '/fast-apply-kit');
+        const answers = Array.isArray(kit.reusableAnswers) ? kit.reusableAnswers : [];
+        const missing = Array.isArray(kit.missingInformation) ? kit.missingInformation : [];
+        const answerText = answers
+          .map(answer => (answer.question || answer.questionKey || 'Pergunta') + ': ' + (answer.answer || ''))
+          .join('\n\n');
+        const content = document.getElementById('kitContent');
+        content.innerHTML =
+          '<div><strong>Canal:</strong> ' + esc(kit.channel?.label || 'Externa') + '</div>' +
+          '<div><strong>Fluxo:</strong> ' + esc(kit.channel?.flow || 'MANUAL') + '</div>' +
+          (missing.length ? '<p class="warn"><strong>Pendências:</strong> ' + missing.map(esc).join(' · ') + '</p>' : '<p class="ok">Sem pendências conhecidas no pacote.</p>') +
+          '<div class="modal-actions">' +
+          '<button type="button" id="copyKitAnswers">Copiar respostas</button>' +
+          '<button type="button" id="downloadKitResume">Baixar currículo</button>' +
+          '</div>' +
+          (answers.length
+            ? answers.map(answer => '<div class="answer"><strong>' + esc(answer.question || answer.questionKey) + '</strong><div>' + esc(answer.answer) + '</div></div>').join('')
+            : '<div class="muted">Nenhuma resposta reutilizável cadastrada.</div>');
+        const modal = document.getElementById('kitModal');
+        modal.classList.remove('hidden');
+        document.getElementById('copyKitAnswers').addEventListener('click', async () => {
+          await navigator.clipboard.writeText(answerText || 'Nenhuma resposta reutilizável cadastrada.');
+          statusEl.textContent = 'Respostas copiadas.';
+          statusEl.className = 'ok';
+        });
+        document.getElementById('downloadKitResume').addEventListener('click', () => {
+          const blob = new Blob([kit.resumeMarkdown || ''], { type: 'text/markdown;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = 'curriculo-' + applicationId + '.md';
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          URL.revokeObjectURL(url);
+        });
+        return;
+      }
+
       const response = await request('/applications/' + encodeURIComponent(applicationId) + '/resume.md');
       const markdown = await response.text();
       const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
@@ -325,6 +381,15 @@ const dashboardHtml = `<!doctype html>
       statusEl.textContent = error instanceof Error ? error.message : 'Falha na ação';
       statusEl.className = 'bad';
       target.removeAttribute('disabled');
+    }
+  });
+
+  document.getElementById('closeKit').addEventListener('click', () => {
+    document.getElementById('kitModal').classList.add('hidden');
+  });
+  document.getElementById('kitModal').addEventListener('click', (event) => {
+    if (event.target === document.getElementById('kitModal')) {
+      document.getElementById('kitModal').classList.add('hidden');
     }
   });
 

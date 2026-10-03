@@ -89,6 +89,7 @@ Compatibilidade da Fase 1 preservada:
 - `GET /matches`, `GET /matches/:id`
 - `GET /applications`, `GET /applications/:id`
 - `POST /applications/:id/prepare`, `GET /applications/:id/preparation`, `GET /applications/:id/resume.md`
+- `GET /applications/:id/fast-apply-kit` para currículo + respostas reutilizáveis + pendências
 - `GET /applications/:id/eligibility` para explicar requisitos e bloqueios de automação
 - `POST /applications/:id/submit` para provider de submissão explicitamente autorizado
 - `PATCH /applications/:id/status` para acompanhamento manual auditável (também disponível no dashboard)

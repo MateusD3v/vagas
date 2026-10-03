@@ -92,6 +92,38 @@ export function applicationRoutes(app: FastifyInstance): void {
   );
 
   app.get(
+    '/applications/:id/fast-apply-kit',
+    {
+      schema: {
+        tags: ['Applications'],
+        summary: 'Monta o kit local para candidatura rápida/manual',
+      },
+    },
+    async (request) => {
+      const applicationId = idParamsSchema.parse(request.params).id;
+      const application = await prisma.application.findUnique({
+        where: { id: applicationId },
+        include: { job: true },
+      });
+      if (!application) throw new AppError('Candidatura não encontrada', 404);
+      const prepared = await preparation.get(applicationId);
+      const resumeMarkdown = await preparation.getResumeMarkdown(applicationId);
+      return {
+        applicationId,
+        applicationUrl: application.job.applicationUrl,
+        channel: classifyApplicationChannel(
+          application.job.applicationUrl,
+          application.job.source,
+          readFastApplyHint(application.job.rawData),
+        ),
+        resumeMarkdown,
+        reusableAnswers: prepared.reusableAnswers,
+        missingInformation: prepared.missingInformation,
+      };
+    },
+  );
+
+  app.get(
     '/applications/:id/preparation',
     {
       schema: { tags: ['Applications'], summary: 'Obtém o pacote preparado da candidatura' },
