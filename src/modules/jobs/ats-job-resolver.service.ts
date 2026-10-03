@@ -78,6 +78,57 @@ const ashbyBoardSchema = z.object({
   jobs: z.array(ashbyPostingSchema),
 });
 
+const smartRecruitersSectionSchema = z
+  .object({
+    title: z.string().nullish(),
+    text: z.string().nullish(),
+  })
+  .passthrough();
+
+const smartRecruitersPostingSchema = z
+  .object({
+    id: z.string(),
+    uuid: z.string().nullish(),
+    name: z.string().min(1),
+    company: z
+      .object({
+        name: z.string().min(1),
+        identifier: z.string().nullish(),
+      })
+      .passthrough()
+      .optional(),
+    location: z
+      .object({
+        city: z.string().nullish(),
+        region: z.string().nullish(),
+        country: z.string().nullish(),
+        remote: z.boolean().optional(),
+      })
+      .passthrough()
+      .optional(),
+    experienceLevel: z.object({ label: z.string().nullish() }).passthrough().nullish(),
+    typeOfEmployment: z.object({ label: z.string().nullish() }).passthrough().nullish(),
+    postingUrl: z.string().url().nullish(),
+    applyUrl: z.string().url().nullish(),
+    releasedDate: z.string().nullish(),
+    jobAd: z
+      .object({
+        sections: z
+          .object({
+            companyDescription: smartRecruitersSectionSchema.optional(),
+            jobDescription: smartRecruitersSectionSchema.optional(),
+            qualifications: smartRecruitersSectionSchema.optional(),
+            additionalInformation: smartRecruitersSectionSchema.optional(),
+          })
+          .partial()
+          .optional(),
+      })
+      .passthrough()
+      .optional(),
+    active: z.boolean().optional(),
+  })
+  .passthrough();
+
 export interface ResolvedJobUrl {
   supported: boolean;
   platform: string;
@@ -129,6 +180,9 @@ export class AtsJobResolverService {
     }
     if (host === 'jobs.ashbyhq.com') {
       return this.resolveAshby(url, channel.flow);
+    }
+    if (host === 'jobs.smartrecruiters.com') {
+      return this.resolveSmartRecruiters(url, channel.flow);
     }
     if (host.includes('linkedin.com') || host.includes('indeed.com')) {
       return {
@@ -250,6 +304,68 @@ export class AtsJobResolverService {
       },
       missingFields: ['company'],
       message: 'Dados públicos da vaga Ashby carregados; confirme a empresa antes de importar.',
+    };
+  }
+
+  private async resolveSmartRecruiters(
+    url: URL,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    const [companyIdentifier, postingSegment] = url.pathname.split('/').filter(Boolean);
+    const postingId = postingSegment?.split('-')[0];
+    if (!companyIdentifier || !postingId) {
+      return {
+        supported: false,
+        platform: 'SMARTRECRUITERS',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'URL SmartRecruiters sem empresa/posting id reconhecíveis.',
+      };
+    }
+
+    const endpoint = `https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(companyIdentifier)}/postings/${encodeURIComponent(postingId)}`;
+    const raw = await this.http.getJson<unknown>(endpoint, {
+      source: 'smartrecruiters-resolver',
+      requestsPerSecond: 1,
+    });
+    const job = smartRecruitersPostingSchema.parse(raw);
+    const sections = job.jobAd?.sections;
+    const description = [
+      sections?.jobDescription?.text,
+      sections?.qualifications?.text,
+      sections?.additionalInformation?.text,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => stripHtml(value).trim())
+      .filter(Boolean)
+      .join('\n\n');
+    const location = [job.location?.city, job.location?.region, job.location?.country]
+      .filter((value): value is string => Boolean(value))
+      .join(', ');
+
+    return {
+      supported: true,
+      platform: 'SMARTRECRUITERS',
+      flow: 'ATS',
+      data: {
+        externalId: job.uuid ?? job.id,
+        title: job.name,
+        company: job.company?.name,
+        description: description || job.name,
+        location: location || undefined,
+        remoteType: job.location?.remote ? 'REMOTE' : 'UNSPECIFIED',
+        employmentType: job.typeOfEmployment?.label ?? undefined,
+        applicationUrl: job.applyUrl ?? job.postingUrl ?? url.toString(),
+        publishedAt: job.releasedDate ?? undefined,
+      },
+      missingFields: [
+        ...(job.company?.name ? [] : ['company']),
+        ...(description ? [] : ['description']),
+      ],
+      message:
+        job.active === false
+          ? 'A publicação SmartRecruiters está marcada como inativa.'
+          : undefined,
     };
   }
 

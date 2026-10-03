@@ -1,5 +1,12 @@
 export type ApplicationPlatform =
-  'LINKEDIN' | 'INDEED' | 'GREENHOUSE' | 'LEVER' | 'ASHBY' | 'WORKDAY' | 'OTHER';
+  | 'LINKEDIN'
+  | 'INDEED'
+  | 'GREENHOUSE'
+  | 'LEVER'
+  | 'ASHBY'
+  | 'SMARTRECRUITERS'
+  | 'WORKDAY'
+  | 'OTHER';
 
 export type ApplicationFlow = 'FAST_APPLY' | 'ATS' | 'MANUAL';
 
@@ -56,6 +63,9 @@ export function classifyApplicationChannel(
   }
   if (host.includes('ashbyhq.com')) {
     return { platform: 'ASHBY', flow: 'ATS', label: 'Ashby' };
+  }
+  if (host.includes('smartrecruiters.com')) {
+    return { platform: 'SMARTRECRUITERS', flow: 'ATS', label: 'SmartRecruiters' };
   }
   if (host.includes('myworkdayjobs.com') || host.includes('workday.com')) {
     return { platform: 'WORKDAY', flow: 'ATS', label: 'Workday' };
