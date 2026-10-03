@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { env } from '../../config/env.js';
 import { prisma } from '../../database/client.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
+import { ApplicationEligibilityService } from './application-eligibility.service.js';
 import { ApplicationPreparationService } from './application-preparation.service.js';
 import { ApplicationService } from './application.service.js';
 
@@ -31,6 +33,7 @@ const applicationQuerySchema = paginationSchema.extend({
 
 export function applicationRoutes(app: FastifyInstance): void {
   const preparation = new ApplicationPreparationService(prisma);
+  const eligibility = new ApplicationEligibilityService(prisma, env.SAFE_MODE);
   const applications = new ApplicationService(prisma);
 
   app.get(
@@ -73,6 +76,17 @@ export function applicationRoutes(app: FastifyInstance): void {
       },
     },
     (request) => preparation.prepare(idParamsSchema.parse(request.params).id),
+  );
+
+  app.get(
+    '/applications/:id/eligibility',
+    {
+      schema: {
+        tags: ['Applications'],
+        summary: 'Avalia elegibilidade e bloqueios para automação',
+      },
+    },
+    (request) => eligibility.evaluate(idParamsSchema.parse(request.params).id),
   );
 
   app.patch(
