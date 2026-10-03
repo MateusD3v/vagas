@@ -22,12 +22,18 @@ export interface ReusableAnswer {
   allowedForAutomaticUse: boolean;
 }
 
+export interface ProfileQuestionValue {
+  field: string;
+  value: string;
+}
+
 export interface QuestionReadinessResult {
   label: string;
   required: boolean;
   status: QuestionReadinessStatus;
   source: 'PROFILE' | 'SAVED_ANSWER' | 'MANUAL';
   answer?: string;
+  profileValues?: ProfileQuestionValue[];
   sensitive: boolean;
 }
 
@@ -59,42 +65,86 @@ const sensitiveTerms = [
   'privacidade',
 ];
 
-const profileFieldAliases: Record<string, keyof QuestionReadinessCandidate | 'resume'> = {
-  first_name: 'fullName',
-  last_name: 'fullName',
-  name: 'fullName',
-  full_name: 'fullName',
-  email: 'email',
-  phone: 'phone',
-  phone_number: 'phone',
-  location: 'city',
-  city: 'city',
-  state: 'state',
-  linkedin: 'linkedinUrl',
-  linkedin_url: 'linkedinUrl',
-  github: 'githubUrl',
-  github_url: 'githubUrl',
-  portfolio: 'portfolioUrl',
-  portfolio_url: 'portfolioUrl',
-  resume: 'resume',
-  resume_text: 'resume',
-  resume_content: 'resume',
-};
+interface ProfileFieldReadiness {
+  ready: boolean;
+  value?: string;
+}
+
+function profileFieldReadiness(
+  fieldName: string,
+  candidate: QuestionReadinessCandidate,
+): ProfileFieldReadiness | undefined {
+  const name = fieldName.toLowerCase();
+  const nameParts = candidate.fullName.trim().split(/\s+/).filter(Boolean);
+
+  if (name === 'first_name') {
+    return nameParts[0] ? { ready: true, value: nameParts[0] } : { ready: false };
+  }
+  if (name === 'last_name') {
+    return nameParts.length > 1
+      ? { ready: true, value: nameParts.slice(1).join(' ') }
+      : { ready: false };
+  }
+  if (name === 'name' || name === 'full_name') {
+    return candidate.fullName ? { ready: true, value: candidate.fullName } : { ready: false };
+  }
+  if (name === 'email') {
+    return candidate.email ? { ready: true, value: candidate.email } : { ready: false };
+  }
+  if (name === 'phone' || name === 'phone_number') {
+    return candidate.phone ? { ready: true, value: candidate.phone } : { ready: false };
+  }
+  if (name === 'city') {
+    return candidate.city ? { ready: true, value: candidate.city } : { ready: false };
+  }
+  if (name === 'state') {
+    return candidate.state ? { ready: true, value: candidate.state } : { ready: false };
+  }
+  if (name === 'location') {
+    const location = [candidate.city, candidate.state].filter(Boolean).join(' - ');
+    return location ? { ready: true, value: location } : { ready: false };
+  }
+  if (name === 'linkedin' || name === 'linkedin_url') {
+    return candidate.linkedinUrl ? { ready: true, value: candidate.linkedinUrl } : { ready: false };
+  }
+  if (name === 'github' || name === 'github_url') {
+    return candidate.githubUrl ? { ready: true, value: candidate.githubUrl } : { ready: false };
+  }
+  if (name === 'portfolio' || name === 'portfolio_url') {
+    return candidate.portfolioUrl
+      ? { ready: true, value: candidate.portfolioUrl }
+      : { ready: false };
+  }
+  if (name === 'resume' || name === 'resume_text' || name === 'resume_content') {
+    return { ready: true };
+  }
+
+  return undefined;
+}
+
+function profileQuestionReadiness(
+  question: ApplicationQuestion,
+  candidate: QuestionReadinessCandidate,
+): ProfileQuestionValue[] | null {
+  if (!question.fields.length) return null;
+
+  const checked = question.fields.map((field) => {
+    const name = field.name?.toLowerCase();
+    if (!name) return null;
+    const readiness = profileFieldReadiness(name, candidate);
+    if (!readiness?.ready) return null;
+    return readiness.value ? { field: name, value: readiness.value } : { field: name };
+  });
+
+  if (checked.some((item) => item === null)) return null;
+  return checked.flatMap((item) =>
+    item && 'value' in item && item.value ? [{ field: item.field, value: item.value }] : [],
+  );
+}
 
 function includesSensitiveTerm(label: string): boolean {
   const normalized = normalizeText(label);
   return sensitiveTerms.some((term) => normalized.includes(normalizeText(term)));
-}
-
-function fieldReady(question: ApplicationQuestion, candidate: QuestionReadinessCandidate): boolean {
-  return question.fields.some((field) => {
-    const name = field.name?.toLowerCase();
-    if (!name) return false;
-    const mapped = profileFieldAliases[name];
-    if (!mapped) return false;
-    if (mapped === 'resume') return true;
-    return Boolean(candidate[mapped]);
-  });
 }
 
 function findSavedAnswer(
@@ -127,12 +177,15 @@ export function evaluateApplicationQuestionReadiness(
       };
     }
 
-    if (fieldReady(question, candidate)) {
+    const profileValues = profileQuestionReadiness(question, candidate);
+    if (profileValues) {
       return {
         label: question.label,
         required: question.required,
         status: 'PROFILE_READY' as const,
         source: 'PROFILE' as const,
+        ...(profileValues.length === 1 ? { answer: profileValues[0]?.value } : {}),
+        profileValues,
         sensitive: false,
       };
     }
