@@ -156,7 +156,7 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 | `AUTO_ANALYZE_NEW_JOBS`                    | `true`        | Análise após ingestão                          |
 | `LLM_MAX_ANALYSES_PER_RUN`                 | `25`          | Limite por execução                            |
 | `LLM_MAX_ANALYSES_PER_DAY`                 | `100`         | Limite diário                                  |
-| `MATCHING_ENGINE_VERSION`                  | `2`           | Versão auditável                               |
+| `MATCHING_ENGINE_VERSION`                  | `3`           | Versão auditável                               |
 | `MAX_JOB_AGE_DAYS`                         | `14`          | Freshness padrão                               |
 | `ENABLE_REAL_JOB_SOURCES`                  | `true`        | Liga adapters reais                            |
 | `ENABLE_AUTO_ANALYSIS`                     | `true`        | Feature flag de análise                        |

@@ -133,13 +133,15 @@ export class JobMatchingService {
 
     if (deterministic.hardConstraints.length) adjustment = 0;
     const finalScore = clampScore(deterministic.score + adjustment);
-    const decision = deterministic.hardConstraints.length
+    const thresholdDecision = deterministic.hardConstraints.length
       ? 'SKIP'
       : finalScore >= profile.preferences.automaticApplicationThreshold
         ? 'APPLY'
         : finalScore >= profile.preferences.reviewThreshold
           ? 'REVIEW'
           : 'SKIP';
+    const decision =
+      !deterministic.roleAligned && thresholdDecision === 'APPLY' ? 'REVIEW' : thresholdDecision;
     const reasoning = [
       `Score determinístico ${deterministic.score}/100.`,
       `Componentes: ${Object.entries(deterministic.components)

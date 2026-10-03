@@ -36,7 +36,7 @@ const envSchema = z
       .transform((value) => value === 'true'),
     LLM_MAX_ANALYSES_PER_RUN: z.coerce.number().int().positive().default(25),
     LLM_MAX_ANALYSES_PER_DAY: z.coerce.number().int().positive().default(100),
-    MATCHING_ENGINE_VERSION: z.coerce.number().int().positive().default(2),
+    MATCHING_ENGINE_VERSION: z.coerce.number().int().positive().default(3),
     MAX_JOB_AGE_DAYS: z.coerce.number().int().positive().default(14),
     ENABLE_REAL_JOB_SOURCES: z
       .string()

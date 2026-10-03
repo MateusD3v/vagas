@@ -117,6 +117,7 @@ export function calculateDeterministicMatch(
   return {
     score,
     decision,
+    roleAligned: roleMatch,
     matchedSkills,
     missingSkills,
     strengths,
