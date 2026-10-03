@@ -163,3 +163,82 @@ describe('AtsJobResolverService Ashby', () => {
     });
   });
 });
+
+
+describe('AtsJobResolverService SmartRecruiters', () => {
+  it('carrega posting público do SmartRecruiters sem autenticação de candidato', async () => {
+    const getJson = vi.fn().mockResolvedValue({
+      id: '884352026',
+      uuid: '34225731-e7cf-4584-b0b7-78098fe1a66b',
+      name: 'Junior Backend Developer',
+      company: {
+        name: 'Acme Tecnologia',
+        identifier: 'acme',
+      },
+      location: {
+        city: 'São Paulo',
+        region: 'SP',
+        country: 'br',
+        remote: true,
+      },
+      typeOfEmployment: { label: 'Full-time' },
+      experienceLevel: { label: 'Entry Level' },
+      postingUrl:
+        'https://jobs.smartrecruiters.com/acme/884352026-junior-backend-developer',
+      applyUrl:
+        'https://jobs.smartrecruiters.com/acme/884352026-junior-backend-developer?oga=true',
+      releasedDate: '2026-10-03T12:00:00Z',
+      jobAd: {
+        sections: {
+          jobDescription: {
+            title: 'Job Description',
+            text: '<p>Node.js APIs and Docker.</p>',
+          },
+          qualifications: {
+            title: 'Qualifications',
+            text: '<p>Git and REST.</p>',
+          },
+        },
+      },
+      active: true,
+    });
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://jobs.smartrecruiters.com/acme/884352026-junior-backend-developer',
+    );
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'SMARTRECRUITERS',
+      flow: 'ATS',
+      missingFields: [],
+      data: {
+        externalId: '34225731-e7cf-4584-b0b7-78098fe1a66b',
+        title: 'Junior Backend Developer',
+        company: 'Acme Tecnologia',
+        description: 'Node.js APIs and Docker.\n\nGit and REST.',
+        location: 'São Paulo, SP, br',
+        remoteType: 'REMOTE',
+        employmentType: 'Full-time',
+      },
+    });
+    expect(String(getJson.mock.calls[0]?.[0])).toBe(
+      'https://api.smartrecruiters.com/v1/companies/acme/postings/884352026',
+    );
+  });
+
+  it('não tenta resolver URL SmartRecruiters sem posting id', async () => {
+    const getJson = vi.fn();
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://jobs.smartrecruiters.com/acme');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'SMARTRECRUITERS',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getJson).not.toHaveBeenCalled();
+  });
+});
