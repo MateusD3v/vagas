@@ -1,0 +1,85 @@
+x-app-environment: &app-environment
+  NODE_ENV: production
+  LOG_LEVEL: info
+  DATABASE_URL: postgresql://job_agent:job_agent@postgres:5432/job_agent?schema=public
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+  AI_ADJUSTMENT_LIMIT: ${AI_ADJUSTMENT_LIMIT:-10}
+  ADMIN_API_KEY: ${ADMIN_API_KEY:-local-admin-key}
+  JOB_COLLECTION_CRON: ${JOB_COLLECTION_CRON:-0 */6 * * *}
+  JOB_SOURCE_TIMEOUT_MS: ${JOB_SOURCE_TIMEOUT_MS:-10000}
+  JOB_SOURCE_MAX_RETRIES: ${JOB_SOURCE_MAX_RETRIES:-3}
+  JOB_SOURCE_USER_AGENT: ${JOB_SOURCE_USER_AGENT:-JobApplicationAgent/0.2}
+  SOURCE_FAILURE_THRESHOLD: ${SOURCE_FAILURE_THRESHOLD:-5}
+  SOURCE_COOLDOWN_MINUTES: ${SOURCE_COOLDOWN_MINUTES:-30}
+  AUTO_ANALYZE_NEW_JOBS: ${AUTO_ANALYZE_NEW_JOBS:-true}
+  ENABLE_AUTO_ANALYSIS: ${ENABLE_AUTO_ANALYSIS:-true}
+  ENABLE_REAL_JOB_SOURCES: ${ENABLE_REAL_JOB_SOURCES:-true}
+  ENABLE_NOTIFICATIONS: ${ENABLE_NOTIFICATIONS:-false}
+  ENABLE_SCHEDULER: ${ENABLE_SCHEDULER:-true}
+  SAFE_MODE: ${SAFE_MODE:-true}
+  LLM_MAX_ANALYSES_PER_RUN: ${LLM_MAX_ANALYSES_PER_RUN:-25}
+  LLM_MAX_ANALYSES_PER_DAY: ${LLM_MAX_ANALYSES_PER_DAY:-100}
+  MATCHING_ENGINE_VERSION: ${MATCHING_ENGINE_VERSION:-1}
+  MAX_JOB_AGE_DAYS: ${MAX_JOB_AGE_DAYS:-14}
+  REMOTIVE_ENABLED: ${REMOTIVE_ENABLED:-true}
+  ARBEITNOW_ENABLED: ${ARBEITNOW_ENABLED:-true}
+  RAW_DATA_MAX_BYTES: ${RAW_DATA_MAX_BYTES:-50000}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: job_agent
+      POSTGRES_USER: job_agent
+      POSTGRES_PASSWORD: job_agent
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U job_agent -d job_agent']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+
+  api:
+    build: .
+    environment:
+      <<: *app-environment
+      HOST: 0.0.0.0
+      PORT: 3000
+      RUN_MIGRATIONS: 'true'
+      RUN_SEED: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ['node', 'dist/src/worker.js']
+    environment:
+      <<: *app-environment
+      RUN_MIGRATIONS: 'false'
+      RUN_SEED: 'false'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

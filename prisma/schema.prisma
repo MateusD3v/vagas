@@ -1,0 +1,422 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RemoteType {
+  REMOTE
+  HYBRID
+  ONSITE
+  UNSPECIFIED
+}
+
+enum JobStatus {
+  DISCOVERED
+  PREFILTERED
+  REJECTED_BY_PREFILTER
+  PENDING_ANALYSIS
+  ANALYZED
+  ERROR
+  STALE
+  CLOSED
+  ARCHIVED
+}
+
+enum JobSourceType {
+  API
+  FEED
+  ATS
+  MOCK
+}
+
+enum CollectionRunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum CollectionErrorType {
+  NETWORK_ERROR
+  TIMEOUT
+  RATE_LIMIT
+  AUTHENTICATION_ERROR
+  INVALID_RESPONSE
+  NORMALIZATION_ERROR
+  SOURCE_UNAVAILABLE
+  UNKNOWN
+}
+
+enum MatchDecision {
+  APPLY
+  REVIEW
+  SKIP
+}
+
+enum ApplicationStatus {
+  DISCOVERED
+  ANALYZED
+  READY
+  REVIEW_REQUIRED
+  SUBMITTED
+  FAILED
+  REJECTED
+  INTERVIEW
+  OFFER
+  WITHDRAWN
+}
+
+model CandidateProfile {
+  id                  String     @id @default(uuid())
+  fullName            String
+  email               String     @unique
+  phone               String?
+  city                String?
+  state               String?
+  country             String
+  linkedinUrl         String?
+  githubUrl           String?
+  portfolioUrl        String?
+  educationLevel      String?
+  course              String?
+  institution         String?
+  graduationDate      DateTime?
+  professionalSummary String
+  yearsOfExperience   Float      @default(0)
+  desiredJobTypes     String[]
+  desiredRoles        String[]
+  desiredLocations    String[]
+  remotePreference    RemoteType @default(UNSPECIFIED)
+  minimumSalary       Decimal?   @db.Decimal(12, 2)
+  salaryCurrency      String?    @db.VarChar(3)
+  certifications      String[]
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  skills         CandidateSkill[]
+  languages      CandidateLanguage[]
+  experiences    CandidateExperience[]
+  preferences    JobPreferences?
+  policy         ApplicationPolicy?
+  answers        CandidateAnswer[]
+  matches        JobMatch[]
+  applications   Application[]
+  searchProfile  JobSearchProfile?
+  collectionRuns CollectionRun[]
+}
+
+model CandidateSkill {
+  id                String           @id @default(uuid())
+  candidateId       String
+  name              String
+  level             String
+  yearsOfExperience Float            @default(0)
+  candidate         CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, name])
+  @@index([candidateId])
+}
+
+model CandidateLanguage {
+  id          String           @id @default(uuid())
+  candidateId String
+  language    String
+  level       String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, language])
+  @@index([candidateId])
+}
+
+model CandidateExperience {
+  id           String           @id @default(uuid())
+  candidateId  String
+  company      String
+  role         String
+  startDate    DateTime
+  endDate      DateTime?
+  current      Boolean          @default(false)
+  description  String
+  technologies String[]
+  achievements String[]
+  candidate    CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+model JobPreferences {
+  id                            String           @id @default(uuid())
+  candidateId                   String           @unique
+  desiredRoles                  String[]
+  excludedRoles                 String[]
+  desiredTechnologies           String[]
+  preferredLocations            String[]
+  remoteAllowed                 Boolean          @default(true)
+  hybridAllowed                 Boolean          @default(true)
+  onsiteAllowed                 Boolean          @default(false)
+  relocationAllowed             Boolean          @default(false)
+  minimumSalary                 Decimal?         @db.Decimal(12, 2)
+  employmentTypes               String[]
+  seniorityLevels               String[]
+  automaticApplicationThreshold Int              @default(85)
+  reviewThreshold               Int              @default(65)
+  candidate                     CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model ApplicationPolicy {
+  id                        String           @id @default(uuid())
+  candidateId               String           @unique
+  autoApplyEnabled          Boolean          @default(false)
+  minimumScore              Int              @default(85)
+  maximumApplicationsPerDay Int              @default(10)
+  allowedSources            String[]
+  blockedCompanies          String[]
+  blockedKeywords           String[]
+  requireSalaryInformation  Boolean          @default(false)
+  requireRemote             Boolean          @default(false)
+  candidate                 CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model CandidateAnswer {
+  id                     String           @id @default(uuid())
+  candidateId            String
+  questionKey            String
+  question               String
+  answer                 String
+  answerType             String
+  allowedForAutomaticUse Boolean          @default(false)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  candidate              CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, questionKey])
+  @@index([candidateId])
+}
+
+model Job {
+  id                     String               @id @default(uuid())
+  externalId             String?
+  source                 String
+  fingerprint            String               @unique
+  canonicalFingerprint   String?
+  title                  String
+  company                String
+  description            String
+  location               String?
+  city                   String?
+  state                  String?
+  country                String?
+  remoteType             RemoteType           @default(UNSPECIFIED)
+  employmentType         String?
+  seniority              String?
+  salaryMin              Decimal?             @db.Decimal(12, 2)
+  salaryMax              Decimal?             @db.Decimal(12, 2)
+  salaryCurrency         String?              @db.VarChar(3)
+  applicationUrl         String?
+  originalUrl            String?
+  publishedAt            DateTime?
+  collectedAt            DateTime             @default(now())
+  lastSeenAt             DateTime             @default(now())
+  isActive               Boolean              @default(true)
+  preliminaryScore       Int?
+  status                 JobStatus            @default(DISCOVERED)
+  rawData                Json
+  requiredEducationLevel String?
+  requiredCertifications String[]
+  skills                 JobSkill[]
+  matches                JobMatch[]
+  applications           Application[]
+  sourceReferences       JobSourceReference[]
+
+  @@unique([source, externalId])
+  @@index([canonicalFingerprint])
+  @@index([status, source])
+  @@index([company])
+}
+
+model JobSkill {
+  id            String  @id @default(uuid())
+  jobId         String
+  skill         String
+  required      Boolean @default(false)
+  yearsRequired Float?
+  job           Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, skill])
+  @@index([jobId])
+}
+
+model JobMatch {
+  id                 String           @id @default(uuid())
+  jobId              String
+  candidateId        String
+  deterministicScore Int
+  aiAdjustment       Int              @default(0)
+  score              Int
+  decision           MatchDecision
+  matchedSkills      String[]
+  missingSkills      String[]
+  strengths          String[]
+  weaknesses         String[]
+  hardConstraints    String[]
+  reasoning          String
+  analysisInputHash  String?
+  engineVersion      Int              @default(1)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  job                Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate          CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, candidateId])
+  @@index([candidateId, decision])
+}
+
+model JobSource {
+  id                  String               @id @default(uuid())
+  name                String
+  slug                String               @unique
+  type                JobSourceType
+  enabled             Boolean              @default(true)
+  baseUrl             String?
+  configuration       Json
+  lastSuccessfulRunAt DateTime?
+  lastFailedRunAt     DateTime?
+  consecutiveFailures Int                  @default(0)
+  cooldownUntil       DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  references          JobSourceReference[]
+  collectionRuns      CollectionRun[]
+
+  @@index([enabled, type])
+}
+
+model JobSourceReference {
+  id          String    @id @default(uuid())
+  jobId       String
+  sourceId    String
+  externalId  String?
+  originalUrl String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  source      JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, externalId])
+  @@unique([sourceId, originalUrl])
+  @@unique([jobId, sourceId])
+  @@index([jobId])
+}
+
+model JobSearchProfile {
+  id                   String           @id @default(uuid())
+  candidateId          String           @unique
+  enabled              Boolean          @default(true)
+  keywords             String[]
+  excludedKeywords     String[]
+  locations            String[]
+  remoteTypes          RemoteType[]
+  employmentTypes      String[]
+  seniorityLevels      String[]
+  maxJobsPerRun        Int              @default(25)
+  publishedWithinHours Int?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  candidate            CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model CollectionRun {
+  id                String              @id @default(uuid())
+  sourceId          String
+  candidateId       String?
+  status            CollectionRunStatus @default(RUNNING)
+  startedAt         DateTime            @default(now())
+  finishedAt        DateTime?
+  queriesExecuted   Int                 @default(0)
+  jobsFetched       Int                 @default(0)
+  jobsInserted      Int                 @default(0)
+  jobsDuplicated    Int                 @default(0)
+  jobsRejected      Int                 @default(0)
+  jobsAnalyzed      Int                 @default(0)
+  applyCount        Int                 @default(0)
+  reviewCount       Int                 @default(0)
+  skipCount         Int                 @default(0)
+  applicationsReady Int                 @default(0)
+  errorCount        Int                 @default(0)
+  metadata          Json
+  source            JobSource           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  candidate         CandidateProfile?   @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  errors            CollectionError[]
+
+  @@index([sourceId, startedAt])
+  @@index([status, startedAt])
+}
+
+model CollectionError {
+  id              String              @id @default(uuid())
+  collectionRunId String
+  source          String
+  errorType       CollectionErrorType
+  message         String
+  httpStatus      Int?
+  retryable       Boolean             @default(false)
+  metadata        Json
+  createdAt       DateTime            @default(now())
+  collectionRun   CollectionRun       @relation(fields: [collectionRunId], references: [id], onDelete: Cascade)
+
+  @@index([collectionRunId])
+  @@index([errorType, createdAt])
+}
+
+model WorkerHeartbeat {
+  id         String   @id @default(uuid())
+  workerName String   @unique
+  status     String
+  lastSeenAt DateTime @default(now())
+  metadata   Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model DailyAnalysisBudget {
+  id        String   @id @default(uuid())
+  date      DateTime @unique @db.Date
+  used      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Application {
+  id                    String            @id @default(uuid())
+  candidateId           String
+  jobId                 String
+  status                ApplicationStatus
+  matchScore            Int
+  applicationMethod     String            @default("MANUAL_PREPARATION")
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  submittedAt           DateTime?
+  externalApplicationId String?
+  notes                 String?
+  candidate             CandidateProfile  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job                   Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+  @@index([status])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  event      String
+  entityType String
+  entityId   String?
+  metadata   Json
+  createdAt  DateTime @default(now())
+
+  @@index([event, createdAt])
+  @@index([entityType, entityId])
+}

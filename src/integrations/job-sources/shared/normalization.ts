@@ -1,0 +1,59 @@
+import { normalizeText } from '../../../shared/text.js';
+
+const knownSkills = [
+  'Node.js',
+  'Java',
+  'Flutter',
+  'MySQL',
+  'PostgreSQL',
+  'Docker',
+  'Git',
+  'REST API',
+  'Linux',
+  'Windows',
+  'Redes',
+  'Hardware',
+  'TypeScript',
+  'JavaScript',
+  'React',
+  'Python',
+  'AWS',
+];
+
+export function stripHtml(value: string): string {
+  return value
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function inferSeniority(title: string): string | undefined {
+  const normalized = normalizeText(title);
+  if (/\b(intern|internship|estagio)\b/.test(normalized)) return 'INTERN';
+  if (/\b(trainee|entry|junior|jr)\b/.test(normalized)) return 'JUNIOR';
+  if (/\b(mid|pleno)\b/.test(normalized)) return 'MID';
+  if (/\b(senior|sr|staff|principal|lead)\b/.test(normalized)) return 'SENIOR';
+  return undefined;
+}
+
+export function extractKnownSkills(title: string, description: string, tags: string[] = []) {
+  const haystack = normalizeText(`${title} ${description} ${tags.join(' ')}`);
+  return knownSkills
+    .filter((skill) => haystack.includes(normalizeText(skill)))
+    .map((skill) => ({ skill, required: false }));
+}
+
+export function safeRawData(
+  value: Record<string, unknown>,
+  maxBytes: number,
+): Record<string, unknown> {
+  const serialized = JSON.stringify(value);
+  if (Buffer.byteLength(serialized, 'utf8') <= maxBytes) return value;
+  return { truncated: true, originalBytes: Buffer.byteLength(serialized, 'utf8') };
+}

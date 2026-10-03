@@ -1,0 +1,64 @@
+import type { FastifyInstance } from 'fastify';
+import { env } from '../../config/env.js';
+import { prisma } from '../../database/client.js';
+import { MockJobSource } from '../../integrations/job-sources/mock/mock.adapter.js';
+import { createLLMProvider } from '../../integrations/llm/provider.factory.js';
+import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
+import { idParamsSchema } from '../../shared/http.js';
+import { AnalyzeJobWorker } from '../../workers/analyze-job.worker.js';
+import { CollectJobsWorker } from '../../workers/collect-jobs.worker.js';
+import { JobMatchingService } from '../matching/job-matching.service.js';
+import { JobIngestionService } from './job-ingestion.service.js';
+import { jobsQuerySchema } from './job.schemas.js';
+import { JobService } from './job.service.js';
+
+export function jobRoutes(app: FastifyInstance): void {
+  const jobs = new JobService(prisma);
+  const matching = new JobMatchingService(
+    prisma,
+    createLLMProvider(env),
+    env.AI_ADJUSTMENT_LIMIT,
+    env.MATCHING_ENGINE_VERSION,
+  );
+  const analyzer = new AnalyzeJobWorker(matching, app.log);
+  const collector = new CollectJobsWorker(new JobIngestionService(prisma), analyzer, app.log);
+
+  app.get('/jobs', { schema: { tags: ['Jobs'], summary: 'Lista e filtra vagas' } }, (request) =>
+    jobs.list(jobsQuerySchema.parse(request.query)),
+  );
+
+  app.get('/jobs/:id', { schema: { tags: ['Jobs'], summary: 'Detalha uma vaga' } }, (request) =>
+    jobs.get(idParamsSchema.parse(request.params).id),
+  );
+
+  app.post(
+    '/jobs/import/mock',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Jobs'],
+        summary: 'Importa e analisa as 15 vagas fictícias',
+        security: [{ adminKey: [] }],
+      },
+    },
+    async (_request, reply) => {
+      const result = await collector.run(new MockJobSource());
+      return reply.code(201).send(result);
+    },
+  );
+
+  app.post(
+    '/jobs/:id/analyze',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Matching'],
+        summary: 'Analisa ou reanalisa uma vaga',
+        security: [{ adminKey: [] }],
+      },
+    },
+    (request) => analyzer.run(idParamsSchema.parse(request.params).id),
+  );
+}
