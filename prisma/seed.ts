@@ -114,6 +114,11 @@ async function main() {
     });
   }
 
+  await db.candidateProfile.updateMany({
+    where: { email: 'candidato@example.test' },
+    data: { isDemo: true },
+  });
+
   const imported = await new JobIngestionService(db).import(new MockJobSource());
   const matcher = new JobMatchingService(db, new MockLLMProvider(), 10);
   for (const jobId of imported.jobIds) await matcher.analyze(jobId);

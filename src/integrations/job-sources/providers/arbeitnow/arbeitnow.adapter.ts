@@ -27,7 +27,16 @@ const arbeitnowJobSchema = z.object({
   created_at: z.union([z.number(), z.string()]),
 });
 
-const responseSchema = z.object({ data: z.array(arbeitnowJobSchema) });
+const responseSchema = z.object({
+  data: z.array(arbeitnowJobSchema),
+  links: z
+    .object({
+      next: z.string().url().nullable().optional(),
+    })
+    .optional(),
+});
+
+const MAX_PAGES_PER_RUN = 5;
 export type ArbeitnowExternalJob = z.infer<typeof arbeitnowJobSchema>;
 
 export class ArbeitnowJobSource implements JobSourceAdapter {
@@ -48,31 +57,50 @@ export class ArbeitnowJobSource implements JobSourceAdapter {
   ) {}
 
   async searchJobs(query?: JobSearchQuery): Promise<ArbeitnowExternalJob[]> {
-    const response = await this.http.getJson<unknown>(
-      'https://www.arbeitnow.com/api/job-board-api',
-      { source: this.sourceName, requestsPerSecond: this.rateLimit.requestsPerSecond },
-    );
-    let jobs: ArbeitnowExternalJob[];
-    try {
-      jobs = responseSchema.parse(response).data;
-    } catch {
-      throw new JobSourceError(
-        'Schema inválido retornado pela Arbeitnow',
-        'INVALID_RESPONSE',
-        false,
-      );
-    }
-    const matching = query?.keywords.length
-      ? jobs.filter((job) =>
-          query.keywords.some((keyword) =>
-            includesText(
-              `${job.title} ${stripHtml(job.description)} ${job.tags.join(' ')}`,
-              keyword,
+    const limit = Math.min(query?.limit ?? 25, 100);
+    const matching: ArbeitnowExternalJob[] = [];
+    const seenSlugs = new Set<string>();
+    let nextUrl: string | null = 'https://www.arbeitnow.com/api/job-board-api?page=1';
+    let page = 0;
+
+    while (nextUrl && matching.length < limit && page < MAX_PAGES_PER_RUN) {
+      page += 1;
+      const response = await this.http.getJson<unknown>(nextUrl, {
+        source: this.sourceName,
+        requestsPerSecond: this.rateLimit.requestsPerSecond,
+      });
+      let parsed: z.infer<typeof responseSchema>;
+      try {
+        parsed = responseSchema.parse(response);
+      } catch {
+        throw new JobSourceError(
+          'Schema inválido retornado pela Arbeitnow',
+          'INVALID_RESPONSE',
+          false,
+        );
+      }
+
+      const pageMatches = query?.keywords.length
+        ? parsed.data.filter((job) =>
+            query.keywords.some((keyword) =>
+              includesText(
+                `${job.title} ${stripHtml(job.description)} ${job.tags.join(' ')}`,
+                keyword,
+              ),
             ),
-          ),
-        )
-      : jobs;
-    return matching.slice(0, Math.min(query?.limit ?? 25, 100));
+          )
+        : parsed.data;
+
+      for (const job of pageMatches) {
+        if (seenSlugs.has(job.slug)) continue;
+        seenSlugs.add(job.slug);
+        matching.push(job);
+        if (matching.length >= limit) break;
+      }
+      nextUrl = parsed.links?.next ?? null;
+    }
+
+    return matching.slice(0, limit);
   }
 
   normalizeJob(input: unknown): NormalizedJob {

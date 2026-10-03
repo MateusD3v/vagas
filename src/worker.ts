@@ -1,11 +1,19 @@
 import pino from 'pino';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
+import { RetentionService } from './modules/maintenance/retention.service.js';
 import { createCollectionService } from './modules/sources/collection.factory.js';
 import { CollectionScheduler } from './workers/collection-scheduler.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
 const collection = createCollectionService(prisma, env, logger);
+const retention = new RetentionService(
+  prisma,
+  env.COLLECTION_RUN_RETENTION_DAYS,
+  env.AUDIT_LOG_RETENTION_DAYS,
+  env.JOB_STALE_AFTER_DAYS,
+  env.JOB_CLOSED_AFTER_DAYS,
+);
 let stopping = false;
 
 async function heartbeat(status = 'RUNNING'): Promise<void> {
@@ -24,7 +32,30 @@ async function heartbeat(status = 'RUNNING'): Promise<void> {
   });
 }
 
+async function runMaintenance(): Promise<void> {
+  const result = await retention.run();
+  if (
+    result.collectionRunsDeleted ||
+    result.auditLogsDeleted ||
+    result.jobsClosed ||
+    result.jobsStale
+  ) {
+    logger.info({ retention: result }, 'Manutenção automática concluída');
+  }
+}
+
 await heartbeat();
+void runMaintenance().catch((error: unknown) =>
+  logger.error({ err: error }, 'Manutenção de retenção falhou'),
+);
+const maintenanceTimer = setInterval(
+  () => {
+    void runMaintenance().catch((error: unknown) =>
+      logger.error({ err: error }, 'Manutenção de retenção falhou'),
+    );
+  },
+  24 * 60 * 60 * 1000,
+);
 const heartbeatTimer = setInterval(() => {
   void heartbeat().catch((error: unknown) => logger.error({ err: error }, 'Heartbeat falhou'));
 }, 30_000);
@@ -46,6 +77,7 @@ async function shutdown(signal: string): Promise<void> {
   stopping = true;
   logger.info({ signal }, 'Encerrando worker');
   scheduler.stop();
+  clearInterval(maintenanceTimer);
   clearInterval(heartbeatTimer);
   await heartbeat('STOPPED').catch(() => undefined);
   await prisma.$disconnect();

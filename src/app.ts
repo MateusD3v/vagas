@@ -28,7 +28,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       info: {
         title: 'Job Application Agent API',
         description: 'Coleta, matching auditável e preparação local de candidaturas.',
-        version: '0.2.0',
+        version: '0.3.0',
       },
       tags: [
         { name: 'System' },
@@ -52,9 +52,13 @@ export async function buildApp(): Promise<FastifyInstance> {
     '/health',
     { schema: { tags: ['System'], summary: 'Verifica API e banco de dados' } },
     async () => {
-      const [, worker] = await Promise.all([
+      const [, worker, profile] = await Promise.all([
         prisma.$queryRaw`SELECT 1`,
         prisma.workerHeartbeat.findUnique({ where: { workerName: 'job-collection-worker' } }),
+        prisma.candidateProfile.findFirst({
+          orderBy: { createdAt: 'asc' },
+          select: { isDemo: true },
+        }),
       ]);
       const workerAlive = Boolean(
         worker && Date.now() - worker.lastSeenAt.getTime() < 90_000 && worker.status === 'RUNNING',
@@ -65,6 +69,10 @@ export async function buildApp(): Promise<FastifyInstance> {
         worker: {
           status: workerAlive ? 'healthy' : 'unavailable',
           lastSeenAt: worker?.lastSeenAt ?? null,
+        },
+        profile: {
+          status: !profile ? 'missing' : profile.isDemo ? 'demo' : 'ready',
+          collectionReady: Boolean(profile && !profile.isDemo),
         },
         timestamp: new Date().toISOString(),
       };

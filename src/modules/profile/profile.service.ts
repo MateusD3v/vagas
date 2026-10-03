@@ -52,8 +52,14 @@ export class ProfileService {
 
   private async updateRelations(id: string, input: ProfilePatchInput) {
     const nested = scalarProfile(input);
+    const scalarData = {
+      ...nested.scalar,
+      ...(nested.scalar.email && nested.scalar.email !== 'candidato@example.test'
+        ? { isDemo: false }
+        : {}),
+    };
     return this.db.$transaction(async (tx) => {
-      await tx.candidateProfile.update({ where: { id }, data: nested.scalar });
+      await tx.candidateProfile.update({ where: { id }, data: scalarData });
 
       if (nested.skills) {
         await tx.candidateSkill.deleteMany({ where: { candidateId: id } });

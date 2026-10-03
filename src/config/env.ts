@@ -21,9 +21,13 @@ const envSchema = z
     JOB_COLLECTION_CRON: z.string().default('0 */6 * * *'),
     JOB_SOURCE_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     JOB_SOURCE_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(3),
-    JOB_SOURCE_USER_AGENT: z.string().default('JobApplicationAgent/0.2 (+local-development)'),
+    JOB_SOURCE_USER_AGENT: z.string().default('JobApplicationAgent/0.3 (+local-development)'),
     SOURCE_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(5),
     SOURCE_COOLDOWN_MINUTES: z.coerce.number().int().positive().default(30),
+    COLLECTION_RUN_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+    AUDIT_LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
+    JOB_STALE_AFTER_DAYS: z.coerce.number().int().positive().default(14),
+    JOB_CLOSED_AFTER_DAYS: z.coerce.number().int().positive().default(30),
     AUTO_ANALYZE_NEW_JOBS: z
       .string()
       .default('true')
@@ -44,6 +48,11 @@ const envSchema = z
       .string()
       .default('false')
       .transform((value) => value === 'true'),
+    NOTIFICATION_WEBHOOK_URL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().url().optional(),
+    ),
+    NOTIFICATION_WEBHOOK_TIMEOUT_MS: z.coerce.number().int().positive().max(30_000).default(5_000),
     ENABLE_SCHEDULER: z
       .string()
       .default('true')
@@ -68,6 +77,13 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['ADMIN_API_KEY'],
         message: 'ADMIN_API_KEY é obrigatório em production',
+      });
+    }
+    if (value.JOB_CLOSED_AFTER_DAYS <= value.JOB_STALE_AFTER_DAYS) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JOB_CLOSED_AFTER_DAYS'],
+        message: 'JOB_CLOSED_AFTER_DAYS deve ser maior que JOB_STALE_AFTER_DAYS',
       });
     }
   });

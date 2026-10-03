@@ -86,6 +86,7 @@ model CandidateProfile {
   institution         String?
   graduationDate      DateTime?
   professionalSummary String
+  isDemo              Boolean    @default(false)
   yearsOfExperience   Float      @default(0)
   desiredJobTypes     String[]
   desiredRoles        String[]
@@ -287,6 +288,7 @@ model JobSource {
   lastFailedRunAt     DateTime?
   consecutiveFailures Int                  @default(0)
   cooldownUntil       DateTime?
+  keywordCursor       Int                  @default(0)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   references          JobSourceReference[]

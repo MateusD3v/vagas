@@ -9,6 +9,7 @@ import { AnalyzeJobWorker } from '../../workers/analyze-job.worker.js';
 import { CollectJobsWorker } from '../../workers/collect-jobs.worker.js';
 import { JobMatchingService } from '../matching/job-matching.service.js';
 import { JobIngestionService } from './job-ingestion.service.js';
+import { JobReprocessService } from './job-reprocess.service.js';
 import { jobsQuerySchema } from './job.schemas.js';
 import { JobService } from './job.service.js';
 
@@ -21,6 +22,7 @@ export function jobRoutes(app: FastifyInstance): void {
     env.MATCHING_ENGINE_VERSION,
   );
   const analyzer = new AnalyzeJobWorker(matching, app.log);
+  const reprocessor = new JobReprocessService(prisma, matching, env);
   const collector = new CollectJobsWorker(new JobIngestionService(prisma), analyzer, app.log);
 
   app.get('/jobs', { schema: { tags: ['Jobs'], summary: 'Lista e filtra vagas' } }, (request) =>
@@ -46,6 +48,20 @@ export function jobRoutes(app: FastifyInstance): void {
       const result = await collector.run(new MockJobSource());
       return reply.code(201).send(result);
     },
+  );
+
+  app.post(
+    '/jobs/reprocess',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Matching'],
+        summary: 'Reavalia vagas ativas após mudança do perfil ou preferências',
+        security: [{ adminKey: [] }],
+      },
+    },
+    () => reprocessor.run(),
   );
 
   app.post(

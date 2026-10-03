@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ArbeitnowJobSource } from '../src/integrations/job-sources/providers/arbeitnow/arbeitnow.adapter.js';
 import { RemotiveJobSource } from '../src/integrations/job-sources/providers/remotive/remotive.adapter.js';
 import type { JobSourceHttpClient } from '../src/integrations/job-sources/shared/http-client.js';
@@ -46,5 +46,56 @@ describe('normalização dos adapters reais', () => {
     expect(job.seniority).toBe('JUNIOR');
     expect(job.employmentType).toBe('FULL_TIME');
     expect(job.publishedAt).toBeInstanceOf(Date);
+  });
+
+  it('pagina a Arbeitnow até encontrar vagas compatíveis com as keywords', async () => {
+    const getJson = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            slug: 'designer-1',
+            company_name: 'Example GmbH',
+            title: 'Product Designer',
+            description: 'Design systems',
+            remote: true,
+            url: 'https://www.arbeitnow.com/jobs/designer-1',
+            tags: ['Design'],
+            job_types: ['full_time'],
+            location: 'Remote',
+            created_at: 1_759_276_800,
+          },
+        ],
+        links: { next: 'https://www.arbeitnow.com/api/job-board-api?page=2' },
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            slug: 'node-1',
+            company_name: 'Example GmbH',
+            title: 'Junior Node.js Developer',
+            description: 'Node.js backend APIs',
+            remote: true,
+            url: 'https://www.arbeitnow.com/jobs/node-1',
+            tags: ['Node.js'],
+            job_types: ['full_time'],
+            location: 'Remote',
+            created_at: 1_759_276_801,
+          },
+        ],
+        links: { next: null },
+      });
+    const adapter = new ArbeitnowJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
+
+    const jobs = await adapter.searchJobs({
+      keywords: ['Node.js'],
+      locations: [],
+      remoteTypes: [],
+      employmentTypes: [],
+      limit: 1,
+    });
+
+    expect(jobs.map((job) => job.slug)).toEqual(['node-1']);
+    expect(getJson).toHaveBeenCalledTimes(2);
   });
 });
