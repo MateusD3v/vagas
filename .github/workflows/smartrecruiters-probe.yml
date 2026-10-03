@@ -13,7 +13,11 @@ jobs:
       - name: Probe public Posting API
         run: |
           set -euo pipefail
-          code=$(curl -sS -o /tmp/sr.json -w "%{http_code}" "https://api.smartrecruiters.com/v1/companies/smartrecruiters/postings?limit=1&destination=PUBLIC")
-          echo "HTTP_STATUS=$code"
-          head -c 1000 /tmp/sr.json || true
+          list_code=$(curl -sS -o /tmp/sr-list.json -w "%{http_code}" "https://api.smartrecruiters.com/v1/companies/smartrecruiters/postings?limit=1&destination=PUBLIC")
+          echo "LIST_HTTP_STATUS=$list_code"
+          posting_id=$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/sr-list.json','utf8'));process.stdout.write(String(x.content?.[0]?.id||''))")
+          echo "POSTING_ID=$posting_id"
+          detail_code=$(curl -sS -o /tmp/sr-detail.json -w "%{http_code}" "https://api.smartrecruiters.com/v1/companies/smartrecruiters/postings/$posting_id")
+          echo "DETAIL_HTTP_STATUS=$detail_code"
+          head -c 1200 /tmp/sr-detail.json || true
           echo
