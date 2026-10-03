@@ -9,6 +9,12 @@ export interface ApplicationChannel {
   label: string;
 }
 
+export interface ApplicationQuestion {
+  label: string;
+  required: boolean;
+  fields: Array<{ name?: string; type?: string }>;
+}
+
 function hostname(value: string | null | undefined): string {
   if (!value) return '';
   try {
@@ -61,4 +67,28 @@ export function classifyApplicationChannel(
 export function readFastApplyHint(rawData: unknown): boolean {
   if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) return false;
   return (rawData as Record<string, unknown>).fastApply === true;
+}
+
+export function readApplicationQuestions(rawData: unknown): ApplicationQuestion[] {
+  if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) return [];
+  const value = (rawData as Record<string, unknown>).applicationQuestions;
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const record = item as Record<string, unknown>;
+    if (typeof record.label !== 'string' || typeof record.required !== 'boolean') return [];
+    const fields = Array.isArray(record.fields)
+      ? record.fields.flatMap((field) => {
+          if (!field || typeof field !== 'object' || Array.isArray(field)) return [];
+          const fieldRecord = field as Record<string, unknown>;
+          return [
+            {
+              ...(typeof fieldRecord.name === 'string' ? { name: fieldRecord.name } : {}),
+              ...(typeof fieldRecord.type === 'string' ? { type: fieldRecord.type } : {}),
+            },
+          ];
+        })
+      : [];
+    return [{ label: record.label, required: record.required, fields }];
+  });
 }

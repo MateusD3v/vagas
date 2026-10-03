@@ -60,6 +60,18 @@ describe('AtsJobResolverService', () => {
         absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/456',
         location: { name: 'Remote' },
         updated_at: '2026-10-03T12:00:00Z',
+        questions: [
+          {
+            label: 'Why do you want to work here?',
+            required: true,
+            fields: [{ name: 'question_123', type: 'textarea' }],
+          },
+          {
+            label: 'Portfolio URL',
+            required: false,
+            fields: [{ name: 'question_456', type: 'input_text' }],
+          },
+        ],
       })
       .mockResolvedValueOnce({ name: 'Acme Tecnologia' });
     const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
@@ -78,7 +90,20 @@ describe('AtsJobResolverService', () => {
         description: 'Windows, redes e troubleshooting.',
         remoteType: 'REMOTE',
       },
+      applicationQuestions: [
+        {
+          label: 'Why do you want to work here?',
+          required: true,
+          fields: [{ name: 'question_123', type: 'textarea' }],
+        },
+        {
+          label: 'Portfolio URL',
+          required: false,
+          fields: [{ name: 'question_456', type: 'input_text' }],
+        },
+      ],
     });
     expect(getJson).toHaveBeenCalledTimes(2);
+    expect(String(getJson.mock.calls[0]?.[0])).toContain('questions=true');
   });
 });

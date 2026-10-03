@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import type { JobSourceHttpClient } from '../../integrations/job-sources/shared/http-client.js';
 import { stripHtml } from '../../integrations/job-sources/shared/normalization.js';
-import { classifyApplicationChannel } from '../applications/application-channel.js';
+import {
+  classifyApplicationChannel,
+  type ApplicationQuestion,
+} from '../applications/application-channel.js';
 
 const urlSchema = z.string().url();
 
@@ -31,6 +34,26 @@ const greenhouseJobSchema = z.object({
   absolute_url: z.string().url(),
   location: z.object({ name: z.string().nullish() }).optional(),
   updated_at: z.string().nullish(),
+  questions: z
+    .array(
+      z
+        .object({
+          label: z.string().min(1),
+          required: z.boolean().default(false),
+          fields: z
+            .array(
+              z
+                .object({
+                  name: z.string().optional(),
+                  type: z.string().optional(),
+                })
+                .passthrough(),
+            )
+            .default([]),
+        })
+        .passthrough(),
+    )
+    .default([]),
 });
 
 const greenhouseBoardSchema = z.object({
@@ -53,6 +76,7 @@ export interface ResolvedJobUrl {
     publishedAt?: string;
   };
   missingFields: string[];
+  applicationQuestions?: ApplicationQuestion[];
   message?: string;
 }
 
@@ -164,7 +188,7 @@ export class AtsJobResolverService {
       };
     }
 
-    const jobEndpoint = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(boardToken)}/jobs/${encodeURIComponent(jobId)}`;
+    const jobEndpoint = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(boardToken)}/jobs/${encodeURIComponent(jobId)}?questions=true`;
     const boardEndpoint = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(boardToken)}`;
     const [rawJob, rawBoard] = await Promise.all([
       this.http.getJson<unknown>(jobEndpoint, {
@@ -196,6 +220,14 @@ export class AtsJobResolverService {
         publishedAt: job.updated_at ?? undefined,
       },
       missingFields: [],
+      applicationQuestions: job.questions.map((question) => ({
+        label: question.label,
+        required: question.required,
+        fields: question.fields.map((field) => ({
+          ...(field.name ? { name: field.name } : {}),
+          ...(field.type ? { type: field.type } : {}),
+        })),
+      })),
     };
   }
 }

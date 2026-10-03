@@ -115,6 +115,7 @@ const dashboardHtml = `<!doctype html>
 <script>
   const keyInput = document.getElementById('apiKey');
   const statusEl = document.getElementById('status');
+  let resolvedApplicationQuestions = [];
   keyInput.value = sessionStorage.getItem('vagas-admin-key') || '';
 
   function esc(value) {
@@ -267,6 +268,9 @@ const dashboardHtml = `<!doctype html>
         body: JSON.stringify({ url: applicationUrl }),
       });
 
+      resolvedApplicationQuestions = Array.isArray(result.applicationQuestions)
+        ? result.applicationQuestions
+        : [];
       if (result.data) {
         if (result.data.title) document.getElementById('manualTitle').value = result.data.title;
         if (result.data.company) document.getElementById('manualCompany').value = result.data.company;
@@ -315,6 +319,7 @@ const dashboardHtml = `<!doctype html>
           location: document.getElementById('manualLocation').value.trim() || undefined,
           remoteType: document.getElementById('manualRemoteType').value,
           fastApply: document.getElementById('manualFastApply').checked,
+          applicationQuestions: resolvedApplicationQuestions,
         }),
       });
       statusEl.textContent = 'Vaga analisada: ' + (result.channel?.label || 'canal externo');
@@ -325,6 +330,7 @@ const dashboardHtml = `<!doctype html>
       document.getElementById('manualDescription').value = '';
       document.getElementById('manualLocation').value = '';
       document.getElementById('manualFastApply').checked = false;
+      resolvedApplicationQuestions = [];
       await refresh();
     } catch (error) {
       statusEl.textContent = error instanceof Error ? error.message : 'Falha ao importar vaga';
@@ -374,6 +380,7 @@ const dashboardHtml = `<!doctype html>
       if (target.dataset.fastKit) {
         const kit = await api('/applications/' + encodeURIComponent(applicationId) + '/fast-apply-kit');
         const answers = Array.isArray(kit.reusableAnswers) ? kit.reusableAnswers : [];
+        const questions = Array.isArray(kit.applicationQuestions) ? kit.applicationQuestions : [];
         const missing = Array.isArray(kit.missingInformation) ? kit.missingInformation : [];
         const answerText = answers
           .map(answer => (answer.question || answer.questionKey || 'Pergunta') + ': ' + (answer.answer || ''))
@@ -387,6 +394,11 @@ const dashboardHtml = `<!doctype html>
           '<button type="button" id="copyKitAnswers">Copiar respostas</button>' +
           '<button type="button" id="downloadKitResume">Baixar currículo</button>' +
           '</div>' +
+          '<h3>Perguntas do ATS</h3>' +
+          (questions.length
+            ? questions.map(question => '<div class="answer"><strong>' + esc(question.label) + '</strong><div>' + (question.required ? '<span class="warn">Obrigatória</span>' : '<span class="muted">Opcional</span>') + '</div></div>').join('')
+            : '<div class="muted">O ATS não expôs perguntas públicas para esta vaga.</div>') +
+          '<h3>Respostas reutilizáveis autorizadas</h3>' +
           (answers.length
             ? answers.map(answer => '<div class="answer"><strong>' + esc(answer.question || answer.questionKey) + '</strong><div>' + esc(answer.answer) + '</div></div>').join('')
             : '<div class="muted">Nenhuma resposta reutilizável cadastrada.</div>');

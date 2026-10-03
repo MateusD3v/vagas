@@ -96,6 +96,7 @@ export class ManualJobIntakeService {
         manualImport: true,
         fastApply: input.fastApply,
         applicationChannel: channel,
+        applicationQuestions: input.applicationQuestions,
       },
     };
   }

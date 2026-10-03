@@ -5,7 +5,11 @@ import { prisma } from '../../database/client.js';
 import { SubmissionProviderRegistry } from '../../integrations/submission/submission.registry.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
-import { classifyApplicationChannel, readFastApplyHint } from './application-channel.js';
+import {
+  classifyApplicationChannel,
+  readApplicationQuestions,
+  readFastApplyHint,
+} from './application-channel.js';
 import { ApplicationEligibilityService } from './application-eligibility.service.js';
 import { ApplicationPreparationService } from './application-preparation.service.js';
 import { ApplicationService } from './application.service.js';
@@ -118,6 +122,7 @@ export function applicationRoutes(app: FastifyInstance): void {
         ),
         resumeMarkdown,
         reusableAnswers: prepared.reusableAnswers,
+        applicationQuestions: readApplicationQuestions(application.job.rawData),
         missingInformation: prepared.missingInformation,
       };
     },

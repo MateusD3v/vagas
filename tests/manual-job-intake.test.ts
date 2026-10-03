@@ -30,6 +30,13 @@ describe('ManualJobIntakeService', () => {
       requiredCertifications: [],
       skills: [{ skill: 'Windows', required: true }],
       fastApply: true,
+      applicationQuestions: [
+        {
+          label: 'Why do you want to work here?',
+          required: true,
+          fields: [{ name: 'question_123', type: 'textarea' }],
+        },
+      ],
     });
 
     expect(result.channel).toEqual({
@@ -46,6 +53,12 @@ describe('ManualJobIntakeService', () => {
     expect(raw.rawData).toMatchObject({
       manualImport: true,
       fastApply: true,
+      applicationQuestions: [
+        {
+          label: 'Why do you want to work here?',
+          required: true,
+        },
+      ],
     });
     expect(analyze).toHaveBeenCalledWith('job-1');
   });
@@ -70,6 +83,7 @@ describe('ManualJobIntakeService', () => {
       requiredCertifications: [],
       skills: [],
       fastApply: false,
+      applicationQuestions: [],
     });
 
     expect(result.channel).toMatchObject({ platform: 'LEVER', flow: 'ATS' });
@@ -115,6 +129,7 @@ describe('ManualJobIntakeService preparação imediata', () => {
       requiredCertifications: [],
       skills: [],
       fastApply: true,
+      applicationQuestions: [],
     });
 
     expect(prepare).toHaveBeenCalledWith('app-3');
