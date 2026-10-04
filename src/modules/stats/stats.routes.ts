@@ -15,6 +15,8 @@ export function statsRoutes(app: FastifyInstance): void {
         applicationsReady,
         applicationsSubmitted,
         interviews,
+        offers,
+        accepted,
         followUpsDue,
         sourceRecords,
         sourceAggregates,
@@ -27,6 +29,8 @@ export function statsRoutes(app: FastifyInstance): void {
         prisma.application.count({ where: { status: 'READY' } }),
         prisma.application.count({ where: { status: 'SUBMITTED' } }),
         prisma.application.count({ where: { status: 'INTERVIEW' } }),
+        prisma.application.count({ where: { status: 'OFFER' } }),
+        prisma.application.count({ where: { status: 'ACCEPTED' } }),
         prisma.application.count({
           where: {
             nextFollowUpAt: { lte: new Date() },
@@ -67,6 +71,8 @@ export function statsRoutes(app: FastifyInstance): void {
         applicationsReady,
         applicationsSubmitted,
         interviews,
+        offers,
+        accepted,
         followUpsDue,
         sources,
       };
