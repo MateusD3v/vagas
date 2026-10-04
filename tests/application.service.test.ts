@@ -44,6 +44,22 @@ describe('preparação de candidatura', () => {
     expect(remove).toHaveBeenCalledOnce();
   });
 
+  it('preserva candidaturas aceitas mesmo se a reanálise virar SKIP', async () => {
+    const existing = { id: 'application-accepted', status: 'ACCEPTED' };
+    const remove = vi.fn();
+    const db = {
+      application: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        delete: remove,
+      },
+      auditLog: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    const result = await new ApplicationService(db).prepare('candidate-1', 'job-1', 'SKIP', 20);
+    expect(result).toBe(existing);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it('preserva candidaturas já submetidas mesmo se a reanálise virar SKIP', async () => {
     const existing = { id: 'application-1', status: 'SUBMITTED' };
     const remove = vi.fn();

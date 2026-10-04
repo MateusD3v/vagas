@@ -33,6 +33,7 @@ export class ApplicationService {
       'REJECTED',
       'INTERVIEW',
       'OFFER',
+      'ACCEPTED',
       'WITHDRAWN',
     ]);
 
