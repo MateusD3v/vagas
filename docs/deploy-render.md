@@ -33,10 +33,10 @@ Com `SEED_DEMO_DATA=false`, o seed cadastra/atualiza apenas o registry de fontes
 
 Depois de a API ficar online, cadastre no repositório:
 
-- `VAGAS_API_URL`: URL pública do serviço, por exemplo `https://vagas-api.onrender.com`.
+- `VAGAS_API_URL`: URL pública aprovada do serviço, atualmente `https://vagas-api-z5wn.onrender.com`.
 - `VAGAS_ADMIN_API_KEY`: mesmo valor de `ADMIN_API_KEY` do Render.
 
-O workflow roda a cada seis horas e também aceita `workflow_dispatch` para teste manual. Se os secrets ainda não existirem, ele encerra sem erro e não chama a API.
+O workflow roda a cada seis horas e também aceita `workflow_dispatch` para teste manual. Secrets ausentes ou uma URL diferente do serviço aprovado fazem a execução falhar antes de transmitir a chave administrativa. Depois do `202`, o workflow consulta o status protegido até o heartbeat avançar e o ciclo terminar em `IDLE`; status `FAILED` ou ausência de confirmação em dez minutos também falham a execução.
 
 O endpoint `POST /worker/run-once` executa, em sequência:
 
@@ -60,7 +60,7 @@ Use `GET /worker/status` e `GET /health` para acompanhar o último heartbeat.
 4. Preencha ou importe o perfil real.
 5. Acesse `/dashboard` e informe a `ADMIN_API_KEY`.
 6. Cadastre `VAGAS_API_URL` e `VAGAS_ADMIN_API_KEY` nos GitHub Actions secrets.
-7. Rode manualmente o workflow `Scheduled worker trigger` uma vez e confira `GET /worker/status`.
+7. Rode manualmente o workflow `Scheduled worker trigger`, aguarde o job ficar verde e confirme que `GET /health` mostra `worker.status=healthy` com `lastSeenAt` preenchido.
 8. Mantenha `SAFE_MODE=true` até existir um provider de submissão externo explicitamente autorizado.
 
 ## Limite do banco gratuito
