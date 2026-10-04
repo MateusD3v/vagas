@@ -97,16 +97,31 @@ export class ApplicationService {
       );
     }
 
-    const updated = await this.db.application.update({
-      where: { id: applicationId },
-      data: {
-        status: input.status,
-        ...(input.externalApplicationId !== undefined
-          ? { externalApplicationId: input.externalApplicationId }
-          : {}),
-        ...(input.notes !== undefined ? { notes: input.notes } : {}),
-        ...(input.status === 'SUBMITTED' ? { submittedAt: new Date() } : {}),
-      },
+    const occurredAt = new Date();
+    const updated = await this.db.$transaction(async (tx) => {
+      const result = await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: input.status,
+          ...(input.externalApplicationId !== undefined
+            ? { externalApplicationId: input.externalApplicationId }
+            : {}),
+          ...(input.notes !== undefined ? { notes: input.notes } : {}),
+          ...(input.status === 'SUBMITTED' ? { submittedAt: occurredAt } : {}),
+        },
+      });
+      await tx.applicationEvent.create({
+        data: {
+          applicationId,
+          fromStatus: application.status,
+          toStatus: input.status,
+          source: 'MANUAL',
+          notes: input.notes ?? null,
+          externalApplicationId: input.externalApplicationId ?? null,
+          occurredAt,
+        },
+      });
+      return result;
     });
 
     await this.audit.record('APPLICATION_STATUS_CHANGED', 'Application', applicationId, {

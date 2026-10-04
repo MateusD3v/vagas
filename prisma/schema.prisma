@@ -410,11 +410,27 @@ model Application {
   candidate             CandidateProfile         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   job                   Job                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   preparation           ApplicationPreparation?
+  events                ApplicationEvent[]
 
   @@unique([candidateId, jobId])
   @@index([status])
 }
 
+
+model ApplicationEvent {
+  id                    String            @id @default(uuid())
+  applicationId         String
+  fromStatus            ApplicationStatus?
+  toStatus              ApplicationStatus
+  source                String            @default("MANUAL")
+  notes                 String?
+  externalApplicationId String?
+  occurredAt            DateTime          @default(now())
+  createdAt             DateTime          @default(now())
+  application           Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, occurredAt])
+}
 model ApplicationPreparation {
   id                 String      @id @default(uuid())
   applicationId      String      @unique
