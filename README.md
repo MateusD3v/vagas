@@ -93,6 +93,7 @@ Compatibilidade da Fase 1 preservada:
 - `GET /applications/:id/eligibility` para explicar requisitos e bloqueios de automação
 - `POST /applications/:id/submit` para provider de submissão explicitamente autorizado
 - `PATCH /applications/:id/status` para acompanhamento manual auditável (também disponível no dashboard)
+- `POST /worker/run-once`, `GET /worker/status`
 - `GET /audit-logs`, `GET /stats`, `GET /docs`, `GET /dashboard`
 
 Fase 2:
@@ -110,7 +111,7 @@ Listagens usam `page`/`pageSize`, limitados a 100. Collection runs aceitam `sour
 
 ## Scheduler e worker
 
-No Compose/local, o worker contínuo usa cron no próprio processo, sem Redis. `JOB_COLLECTION_CRON` segue o formato cron de cinco campos e o padrão `0 */6 * * *` executa a cada seis horas, respeitando a recomendação da Remotive de no máximo quatro coletas diárias. A opção `protect` impede sobreposição dentro do scheduler e as fontes de uma execução são processadas em sequência para compartilhar corretamente o orçamento diário. No Render, o Blueprint usa `worker-once` como Cron Job a cada seis horas para evitar manter um worker contínuo 24/7.
+No Compose/local, o worker contínuo usa cron no próprio processo, sem Redis. `JOB_COLLECTION_CRON` segue o formato cron de cinco campos e o padrão `0 */6 * * *` executa a cada seis horas, respeitando a recomendação da Remotive de no máximo quatro coletas diárias. A opção `protect` impede sobreposição dentro do scheduler e as fontes de uma execução são processadas em sequência para compartilhar corretamente o orçamento diário. No deploy econômico, o GitHub Actions chama `POST /worker/run-once` a cada seis horas; a API agenda um ciclo protegido por lock atômico no PostgreSQL e continua o trabalho após responder `202`.
 
 O heartbeat é atualizado a cada 30 segundos. `/health` considera o worker indisponível após 90 segundos sem atualização e também informa se o perfil ainda é de demonstração. `SIGTERM` e `SIGINT` interrompem scheduler/heartbeat e fecham Prisma. A manutenção diária remove runs/logs expirados e marca vagas reais não vistas como `STALE` e depois `CLOSED` usando janelas configuráveis.
 
@@ -151,6 +152,7 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 | `SEED_DEMO_DATA`                           | `true`        | Popula perfil/vagas mock apenas em desenvolvimento |
 | `WORKER_MODE`                              | `continuous`  | `continuous` local ou `cron` no worker agendado    |
 | `WORKER_HEALTH_TTL_SECONDS`                | `90`          | Janela máxima do heartbeat considerada saudável    |
+| `WORKER_CYCLE_LOCK_TTL_MINUTES`            | `30`          | Expira lock órfão de um ciclo único                |
 | `JOB_COLLECTION_CRON`                      | `0 */6 * * *` | Agenda do worker                                   |
 | `JOB_SOURCE_TIMEOUT_MS`                    | `10000`       | Timeout HTTP                                       |
 | `JOB_SOURCE_MAX_RETRIES`                   | `3`           | Tentativas adicionais                              |
@@ -199,9 +201,9 @@ Testes de adapters e HTTP usam mocks; a suíte automatizada não depende da inte
 
 ## Deploy no Render
 
-O repositório já inclui `render.yaml` e o guia `docs/deploy-render.md`. O Blueprint descreve três recursos na mesma região (`virginia`): PostgreSQL `vagas-db`, Web Service `vagas-api` e Cron Job `vagas-worker-cron` executado a cada seis horas. Ele não cria/sincroniza nada até o Blueprint ser confirmado no Render.
+O repositório já inclui `render.yaml` e o guia `docs/deploy-render.md`. O Blueprint descreve dois recursos na mesma região (`virginia`): PostgreSQL `vagas-db` e Web Service `vagas-api`. A execução periódica fica em `.github/workflows/scheduled-worker.yml`, evitando um Cron Job pago no Render. O Blueprint não cria/sincroniza nada até ser confirmado no Render.
 
-A API usa `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `SEED_DEMO_DATA=false` e `HOST=0.0.0.0`. O cron usa `./docker-entrypoint.sh node dist/src/worker-once.js`, `RUN_MIGRATIONS=false`, `RUN_SEED=false`, `WORKER_MODE=cron` e compartilha `DATABASE_URL`/`ADMIN_API_KEY` por referências do Blueprint. `SAFE_MODE=true` permanece explícito nos dois serviços.
+A API usa `./docker-entrypoint.sh node dist/src/server.js`, `RUN_MIGRATIONS=true`, `RUN_SEED=true`, `SEED_DEMO_DATA=false`, `WORKER_MODE=cron` e `HOST=0.0.0.0`. O workflow agendado do GitHub só precisa de `VAGAS_API_URL` e `VAGAS_ADMIN_API_KEY` como secrets para chamar o endpoint protegido; `SAFE_MODE=true` permanece explícito no serviço.
 
 Use health path `/health`. Não use hostname `postgres` fora do Compose; ele existe apenas na rede Docker local. Para detalhes de custo, bootstrap e primeira publicação, siga `docs/deploy-render.md`.
 

@@ -11,6 +11,7 @@ import { applicationRoutes } from './modules/applications/application.routes.js'
 import { auditRoutes } from './modules/audit/audit.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { jobRoutes } from './modules/jobs/job.routes.js';
+import { workerCycleRoutes } from './modules/maintenance/worker-cycle.routes.js';
 import { matchRoutes } from './modules/matching/match.routes.js';
 import { candidateAnswerRoutes } from './modules/profile/candidate-answer.routes.js';
 import { profileRoutes } from './modules/profile/profile.routes.js';
@@ -40,6 +41,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         { name: 'Jobs' },
         { name: 'Matching' },
         { name: 'Applications' },
+        { name: 'Worker' },
         { name: 'Audit' },
         { name: 'Stats' },
         { name: 'Sources' },
@@ -104,6 +106,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(jobRoutes);
   await app.register(matchRoutes);
   await app.register(applicationRoutes);
+  await app.register(workerCycleRoutes);
   await app.register(auditRoutes);
   await app.register(statsRoutes);
   await app.register(dashboardRoutes);

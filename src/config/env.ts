@@ -20,6 +20,7 @@ const envSchema = z
     ADMIN_API_KEY: z.string().optional(),
     WORKER_MODE: z.enum(['continuous', 'cron']).default('continuous'),
     WORKER_HEALTH_TTL_SECONDS: z.coerce.number().int().positive().default(90),
+    WORKER_CYCLE_LOCK_TTL_MINUTES: z.coerce.number().int().positive().default(30),
     JOB_COLLECTION_CRON: z.string().default('0 */6 * * *'),
     JOB_SOURCE_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     JOB_SOURCE_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(3),
