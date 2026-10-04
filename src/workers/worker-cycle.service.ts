@@ -1,6 +1,9 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Environment } from '../config/env.js';
 import { createJobSourceRegistry } from '../integrations/job-sources/registry.factory.js';
+import { ConsoleNotificationProvider } from '../integrations/notifications/console.provider.js';
+import type { NotificationProvider } from '../integrations/notifications/notification.interface.js';
+import { WebhookNotificationProvider } from '../integrations/notifications/webhook.provider.js';
 import { ApplicationFollowUpService } from '../modules/applications/application-follow-up.service.js';
 import { ApplicationPreparationService } from '../modules/applications/application-preparation.service.js';
 import { JobAvailabilitySyncService } from '../modules/maintenance/job-availability-sync.service.js';
@@ -23,6 +26,7 @@ export interface WorkerCycleDependencies {
   availabilitySync: Pick<JobAvailabilitySyncService, 'run'>;
   applicationPreparation: Pick<ApplicationPreparationService, 'preparePending'>;
   followUps: Pick<ApplicationFollowUpService, 'scanDue'>;
+  notifications?: Pick<NotificationProvider, 'notifyFollowUpsDue'>[];
   retention: Pick<RetentionService, 'run'>;
 }
 
@@ -31,6 +35,7 @@ export class WorkerCycleService {
   private readonly availabilitySync: WorkerCycleDependencies['availabilitySync'];
   private readonly applicationPreparation: WorkerCycleDependencies['applicationPreparation'];
   private readonly followUps: WorkerCycleDependencies['followUps'];
+  private readonly notifications: Pick<NotificationProvider, 'notifyFollowUpsDue'>[];
   private readonly retention: WorkerCycleDependencies['retention'];
 
   constructor(
@@ -44,6 +49,7 @@ export class WorkerCycleService {
       this.availabilitySync = dependencies.availabilitySync;
       this.applicationPreparation = dependencies.applicationPreparation;
       this.followUps = dependencies.followUps;
+      this.notifications = dependencies.notifications ?? [];
       this.retention = dependencies.retention;
       return;
     }
@@ -53,6 +59,19 @@ export class WorkerCycleService {
     this.availabilitySync = new JobAvailabilitySyncService(db, registry, logger);
     this.applicationPreparation = new ApplicationPreparationService(db);
     this.followUps = new ApplicationFollowUpService(db);
+    this.notifications = [];
+    if (config.ENABLE_NOTIFICATIONS) {
+      this.notifications.push(new ConsoleNotificationProvider(logger));
+      if (config.NOTIFICATION_WEBHOOK_URL) {
+        this.notifications.push(
+          new WebhookNotificationProvider(
+            config.NOTIFICATION_WEBHOOK_URL,
+            config.NOTIFICATION_WEBHOOK_TIMEOUT_MS,
+            logger,
+          ),
+        );
+      }
+    }
     this.retention = new RetentionService(
       db,
       config.COLLECTION_RUN_RETENTION_DAYS,
@@ -131,6 +150,13 @@ export class WorkerCycleService {
           )
         : null;
       const followUps = await this.followUps.scanDue();
+      if (followUps.due > 0) {
+        await Promise.all(
+          this.notifications.map((provider) =>
+            provider.notifyFollowUpsDue(followUps.applicationIds),
+          ),
+        );
+      }
       const maintenance = await this.retention.run();
 
       await this.heartbeat('IDLE', trigger, {
