@@ -94,6 +94,13 @@ const envSchema = z
         message: 'ADMIN_API_KEY é obrigatório em production',
       });
     }
+    if (value.NODE_ENV === 'production' && value.SAFE_MODE === false) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SAFE_MODE'],
+        message: 'SAFE_MODE=false exige ativação deliberada fora da configuração padrão de produção',
+      });
+    }
     if (value.JOB_CLOSED_AFTER_DAYS <= value.JOB_STALE_AFTER_DAYS) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
