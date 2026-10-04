@@ -1,9 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Environment } from '../config/env.js';
 import { createJobSourceRegistry } from '../integrations/job-sources/registry.factory.js';
-import { ConsoleNotificationProvider } from '../integrations/notifications/console.provider.js';
+import { createNotificationProviders } from '../integrations/notifications/notification.factory.js';
 import type { NotificationProvider } from '../integrations/notifications/notification.interface.js';
-import { WebhookNotificationProvider } from '../integrations/notifications/webhook.provider.js';
 import { ApplicationFollowUpService } from '../modules/applications/application-follow-up.service.js';
 import { ApplicationPreparationService } from '../modules/applications/application-preparation.service.js';
 import { JobAvailabilitySyncService } from '../modules/maintenance/job-availability-sync.service.js';
@@ -59,19 +58,7 @@ export class WorkerCycleService {
     this.availabilitySync = new JobAvailabilitySyncService(db, registry, logger);
     this.applicationPreparation = new ApplicationPreparationService(db);
     this.followUps = new ApplicationFollowUpService(db);
-    this.notifications = [];
-    if (config.ENABLE_NOTIFICATIONS) {
-      this.notifications.push(new ConsoleNotificationProvider(logger));
-      if (config.NOTIFICATION_WEBHOOK_URL) {
-        this.notifications.push(
-          new WebhookNotificationProvider(
-            config.NOTIFICATION_WEBHOOK_URL,
-            config.NOTIFICATION_WEBHOOK_TIMEOUT_MS,
-            logger,
-          ),
-        );
-      }
-    }
+    this.notifications = createNotificationProviders(config, logger);
     this.retention = new RetentionService(
       db,
       config.COLLECTION_RUN_RETENTION_DAYS,
