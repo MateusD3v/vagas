@@ -60,6 +60,7 @@ export class WebhookNotificationProvider implements NotificationProvider {
       }
     } catch (error) {
       this.logger.warn({ err: error, event: payload.event }, 'Falha ao enviar notificação webhook');
+      if (payload.event === 'FOLLOW_UP_DUE') throw error;
     } finally {
       clearTimeout(timer);
     }
