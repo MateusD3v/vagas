@@ -84,8 +84,11 @@ export async function buildApp(): Promise<FastifyInstance> {
         Date.now() - worker.lastSeenAt.getTime() < env.WORKER_HEALTH_TTL_SECONDS * 1000 &&
         workerStatusAllowed,
       );
+      const profileReady = Boolean(profile && !profile.isDemo);
+      const ready = workerAlive && profileReady;
       return {
         status: 'ok',
+        readiness: ready ? 'ready' : 'degraded',
         database: 'connected',
         worker: {
           status: workerAlive ? 'healthy' : 'unavailable',
@@ -94,7 +97,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         },
         profile: {
           status: !profile ? 'missing' : profile.isDemo ? 'demo' : 'ready',
-          collectionReady: Boolean(profile && !profile.isDemo),
+          collectionReady: profileReady,
         },
         timestamp: new Date().toISOString(),
       };
