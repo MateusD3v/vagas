@@ -272,7 +272,7 @@ export function applicationRoutes(app: FastifyInstance): void {
       const application = await prisma.application.findUnique({ where: { id: applicationId } });
       if (!application) throw new AppError('Candidatura não encontrada', 404);
       const now = new Date();
-      return prisma.application.update({
+      const updated = await prisma.application.update({
         where: { id: applicationId },
         data: {
           ...(input.nextFollowUpAt !== undefined ? { nextFollowUpAt: input.nextFollowUpAt } : {}),
@@ -280,6 +280,20 @@ export function applicationRoutes(app: FastifyInstance): void {
           ...(input.completed ? { lastFollowUpAt: now, nextFollowUpAt: null } : {}),
         },
       });
+      await prisma.auditLog.create({
+        data: {
+          event: input.completed
+            ? 'APPLICATION_FOLLOW_UP_COMPLETED'
+            : 'APPLICATION_FOLLOW_UP_SCHEDULED',
+          entityType: 'Application',
+          entityId: applicationId,
+          metadata: {
+            nextFollowUpAt: updated.nextFollowUpAt?.toISOString() ?? null,
+            lastFollowUpAt: updated.lastFollowUpAt?.toISOString() ?? null,
+          },
+        },
+      });
+      return updated;
     },
   );
 
