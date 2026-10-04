@@ -82,10 +82,11 @@ describe('acompanhamento de candidatura', () => {
       },
       applicationEvent: { create: eventCreate },
       auditLog: { create: audit },
-      $transaction: vi.fn(async (callback) => callback(db)),
-    } as unknown as PrismaClient;
+    };
+    const transaction = vi.fn((callback: (client: typeof db) => Promise<unknown>) => callback(db));
+    const prisma = { ...db, $transaction: transaction } as unknown as PrismaClient;
 
-    const result = await new ApplicationService(db).updateStatus('application-1', {
+    const result = await new ApplicationService(prisma).updateStatus('application-1', {
       status: 'SUBMITTED',
       externalApplicationId: 'ats-123',
     });
@@ -100,14 +101,21 @@ describe('acompanhamento de candidatura', () => {
     expect(updateCall.data.status).toBe('SUBMITTED');
     expect(updateCall.data.submittedAt).toBeInstanceOf(Date);
     expect(updateCall.data.externalApplicationId).toBe('ats-123');
-    expect(eventCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        applicationId: 'application-1',
-        fromStatus: 'READY',
-        toStatus: 'SUBMITTED',
-        source: 'MANUAL',
-        externalApplicationId: 'ats-123',
-      }),
+    const eventCall = eventCreate.mock.calls[0]?.[0] as {
+      data: {
+        applicationId: string;
+        fromStatus: string;
+        toStatus: string;
+        source: string;
+        externalApplicationId: string | null;
+      };
+    };
+    expect(eventCall.data).toMatchObject({
+      applicationId: 'application-1',
+      fromStatus: 'READY',
+      toStatus: 'SUBMITTED',
+      source: 'MANUAL',
+      externalApplicationId: 'ats-123',
     });
     expect(audit).toHaveBeenCalledOnce();
   });
