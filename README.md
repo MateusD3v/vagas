@@ -1,6 +1,6 @@
-# Job Application Agent - Fase 5 follow-up
+# Job Application Agent - Fase 5 completa
 
-Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa, reprocessa e prepara candidaturas locais. O sistema **não envia candidaturas**, não automatiza LinkedIn/Indeed e não usa navegador, CAPTCHA bypass ou evasão anti-bot.
+Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa, reprocessa, prepara e acompanha candidaturas. A submissão automática só ocorre por provider externo explicitamente autorizado, quando configurado e com `SAFE_MODE=false`; por padrão nenhum provider de envio está habilitado. O sistema não automatiza LinkedIn/Indeed, não usa navegador, CAPTCHA bypass ou evasão anti-bot.
 
 ## Stack e arquitetura
 
