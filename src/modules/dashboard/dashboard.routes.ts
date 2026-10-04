@@ -226,7 +226,10 @@ const dashboardHtml = `<!doctype html>
           preparation ? '<button type="button" data-fast-kit="' + esc(item.id) + '">Kit rápido</button>' : '',
           '<button type="button" data-timeline="' + esc(item.id) + '">Histórico</button>',
           ['SUBMITTED', 'INTERVIEW', 'OFFER'].includes(item.status)
-            ? '<button type="button" data-follow-up="' + esc(item.id) + '">Follow-up</button>'
+            ? '<button type="button" data-follow-up="' + esc(item.id) + '">Follow-up</button>' +
+              (item.nextFollowUpAt
+                ? ' <button type="button" data-complete-follow-up="' + esc(item.id) + '">Concluir follow-up</button>'
+                : '')
             : '',
           statusAction(item),
         ].filter(Boolean).join(' ');
@@ -365,6 +368,7 @@ const dashboardHtml = `<!doctype html>
       target.dataset.fastKit ||
       target.dataset.timeline ||
       target.dataset.followUp ||
+      target.dataset.completeFollowUp ||
       target.dataset.updateStatus;
     if (!applicationId) return;
 
@@ -381,6 +385,18 @@ const dashboardHtml = `<!doctype html>
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ status: select.value }),
         });
+        await refresh();
+        return;
+      }
+
+      if (target.dataset.completeFollowUp) {
+        await api('/applications/' + encodeURIComponent(applicationId) + '/follow-up', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ completed: true }),
+        });
+        statusEl.textContent = 'Follow-up concluído.';
+        statusEl.className = 'ok';
         await refresh();
         return;
       }
