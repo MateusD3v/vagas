@@ -65,7 +65,6 @@ Cada fonte gera um `CollectionRun` em `RUNNING`, finalizado como:
 
 Os detalhes normalizados ficam em `CollectionError`; payloads e segredos nÃ£o entram nos logs.
 
-## Acompanhamento pós-candidatura
+## Acompanhamento pï¿½s-candidatura
 
-Candidaturas SUBMITTED recebem follow-up padrão para 7 dias depois. O acompanhamento pode ser reagendado ou concluído no dashboard; o worker 24/7 detecta follow-ups vencidos e publica a contagem no heartbeat. Estados finais limpam o follow-up pendente. Agendamentos e conclusões são auditados.
-
+Candidaturas SUBMITTED recebem follow-up padrï¿½o para 7 dias depois. O acompanhamento pode ser reagendado ou concluï¿½do no dashboard; o worker 24/7 detecta follow-ups vencidos e publica a contagem no heartbeat. Estados finais limpam o follow-up pendente. Agendamentos e conclusï¿½es sï¿½o auditados.
