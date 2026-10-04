@@ -164,7 +164,7 @@ const dashboardHtml = `<!doctype html>
     SUBMITTED: ['INTERVIEW', 'REJECTED', 'FAILED', 'WITHDRAWN'],
     FAILED: ['READY', 'WITHDRAWN'],
     INTERVIEW: ['OFFER', 'REJECTED', 'WITHDRAWN'],
-    OFFER: ['WITHDRAWN'],
+    OFFER: ['ACCEPTED', 'WITHDRAWN'],
   };
 
   function statusAction(item) {
@@ -198,6 +198,8 @@ const dashboardHtml = `<!doctype html>
         card('READY', stats.applicationsReady ?? 0, 'ok'),
         card('SUBMITTED', stats.applicationsSubmitted ?? 0),
         card('Entrevistas', stats.interviews ?? 0),
+        card('Ofertas', stats.offers ?? 0),
+        card('Aceitas', stats.accepted ?? 0),
         card('Follow-ups', stats.followUpsDue ?? 0, (stats.followUpsDue ?? 0) > 0 ? 'warn' : 'ok'),
       ].join('');
 
