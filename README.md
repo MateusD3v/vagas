@@ -1,4 +1,4 @@
-# Job Application Agent — Fase 4 integrations
+# Job Application Agent - Fase 5 follow-up
 
 Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa, reprocessa e prepara candidaturas locais. O sistema **não envia candidaturas**, não automatiza LinkedIn/Indeed e não usa navegador, CAPTCHA bypass ou evasão anti-bot.
 
@@ -225,5 +225,5 @@ Use health path `/health`. Não use hostname `postgres` fora do Compose; ele exi
 - Jobicy usa confirmação explícita de `active/closed/unknown`; Remotive e Arbeitnow continuam usando ausência temporal (`lastSeenAt`) como evidência de `STALE`/`CLOSED`.
 - Notificações externas suportam webhook genérico, mas ainda não existem providers específicos de e-mail/Slack/Discord.
 - Reprocessamento completo existe por `POST /jobs/reprocess` e CLI `npm run reprocess:jobs`, mas requer um perfil real; o seed permanece deliberadamente de demonstração.
-- O currículo personalizado em Markdown e o acompanhamento manual de candidatura já existem. A submissão automática possui interface/registry e endpoint, porém nenhum provider externo está habilitado por padrão; `SAFE_MODE=true` continua bloqueando qualquer envio.
-- O dashboard e a proteção por API key já existem. Ainda faltam autenticação multiusuário/OAuth e integrações externas autorizadas para acompanhamento/submissão; esses itens continuam para as próximas etapas da Fase 4.
+- O currículo personalizado em Markdown, timeline e follow-up pós-candidatura já existem. Ao marcar uma candidatura como `SUBMITTED`, o sistema agenda acompanhamento padrão em sete dias; o dashboard permite reagendar/concluir e o worker detecta pendências. A submissão automática possui interface/registry e endpoint, porém nenhum provider externo está habilitado por padrão; `SAFE_MODE=true` continua bloqueando qualquer envio.
+- O dashboard e a proteção por API key já existem. Ainda faltam autenticação multiusuário/OAuth e integrações externas oficiais para sincronizar automaticamente respostas/status de ATS; esses itens dependem de credenciais/autorização do provedor.
