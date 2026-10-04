@@ -4,6 +4,8 @@ import { MockLLMProvider } from '../src/integrations/llm/mock.provider.js';
 import { JobIngestionService } from '../src/modules/jobs/job-ingestion.service.js';
 import { createCanonicalJobFingerprint } from '../src/modules/jobs/job-fingerprint.js';
 import { JobMatchingService } from '../src/modules/matching/job-matching.service.js';
+import { profileTransferBundleSchema } from '../src/modules/profile/profile-transfer.schemas.js';
+import { ProfileTransferService } from '../src/modules/profile/profile-transfer.service.js';
 import { ProfileService } from '../src/modules/profile/profile.service.js';
 
 const db = new PrismaClient();
@@ -61,8 +63,20 @@ async function seedSources() {
   }
 }
 
+async function importBootstrapProfile(): Promise<void> {
+  const encoded = process.env.PROFILE_BOOTSTRAP_BASE64;
+  if (!encoded) return;
+  const existingProfile = await db.candidateProfile.findFirst({ select: { id: true } });
+  if (existingProfile) return;
+
+  const json = Buffer.from(encoded, 'base64').toString('utf8');
+  const bundle = profileTransferBundleSchema.parse(JSON.parse(json));
+  await new ProfileTransferService(db).importBundle(bundle);
+}
+
 async function main() {
   await seedSources();
+  await importBootstrapProfile();
   const existingProfile = await db.candidateProfile.findFirst();
   if (!existingProfile && seedDemoData) {
     await new ProfileService(db).create({
