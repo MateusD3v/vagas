@@ -51,6 +51,22 @@ describe('WebhookNotificationProvider', () => {
       data: { jobId: 'job-1', score: 85, decision: 'APPLY' },
     });
   });
+  it('envia acompanhamentos vencidos em JSON', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const provider = new WebhookNotificationProvider('https://example.test/hook', 1000, logger);
+
+    await provider.notifyFollowUpsDue(['application-1', 'application-2']);
+
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const body = init?.body;
+    if (typeof body !== 'string') throw new Error('Webhook body deveria ser JSON string');
+    expect(JSON.parse(body)).toMatchObject({
+      event: 'FOLLOW_UP_DUE',
+      data: { count: 2, applicationIds: ['application-1', 'application-2'] },
+    });
+  });
+
   it('não derruba o pipeline quando o webhook falha', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new Error('network down')));
     const provider = new WebhookNotificationProvider('https://example.test/hook', 1000, logger);

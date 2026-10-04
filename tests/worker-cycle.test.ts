@@ -40,6 +40,7 @@ function dependencies(): WorkerCycleDependencies {
     followUps: {
       scanDue: vi.fn().mockResolvedValue({ due: 1, applicationIds: ['application-1'] }),
     },
+    notifications: [{ notifyFollowUpsDue: vi.fn().mockResolvedValue(undefined) }],
     retention: {
       run: vi.fn().mockResolvedValue({
         collectionRunsDeleted: 0,
@@ -80,6 +81,7 @@ describe('WorkerCycleService', () => {
       env.APPLICATION_PREPARATION_BATCH_SIZE,
     );
     expect(deps.followUps.scanDue).toHaveBeenCalledOnce();
+    expect(deps.notifications?.[0]?.notifyFollowUpsDue).toHaveBeenCalledWith(['application-1']);
     expect(result.followUps).toEqual({ due: 1, applicationIds: ['application-1'] });
     expect(update).toHaveBeenCalled();
     const idleUpdate = update.mock.calls.at(-1)?.[0];

@@ -20,6 +20,14 @@ export class ConsoleNotificationProvider implements NotificationProvider {
     return Promise.resolve();
   }
 
+  notifyFollowUpsDue(applicationIds: string[]): Promise<void> {
+    this.logger.info(
+      { event: 'FOLLOW_UP_DUE', count: applicationIds.length, applicationIds },
+      'Candidaturas com acompanhamento pendente',
+    );
+    return Promise.resolve();
+  }
+
   notifySourceFailure(source: string, message: string): Promise<void> {
     this.logger.warn({ event: 'SOURCE_FAILED', source, error: message }, 'Fonte falhou');
     return Promise.resolve();

@@ -2,7 +2,7 @@ import type { AppLogger } from '../../shared/logger.js';
 import type { NotificationMatch, NotificationProvider } from './notification.interface.js';
 
 interface WebhookPayload {
-  event: 'HIGH_MATCH_FOUND' | 'REVIEW_REQUIRED' | 'SOURCE_FAILED';
+  event: 'HIGH_MATCH_FOUND' | 'REVIEW_REQUIRED' | 'SOURCE_FAILED' | 'FOLLOW_UP_DUE';
   createdAt: string;
   data: Record<string, unknown>;
 }
@@ -29,6 +29,14 @@ export class WebhookNotificationProvider implements NotificationProvider {
       data: { jobId: jobMatch.jobId, score: jobMatch.score, decision: jobMatch.decision },
     });
   }
+  notifyFollowUpsDue(applicationIds: string[]): Promise<void> {
+    return this.send({
+      event: 'FOLLOW_UP_DUE',
+      createdAt: new Date().toISOString(),
+      data: { count: applicationIds.length, applicationIds },
+    });
+  }
+
   notifySourceFailure(source: string, message: string): Promise<void> {
     return this.send({
       event: 'SOURCE_FAILED',
