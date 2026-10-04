@@ -64,3 +64,8 @@ Cada fonte gera um `CollectionRun` em `RUNNING`, finalizado como:
 - `FAILED`: a fonte/execuÃ§Ã£o falhou integralmente.
 
 Os detalhes normalizados ficam em `CollectionError`; payloads e segredos nÃ£o entram nos logs.
+
+## Acompanhamento pós-candidatura
+
+Candidaturas SUBMITTED recebem follow-up padrão para 7 dias depois. O acompanhamento pode ser reagendado ou concluído no dashboard; o worker 24/7 detecta follow-ups vencidos e publica a contagem no heartbeat. Estados finais limpam o follow-up pendente. Agendamentos e conclusões são auditados.
+
