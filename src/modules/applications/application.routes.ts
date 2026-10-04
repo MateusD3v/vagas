@@ -30,7 +30,16 @@ const followUpSchema = z.object({
 });
 
 const statusUpdateSchema = z.object({
-  status: z.enum(['READY', 'SUBMITTED', 'FAILED', 'REJECTED', 'INTERVIEW', 'OFFER', 'WITHDRAWN']),
+  status: z.enum([
+    'READY',
+    'SUBMITTED',
+    'FAILED',
+    'REJECTED',
+    'INTERVIEW',
+    'OFFER',
+    'ACCEPTED',
+    'WITHDRAWN',
+  ]),
   externalApplicationId: z.string().min(1).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
 });
@@ -47,6 +56,7 @@ const applicationQuerySchema = paginationSchema.extend({
       'REJECTED',
       'INTERVIEW',
       'OFFER',
+      'ACCEPTED',
       'WITHDRAWN',
     ])
     .optional(),
