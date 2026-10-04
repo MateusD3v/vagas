@@ -34,7 +34,7 @@ describe('GET /health', () => {
       database: 'connected',
       profile: { status: 'ready', collectionReady: true },
     });
-    const body = response.json() as { readiness: string };
+    const body = response.json<{ readiness: string }>();
     expect(['ready', 'degraded']).toContain(body.readiness);
 
     await app.close();
