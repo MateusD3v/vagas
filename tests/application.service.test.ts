@@ -74,12 +74,15 @@ describe('acompanhamento de candidatura', () => {
       .fn()
       .mockImplementation(({ data }) => Promise.resolve({ ...existing, ...data }));
     const audit = vi.fn().mockResolvedValue({ id: 'audit-1' });
+    const eventCreate = vi.fn().mockResolvedValue({ id: 'event-1' });
     const db = {
       application: {
         findUnique: vi.fn().mockResolvedValue(existing),
         update,
       },
+      applicationEvent: { create: eventCreate },
       auditLog: { create: audit },
+      $transaction: vi.fn(async (callback) => callback(db)),
     } as unknown as PrismaClient;
 
     const result = await new ApplicationService(db).updateStatus('application-1', {
@@ -97,6 +100,15 @@ describe('acompanhamento de candidatura', () => {
     expect(updateCall.data.status).toBe('SUBMITTED');
     expect(updateCall.data.submittedAt).toBeInstanceOf(Date);
     expect(updateCall.data.externalApplicationId).toBe('ats-123');
+    expect(eventCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        applicationId: 'application-1',
+        fromStatus: 'READY',
+        toStatus: 'SUBMITTED',
+        source: 'MANUAL',
+        externalApplicationId: 'ats-123',
+      }),
+    });
     expect(audit).toHaveBeenCalledOnce();
   });
   it('bloqueia salto inválido de READY direto para OFFER', async () => {

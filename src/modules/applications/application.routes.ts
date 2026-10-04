@@ -250,6 +250,25 @@ export function applicationRoutes(app: FastifyInstance): void {
   );
 
   app.get(
+    '/applications/:id/timeline',
+    { schema: { tags: ['Applications'], summary: 'Lista o histórico de estágios da candidatura' } },
+    async (request) => {
+      const applicationId = idParamsSchema.parse(request.params).id;
+      const application = await prisma.application.findUnique({
+        where: { id: applicationId },
+        select: { id: true },
+      });
+      if (!application) throw new AppError('Candidatura não encontrada', 404);
+      return {
+        data: await prisma.applicationEvent.findMany({
+          where: { applicationId },
+          orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
+        }),
+      };
+    },
+  );
+
+  app.get(
     '/applications/:id',
     { schema: { tags: ['Applications'], summary: 'Detalha uma candidatura' } },
     async (request) => {
