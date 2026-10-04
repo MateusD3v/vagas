@@ -95,11 +95,20 @@ describe('acompanhamento de candidatura', () => {
     expect(update).toHaveBeenCalledOnce();
     const updateCall = update.mock.calls[0]?.[0] as {
       where: { id: string };
-      data: { status: string; submittedAt?: Date; externalApplicationId?: string };
+      data: {
+        status: string;
+        submittedAt?: Date;
+        nextFollowUpAt?: Date;
+        externalApplicationId?: string;
+      };
     };
     expect(updateCall.where.id).toBe('application-1');
     expect(updateCall.data.status).toBe('SUBMITTED');
     expect(updateCall.data.submittedAt).toBeInstanceOf(Date);
+    expect(updateCall.data.nextFollowUpAt).toBeInstanceOf(Date);
+    expect(updateCall.data.nextFollowUpAt!.getTime() - updateCall.data.submittedAt!.getTime()).toBe(
+      7 * 24 * 60 * 60 * 1000,
+    );
     expect(updateCall.data.externalApplicationId).toBe('ats-123');
     const eventCall = eventCreate.mock.calls[0]?.[0] as {
       data: {
