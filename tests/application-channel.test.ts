@@ -67,7 +67,18 @@ describe('application channel', () => {
           {
             label: 'Motivação',
             required: true,
-            fields: [{ name: 'question_1', type: 'textarea', ignored: 'x' }],
+            fields: [
+              {
+                name: 'question_1',
+                type: 'multi_value_single_select',
+                values: [
+                  { label: 'Sim', value: 1, ignored: true },
+                  { label: 'Não', value: 0 },
+                  { value: 2 },
+                ],
+                ignored: 'x',
+              },
+            ],
           },
           { label: 123, required: true },
         ],
@@ -76,7 +87,16 @@ describe('application channel', () => {
       {
         label: 'Motivação',
         required: true,
-        fields: [{ name: 'question_1', type: 'textarea' }],
+        fields: [
+          {
+            name: 'question_1',
+            type: 'multi_value_single_select',
+            values: [
+              { label: 'Sim', value: 1 },
+              { label: 'Não', value: 0 },
+            ],
+          },
+        ],
       },
     ]);
     expect(readApplicationQuestions(null)).toEqual([]);

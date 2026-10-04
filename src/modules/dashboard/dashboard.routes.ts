@@ -427,9 +427,22 @@ const dashboardHtml = `<!doctype html>
                 const preparedValue = question.answer
                   ? question.answer
                   : profileValues.map(value => value.value).filter(Boolean).join(' | ');
+                const sourceQuestion = questions[index];
+                const fields = Array.isArray(sourceQuestion?.fields) ? sourceQuestion.fields : [];
+                const options = fields.flatMap(field => Array.isArray(field.values) ? field.values : []);
+                const singleSelect = fields.some(field => field.type === 'multi_value_single_select');
+                const optionLabels = [...new Set(options.map(option => option.label).filter(Boolean))];
+                const editorControl = singleSelect && optionLabels.length
+                  ? '<select data-question-answer="' + index + '"><option value="">Selecione...</option>' +
+                    optionLabels.map(label => '<option value="' + esc(label) + '">' + esc(label) + '</option>').join('') +
+                    '</select>'
+                  : '<textarea data-question-answer="' + index + '" placeholder="Digite sua resposta"></textarea>' +
+                    (optionLabels.length
+                      ? '<div class="muted" style="margin-top:6px">Opções conhecidas: ' + optionLabels.map(esc).join(' · ') + '</div>'
+                      : '');
                 const manualEditor = question.status === 'MANUAL_REQUIRED'
                   ? '<div style="margin-top:8px">' +
-                    '<textarea data-question-answer="' + index + '" placeholder="Digite sua resposta"></textarea>' +
+                    editorControl +
                     '<div style="margin-top:8px"><button type="button" data-save-question="' + index + '">Salvar e reutilizar</button></div>' +
                     '</div>'
                   : '';
@@ -468,9 +481,12 @@ const dashboardHtml = `<!doctype html>
             if (!(button instanceof HTMLButtonElement)) return;
             const index = Number(button.dataset.saveQuestion);
             const question = questionReadiness[index];
-            const textarea = content.querySelector('[data-question-answer="' + index + '"]');
-            if (!question || !(textarea instanceof HTMLTextAreaElement)) return;
-            const answer = textarea.value.trim();
+            const editor = content.querySelector('[data-question-answer="' + index + '"]');
+            if (
+              !question ||
+              (!(editor instanceof HTMLTextAreaElement) && !(editor instanceof HTMLSelectElement))
+            ) return;
+            const answer = editor.value.trim();
             if (!answer) {
               statusEl.textContent = 'Digite a resposta antes de salvar.';
               statusEl.className = 'warn';
