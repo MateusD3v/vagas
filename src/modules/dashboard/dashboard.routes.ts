@@ -198,6 +198,7 @@ const dashboardHtml = `<!doctype html>
         card('READY', stats.applicationsReady ?? 0, 'ok'),
         card('SUBMITTED', stats.applicationsSubmitted ?? 0),
         card('Entrevistas', stats.interviews ?? 0),
+        card('Follow-ups', stats.followUpsDue ?? 0, (stats.followUpsDue ?? 0) > 0 ? 'warn' : 'ok'),
       ].join('');
 
       const blockers = readiness.blocking || [];

@@ -15,6 +15,7 @@ export function statsRoutes(app: FastifyInstance): void {
         applicationsReady,
         applicationsSubmitted,
         interviews,
+        followUpsDue,
         sourceRecords,
         sourceAggregates,
       ] = await Promise.all([
@@ -26,6 +27,12 @@ export function statsRoutes(app: FastifyInstance): void {
         prisma.application.count({ where: { status: 'READY' } }),
         prisma.application.count({ where: { status: 'SUBMITTED' } }),
         prisma.application.count({ where: { status: 'INTERVIEW' } }),
+        prisma.application.count({
+          where: {
+            nextFollowUpAt: { lte: new Date() },
+            status: { in: ['SUBMITTED', 'INTERVIEW', 'OFFER'] },
+          },
+        }),
         prisma.jobSource.findMany({ select: { id: true, name: true, slug: true } }),
         prisma.collectionRun.groupBy({
           by: ['sourceId'],
@@ -60,6 +67,7 @@ export function statsRoutes(app: FastifyInstance): void {
         applicationsReady,
         applicationsSubmitted,
         interviews,
+        followUpsDue,
         sources,
       };
     },
