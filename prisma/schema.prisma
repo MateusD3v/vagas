@@ -407,6 +407,8 @@ model Application {
   submittedAt           DateTime?
   externalApplicationId String?
   notes                 String?
+  nextFollowUpAt        DateTime?
+  lastFollowUpAt        DateTime?
   candidate             CandidateProfile         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   job                   Job                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   preparation           ApplicationPreparation?
@@ -414,6 +416,7 @@ model Application {
 
   @@unique([candidateId, jobId])
   @@index([status])
+  @@index([nextFollowUpAt, status])
 }
 
 
