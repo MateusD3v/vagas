@@ -46,6 +46,46 @@ const greenhouseJobSchema = z.object({
                 .object({
                   name: z.string().optional(),
                   type: z.string().optional(),
+                  values: z
+                    .array(
+                      z
+                        .object({
+                          label: z.string(),
+                          value: z.union([z.string(), z.number()]).optional(),
+                        })
+                        .passthrough(),
+                    )
+                    .optional(),
+                })
+                .passthrough(),
+            )
+            .default([]),
+        })
+        .passthrough(),
+    )
+    .default([]),
+  location_questions: z
+    .array(
+      z
+        .object({
+          label: z.string().min(1),
+          required: z.boolean().default(false),
+          fields: z
+            .array(
+              z
+                .object({
+                  name: z.string().optional(),
+                  type: z.string().optional(),
+                  values: z
+                    .array(
+                      z
+                        .object({
+                          label: z.string(),
+                          value: z.union([z.string(), z.number()]).optional(),
+                        })
+                        .passthrough(),
+                    )
+                    .optional(),
                 })
                 .passthrough(),
             )
@@ -419,12 +459,13 @@ export class AtsJobResolverService {
         publishedAt: job.updated_at ?? undefined,
       },
       missingFields: [],
-      applicationQuestions: job.questions.map((question) => ({
+      applicationQuestions: [...job.location_questions, ...job.questions].map((question) => ({
         label: question.label,
         required: question.required,
         fields: question.fields.map((field) => ({
           ...(field.name ? { name: field.name } : {}),
           ...(field.type ? { type: field.type } : {}),
+          ...(field.values?.length ? { values: field.values } : {}),
         })),
       })),
     };

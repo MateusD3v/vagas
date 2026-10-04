@@ -60,6 +60,13 @@ describe('AtsJobResolverService', () => {
         absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/456',
         location: { name: 'Remote' },
         updated_at: '2026-10-03T12:00:00Z',
+        location_questions: [
+          {
+            label: 'Location',
+            required: true,
+            fields: [{ name: 'location', type: 'input_text', values: [] }],
+          },
+        ],
         questions: [
           {
             label: 'Why do you want to work here?',
@@ -69,7 +76,16 @@ describe('AtsJobResolverService', () => {
           {
             label: 'Portfolio URL',
             required: false,
-            fields: [{ name: 'question_456', type: 'input_text' }],
+            fields: [
+              {
+                name: 'question_456',
+                type: 'multi_value_single_select',
+                values: [
+                  { label: 'No', value: 0 },
+                  { label: 'Yes', value: 1 },
+                ],
+              },
+            ],
           },
         ],
       })
@@ -92,6 +108,11 @@ describe('AtsJobResolverService', () => {
       },
       applicationQuestions: [
         {
+          label: 'Location',
+          required: true,
+          fields: [{ name: 'location', type: 'input_text' }],
+        },
+        {
           label: 'Why do you want to work here?',
           required: true,
           fields: [{ name: 'question_123', type: 'textarea' }],
@@ -99,7 +120,16 @@ describe('AtsJobResolverService', () => {
         {
           label: 'Portfolio URL',
           required: false,
-          fields: [{ name: 'question_456', type: 'input_text' }],
+          fields: [
+            {
+              name: 'question_456',
+              type: 'multi_value_single_select',
+              values: [
+                { label: 'No', value: 0 },
+                { label: 'Yes', value: 1 },
+              ],
+            },
+          ],
         },
       ],
     });

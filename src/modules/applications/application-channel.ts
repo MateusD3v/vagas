@@ -19,7 +19,11 @@ export interface ApplicationChannel {
 export interface ApplicationQuestion {
   label: string;
   required: boolean;
-  fields: Array<{ name?: string; type?: string }>;
+  fields: Array<{
+    name?: string;
+    type?: string;
+    values?: Array<{ label: string; value?: string | number }>;
+  }>;
 }
 
 function hostname(value: string | null | undefined): string {
@@ -91,10 +95,27 @@ export function readApplicationQuestions(rawData: unknown): ApplicationQuestion[
       ? record.fields.flatMap((field) => {
           if (!field || typeof field !== 'object' || Array.isArray(field)) return [];
           const fieldRecord = field as Record<string, unknown>;
+          const values = Array.isArray(fieldRecord.values)
+            ? fieldRecord.values.flatMap((value) => {
+                if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+                const valueRecord = value as Record<string, unknown>;
+                if (typeof valueRecord.label !== 'string') return [];
+                const rawValue = valueRecord.value;
+                return [
+                  {
+                    label: valueRecord.label,
+                    ...(typeof rawValue === 'string' || typeof rawValue === 'number'
+                      ? { value: rawValue }
+                      : {}),
+                  },
+                ];
+              })
+            : [];
           return [
             {
               ...(typeof fieldRecord.name === 'string' ? { name: fieldRecord.name } : {}),
               ...(typeof fieldRecord.type === 'string' ? { type: fieldRecord.type } : {}),
+              ...(values.length ? { values } : {}),
             },
           ];
         })
