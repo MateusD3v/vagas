@@ -67,11 +67,19 @@ describe('WebhookNotificationProvider', () => {
     });
   });
 
-  it('não derruba o pipeline quando o webhook falha', async () => {
+  it('mantém eventos gerais best-effort quando o webhook falha', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new Error('network down')));
     const provider = new WebhookNotificationProvider('https://example.test/hook', 1000, logger);
 
     await expect(provider.notifySourceFailure('remotive', '429')).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('propaga falha de FOLLOW_UP_DUE para permitir retry no próximo ciclo', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new Error('network down')));
+    const provider = new WebhookNotificationProvider('https://example.test/hook', 1000, logger);
+
+    await expect(provider.notifyFollowUpsDue(['application-1'])).rejects.toThrow('network down');
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
