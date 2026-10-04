@@ -8,7 +8,7 @@ const allowedStatusTransitions: Partial<Record<ApplicationStatus, ApplicationSta
   SUBMITTED: ['INTERVIEW', 'REJECTED', 'FAILED', 'WITHDRAWN'],
   FAILED: ['READY', 'WITHDRAWN'],
   INTERVIEW: ['OFFER', 'REJECTED', 'WITHDRAWN'],
-  OFFER: ['WITHDRAWN'],
+  OFFER: ['ACCEPTED', 'WITHDRAWN'],
 };
 
 export interface ApplicationStatusUpdate {
@@ -113,8 +113,8 @@ export class ApplicationService {
                 nextFollowUpAt: new Date(occurredAt.getTime() + 7 * 24 * 60 * 60 * 1000),
               }
             : {}),
-          ...(['REJECTED', 'OFFER', 'WITHDRAWN'].includes(input.status)
-            ? { nextFollowUpAt: null }
+          ...(['REJECTED', 'OFFER', 'ACCEPTED', 'WITHDRAWN'].includes(input.status)
+            ? { nextFollowUpAt: null, followUpNotifiedAt: null }
             : {}),
         },
       });

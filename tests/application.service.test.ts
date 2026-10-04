@@ -128,6 +128,42 @@ describe('acompanhamento de candidatura', () => {
     });
     expect(audit).toHaveBeenCalledOnce();
   });
+  it('permite aceitar uma oferta e encerra follow-up pendente', async () => {
+    const existing = {
+      id: 'application-1',
+      candidateId: 'candidate-1',
+      jobId: 'job-1',
+      status: 'OFFER',
+      matchScore: 90,
+    };
+    const update = vi
+      .fn()
+      .mockImplementation(({ data }) => Promise.resolve({ ...existing, ...data }));
+    const eventCreate = vi.fn().mockResolvedValue({ id: 'event-1' });
+    const db = {
+      application: { findUnique: vi.fn().mockResolvedValue(existing), update },
+      applicationEvent: { create: eventCreate },
+      auditLog: { create: vi.fn() },
+    };
+    const transaction = vi.fn((callback: (client: typeof db) => Promise<unknown>) => callback(db));
+    const prisma = { ...db, $transaction: transaction } as unknown as PrismaClient;
+
+    const result = await new ApplicationService(prisma).updateStatus('application-1', {
+      status: 'ACCEPTED',
+    });
+
+    expect(result.status).toBe('ACCEPTED');
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'ACCEPTED',
+          nextFollowUpAt: null,
+          followUpNotifiedAt: null,
+        }) as object,
+      }),
+    );
+  });
+
   it('bloqueia salto inválido de READY direto para OFFER', async () => {
     const db = {
       application: {
