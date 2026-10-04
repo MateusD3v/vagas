@@ -107,7 +107,15 @@ export class ApplicationService {
             ? { externalApplicationId: input.externalApplicationId }
             : {}),
           ...(input.notes !== undefined ? { notes: input.notes } : {}),
-          ...(input.status === 'SUBMITTED' ? { submittedAt: occurredAt } : {}),
+          ...(input.status === 'SUBMITTED'
+            ? {
+                submittedAt: occurredAt,
+                nextFollowUpAt: new Date(occurredAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+              }
+            : {}),
+          ...(['REJECTED', 'OFFER', 'WITHDRAWN'].includes(input.status)
+            ? { nextFollowUpAt: null }
+            : {}),
         },
       });
       await tx.applicationEvent.create({
