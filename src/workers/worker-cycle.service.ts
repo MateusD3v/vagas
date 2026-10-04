@@ -150,12 +150,16 @@ export class WorkerCycleService {
           )
         : null;
       const followUps = await this.followUps.scanDue();
-      if (followUps.due > 0) {
+      if (followUps.due > 0 && this.notifications.length > 0) {
         await Promise.all(
           this.notifications.map((provider) =>
             provider.notifyFollowUpsDue(followUps.applicationIds),
           ),
         );
+        await this.db.application.updateMany({
+          where: { id: { in: followUps.applicationIds } },
+          data: { followUpNotifiedAt: new Date() },
+        });
       }
       const maintenance = await this.retention.run();
 

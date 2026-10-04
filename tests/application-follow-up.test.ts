@@ -15,6 +15,7 @@ describe('ApplicationFollowUpService', () => {
       where: {
         nextFollowUpAt: { lte: now },
         status: { in: ['SUBMITTED', 'INTERVIEW', 'OFFER'] },
+        followUpNotifiedAt: null,
       },
       select: { id: true },
       orderBy: { nextFollowUpAt: 'asc' },

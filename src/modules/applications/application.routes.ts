@@ -275,9 +275,13 @@ export function applicationRoutes(app: FastifyInstance): void {
       const updated = await prisma.application.update({
         where: { id: applicationId },
         data: {
-          ...(input.nextFollowUpAt !== undefined ? { nextFollowUpAt: input.nextFollowUpAt } : {}),
+          ...(input.nextFollowUpAt !== undefined
+            ? { nextFollowUpAt: input.nextFollowUpAt, followUpNotifiedAt: null }
+            : {}),
           ...(input.notes !== undefined ? { notes: input.notes } : {}),
-          ...(input.completed ? { lastFollowUpAt: now, nextFollowUpAt: null } : {}),
+          ...(input.completed
+            ? { lastFollowUpAt: now, nextFollowUpAt: null, followUpNotifiedAt: null }
+            : {}),
         },
       });
       await prisma.auditLog.create({
