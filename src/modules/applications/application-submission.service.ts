@@ -73,7 +73,7 @@ export class ApplicationSubmissionService {
       await tx.applicationEvent.create({
         data: {
           applicationId,
-          fromStatus: existing.status,
+          fromStatus: 'READY',
           toStatus: 'SUBMITTED',
           source: `AUTOMATED:${provider.id}`,
           externalApplicationId: result.externalApplicationId,
