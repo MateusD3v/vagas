@@ -20,6 +20,15 @@ export class ApplicationSubmissionService {
   }
 
   async submit(applicationId: string) {
+    const existing = await this.db.application.findUnique({
+      where: { id: applicationId },
+      select: { status: true, submittedAt: true, externalApplicationId: true },
+    });
+    if (!existing) throw new AppError('Candidatura não encontrada', 404);
+    if (existing.status === 'SUBMITTED' || existing.submittedAt || existing.externalApplicationId) {
+      throw new AppError('Candidatura já foi submetida; envio duplicado bloqueado', 409);
+    }
+
     const eligibility = await this.eligibility.evaluate(applicationId);
     if (!eligibility.automaticSubmissionAllowed) {
       throw new AppError('Candidatura não elegível para submissão automática', 409, eligibility);
