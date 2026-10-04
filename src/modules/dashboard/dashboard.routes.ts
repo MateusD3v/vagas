@@ -224,6 +224,9 @@ const dashboardHtml = `<!doctype html>
           preparation ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>' : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
           preparation ? '<button type="button" data-fast-kit="' + esc(item.id) + '">Kit rápido</button>' : '',
           '<button type="button" data-timeline="' + esc(item.id) + '">Histórico</button>',
+          ['SUBMITTED', 'INTERVIEW', 'OFFER'].includes(item.status)
+            ? '<button type="button" data-follow-up="' + esc(item.id) + '">Follow-up</button>'
+            : '',
           statusAction(item),
         ].filter(Boolean).join(' ');
         const channelLabel = channel.flow === 'FAST_APPLY'
@@ -360,6 +363,7 @@ const dashboardHtml = `<!doctype html>
       target.dataset.downloadResume ||
       target.dataset.fastKit ||
       target.dataset.timeline ||
+      target.dataset.followUp ||
       target.dataset.updateStatus;
     if (!applicationId) return;
 
@@ -376,6 +380,23 @@ const dashboardHtml = `<!doctype html>
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ status: select.value }),
         });
+        await refresh();
+        return;
+      }
+
+      if (target.dataset.followUp) {
+        const daysText = window.prompt('Daqui a quantos dias deseja acompanhar novamente?', '7');
+        if (daysText === null) return;
+        const days = Number.parseInt(daysText, 10);
+        if (!Number.isFinite(days) || days < 0 || days > 365) throw new Error('Informe um número de dias entre 0 e 365');
+        const nextFollowUpAt = new Date(Date.now() + days * 86400000);
+        await api('/applications/' + encodeURIComponent(applicationId) + '/follow-up', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ nextFollowUpAt: nextFollowUpAt.toISOString() }),
+        });
+        statusEl.textContent = 'Follow-up agendado para ' + nextFollowUpAt.toLocaleDateString('pt-BR');
+        statusEl.className = 'ok';
         await refresh();
         return;
       }
