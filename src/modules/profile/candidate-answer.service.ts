@@ -54,6 +54,25 @@ export class CandidateAnswerService {
     return `ats_${slug.slice(0, 100) || 'question'}`;
   }
 
+  private canonicalOptionAnswer(
+    question: ReturnType<typeof readApplicationQuestions>[number],
+    answer: string,
+  ): string {
+    const options = question.fields.flatMap((field) => field.values ?? []);
+    if (!options.length) return answer;
+
+    const normalizedAnswer = normalizeText(answer);
+    const selected = options.find((option) => {
+      if (normalizeText(option.label) === normalizedAnswer) return true;
+      if (option.value === undefined) return false;
+      return normalizeText(String(option.value)) === normalizedAnswer;
+    });
+    if (!selected) {
+      throw new AppError('Resposta não corresponde a uma opção conhecida desta pergunta', 400);
+    }
+    return selected.label;
+  }
+
   async upsert(input: CandidateAnswerInput) {
     this.validateAutomaticUse(input);
     const candidateId = await this.candidateId();
@@ -99,7 +118,7 @@ export class CandidateAnswerService {
     const candidateAnswer: CandidateAnswerInput = {
       questionKey: this.questionKey(question.label),
       question: question.label,
-      answer: input.answer,
+      answer: this.canonicalOptionAnswer(question, input.answer),
       answerType: question.fields[0]?.type ?? 'TEXT',
       allowedForAutomaticUse: input.allowedForAutomaticUse,
     };

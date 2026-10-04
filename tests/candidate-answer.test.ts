@@ -156,6 +156,89 @@ describe('CandidateAnswerService', () => {
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
+  it('valida opções conhecidas e salva o rótulo canônico', async () => {
+    const upsert = vi
+      .fn()
+      .mockImplementation(({ create }) => Promise.resolve({ id: 'answer-option', ...create }));
+    const db = {
+      candidateProfile: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'candidate-1', isDemo: false }),
+      },
+      application: {
+        findFirst: vi.fn().mockResolvedValue({
+          job: {
+            rawData: {
+              applicationQuestions: [
+                {
+                  label: 'Aceita trabalho remoto?',
+                  required: true,
+                  fields: [
+                    {
+                      name: 'question_remote',
+                      type: 'multi_value_single_select',
+                      values: [
+                        { label: 'Não', value: 0 },
+                        { label: 'Sim', value: 1 },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        }),
+      },
+      candidateAnswer: { upsert },
+      auditLog: { create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+    } as unknown as PrismaClient;
+
+    const result = await new CandidateAnswerService(db).upsertForApplication('app-1', {
+      question: 'Aceita trabalho remoto?',
+      answer: '1',
+      allowedForAutomaticUse: true,
+    });
+
+    expect(result.answer).toBe('Sim');
+  });
+
+  it('recusa resposta fora das opções conhecidas do ATS', async () => {
+    const db = {
+      candidateProfile: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'candidate-1', isDemo: false }),
+      },
+      application: {
+        findFirst: vi.fn().mockResolvedValue({
+          job: {
+            rawData: {
+              applicationQuestions: [
+                {
+                  label: 'Disponibilidade',
+                  required: true,
+                  fields: [
+                    {
+                      type: 'multi_value_single_select',
+                      values: [{ label: 'Imediata', value: 'immediate' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        }),
+      },
+      candidateAnswer: { upsert: vi.fn() },
+      auditLog: { create: vi.fn() },
+    } as unknown as PrismaClient;
+
+    await expect(
+      new CandidateAnswerService(db).upsertForApplication('app-1', {
+        question: 'Disponibilidade',
+        answer: 'Daqui a dois meses',
+        allowedForAutomaticUse: true,
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
   it('não grava respostas no perfil de demonstração', async () => {
     const db = {
       candidateProfile: {
