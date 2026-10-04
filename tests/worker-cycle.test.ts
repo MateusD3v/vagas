@@ -86,7 +86,7 @@ describe('WorkerCycleService', () => {
     expect(deps.notifications?.[0]?.notifyFollowUpsDue).toHaveBeenCalledWith(['application-1']);
     expect(markFollowUpsNotified).toHaveBeenCalledWith({
       where: { id: { in: ['application-1'] } },
-      data: { followUpNotifiedAt: expect.any(Date) },
+      data: { followUpNotifiedAt: expect.any(Date) as Date },
     });
     expect(result.followUps).toEqual({ due: 1, applicationIds: ['application-1'] });
     expect(update).toHaveBeenCalled();
