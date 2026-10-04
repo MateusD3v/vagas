@@ -23,6 +23,12 @@ const applicationQuestionAnswerSchema = z.object({
   allowedForAutomaticUse: z.boolean().default(true),
 });
 
+const followUpSchema = z.object({
+  nextFollowUpAt: z.coerce.date().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  completed: z.boolean().default(false),
+});
+
 const statusUpdateSchema = z.object({
   status: z.enum(['READY', 'SUBMITTED', 'FAILED', 'REJECTED', 'INTERVIEW', 'OFFER', 'WITHDRAWN']),
   externalApplicationId: z.string().min(1).nullable().optional(),
@@ -247,6 +253,49 @@ export function applicationRoutes(app: FastifyInstance): void {
         idParamsSchema.parse(request.params).id,
         statusUpdateSchema.parse(request.body),
       ),
+  );
+
+  app.patch(
+    '/applications/:id/follow-up',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Applications'],
+        summary: 'Agenda ou conclui um acompanhamento da candidatura',
+        security: [{ adminKey: [] }],
+      },
+    },
+    async (request) => {
+      const applicationId = idParamsSchema.parse(request.params).id;
+      const input = followUpSchema.parse(request.body);
+      const application = await prisma.application.findUnique({ where: { id: applicationId } });
+      if (!application) throw new AppError('Candidatura não encontrada', 404);
+      const now = new Date();
+      return prisma.application.update({
+        where: { id: applicationId },
+        data: {
+          ...(input.nextFollowUpAt !== undefined ? { nextFollowUpAt: input.nextFollowUpAt } : {}),
+          ...(input.notes !== undefined ? { notes: input.notes } : {}),
+          ...(input.completed ? { lastFollowUpAt: now, nextFollowUpAt: null } : {}),
+        },
+      });
+    },
+  );
+
+  app.get(
+    '/applications/follow-ups/due',
+    { schema: { tags: ['Applications'], summary: 'Lista acompanhamentos vencidos ou para agora' } },
+    async () => ({
+      data: await prisma.application.findMany({
+        where: {
+          nextFollowUpAt: { lte: new Date() },
+          status: { in: ['SUBMITTED', 'INTERVIEW', 'OFFER'] },
+        },
+        include: { job: true },
+        orderBy: { nextFollowUpAt: 'asc' },
+      }),
+    }),
   );
 
   app.get(
