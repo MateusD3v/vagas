@@ -61,8 +61,10 @@ describe('WorkerCycleService', () => {
         (args: { data: { status: string; metadata?: Record<string, unknown> } }) => Promise<object>
       >()
       .mockResolvedValue({});
+    const markFollowUpsNotified = vi.fn().mockResolvedValue({ count: 1 });
     const db = {
       workerHeartbeat: { upsert, updateMany, update },
+      application: { updateMany: markFollowUpsNotified },
     } as unknown as PrismaClient;
     const deps = dependencies();
 
@@ -82,6 +84,10 @@ describe('WorkerCycleService', () => {
     );
     expect(deps.followUps.scanDue).toHaveBeenCalledOnce();
     expect(deps.notifications?.[0]?.notifyFollowUpsDue).toHaveBeenCalledWith(['application-1']);
+    expect(markFollowUpsNotified).toHaveBeenCalledWith({
+      where: { id: { in: ['application-1'] } },
+      data: { followUpNotifiedAt: expect.any(Date) as Date },
+    });
     expect(result.followUps).toEqual({ due: 1, applicationIds: ['application-1'] });
     expect(update).toHaveBeenCalled();
     const idleUpdate = update.mock.calls.at(-1)?.[0];

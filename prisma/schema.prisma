@@ -409,6 +409,7 @@ model Application {
   notes                 String?
   nextFollowUpAt        DateTime?
   lastFollowUpAt        DateTime?
+  followUpNotifiedAt    DateTime?
   candidate             CandidateProfile         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   job                   Job                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   preparation           ApplicationPreparation?
