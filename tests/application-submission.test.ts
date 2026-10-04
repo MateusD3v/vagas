@@ -93,6 +93,30 @@ describe('ApplicationSubmissionService', () => {
     expect(submitProvider.submit).not.toHaveBeenCalled();
   });
 
+  it('bloqueia nova submissão quando a candidatura já foi enviada', async () => {
+    const submitProvider = provider();
+    const db = {
+      application: {
+        findUnique: vi.fn().mockResolvedValue({
+          status: 'SUBMITTED',
+          submittedAt: new Date('2026-10-03T12:00:00Z'),
+          externalApplicationId: 'external-123',
+        }),
+        count: vi.fn().mockResolvedValue(0),
+        update: vi.fn(),
+      },
+      auditLog: { create: vi.fn() },
+    } as unknown as PrismaClient;
+    const service = new ApplicationSubmissionService(
+      db,
+      false,
+      new SubmissionProviderRegistry([submitProvider.provider]),
+    );
+
+    await expect(service.submit('app-1')).rejects.toMatchObject({ statusCode: 409 });
+    expect(submitProvider.submit).not.toHaveBeenCalled();
+  });
+
   it('submete somente via provider registrado e grava identificador externo', async () => {
     const submitProvider = provider();
     const application = applicationFixture();
