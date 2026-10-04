@@ -38,6 +38,8 @@ const dashboardHtml = `<!doctype html>
     .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
     .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
     .answer { padding:10px 0; border-bottom:1px solid #222b42; }
+    .timeline-event { padding:12px 0; border-bottom:1px solid #222b42; }
+    .timeline-event:last-child { border-bottom:0; }
     code { color:#c9d1ff; }
   </style>
 </head>
@@ -101,6 +103,13 @@ const dashboardHtml = `<!doctype html>
     <div class="modal">
       <div class="modal-head"><h2>Kit de candidatura</h2><button id="closeKit" type="button">Fechar</button></div>
       <div id="kitContent" class="muted">Carregando...</div>
+    </div>
+  </div>
+
+  <div id="timelineModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head"><h2>Histórico da candidatura</h2><button id="closeTimeline" type="button">Fechar</button></div>
+      <div id="timelineContent" class="muted">Carregando...</div>
     </div>
   </div>
 
@@ -214,6 +223,7 @@ const dashboardHtml = `<!doctype html>
           applicationUrl ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">' + esc(openLabel) + '</button></a>' : '',
           preparation ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>' : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
           preparation ? '<button type="button" data-fast-kit="' + esc(item.id) + '">Kit rápido</button>' : '',
+          '<button type="button" data-timeline="' + esc(item.id) + '">Histórico</button>',
           statusAction(item),
         ].filter(Boolean).join(' ');
         const channelLabel = channel.flow === 'FAST_APPLY'
@@ -349,6 +359,7 @@ const dashboardHtml = `<!doctype html>
       target.dataset.prepare ||
       target.dataset.downloadResume ||
       target.dataset.fastKit ||
+      target.dataset.timeline ||
       target.dataset.updateStatus;
     if (!applicationId) return;
 
@@ -366,6 +377,23 @@ const dashboardHtml = `<!doctype html>
           body: JSON.stringify({ status: select.value }),
         });
         await refresh();
+        return;
+      }
+
+      if (target.dataset.timeline) {
+        const timeline = await api('/applications/' + encodeURIComponent(applicationId) + '/timeline');
+        const events = Array.isArray(timeline.data) ? timeline.data : [];
+        document.getElementById('timelineContent').innerHTML = events.length
+          ? events.map(item =>
+              '<div class="timeline-event"><div><strong>' + esc(item.fromStatus || 'INÍCIO') +
+              ' → ' + esc(item.toStatus) + '</strong></div><div class="muted">' +
+              esc(new Date(item.occurredAt).toLocaleString('pt-BR')) + ' · ' + esc(item.source) + '</div>' +
+              (item.notes ? '<div style="margin-top:6px">' + esc(item.notes) + '</div>' : '') +
+              (item.externalApplicationId ? '<div class="muted">ID externo: <code>' + esc(item.externalApplicationId) + '</code></div>' : '') +
+              '</div>'
+            ).join('')
+          : '<div class="muted">Nenhuma mudança de estágio registrada ainda.</div>';
+        document.getElementById('timelineModal').classList.remove('hidden');
         return;
       }
 
@@ -584,6 +612,15 @@ const dashboardHtml = `<!doctype html>
       statusEl.className = 'bad';
     } finally {
       input.value = '';
+    }
+  });
+
+  document.getElementById('closeTimeline').addEventListener('click', () => {
+    document.getElementById('timelineModal').classList.add('hidden');
+  });
+  document.getElementById('timelineModal').addEventListener('click', (event) => {
+    if (event.target === document.getElementById('timelineModal')) {
+      document.getElementById('timelineModal').classList.add('hidden');
     }
   });
 
