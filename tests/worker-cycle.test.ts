@@ -79,6 +79,8 @@ describe('WorkerCycleService', () => {
     expect(deps.applicationPreparation.preparePending).toHaveBeenCalledWith(
       env.APPLICATION_PREPARATION_BATCH_SIZE,
     );
+    expect(deps.followUps.scanDue).toHaveBeenCalledOnce();
+    expect(result.followUps).toEqual({ due: 1, applicationIds: ['application-1'] });
     expect(update).toHaveBeenCalled();
     const idleUpdate = update.mock.calls.at(-1)?.[0];
     expect(idleUpdate?.data.status).toBe('IDLE');
