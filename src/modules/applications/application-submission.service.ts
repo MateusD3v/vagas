@@ -58,14 +58,29 @@ export class ApplicationSubmissionService {
       },
     });
 
-    const updated = await this.db.application.update({
-      where: { id: applicationId },
-      data: {
-        status: 'SUBMITTED',
-        applicationMethod: `AUTOMATED:${provider.id}`,
-        externalApplicationId: result.externalApplicationId,
-        submittedAt: result.submittedAt,
-      },
+    const updated = await this.db.$transaction(async (tx) => {
+      const application = await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: 'SUBMITTED',
+          applicationMethod: `AUTOMATED:${provider.id}`,
+          externalApplicationId: result.externalApplicationId,
+          submittedAt: result.submittedAt,
+          nextFollowUpAt: new Date(result.submittedAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+          followUpNotifiedAt: null,
+        },
+      });
+      await tx.applicationEvent.create({
+        data: {
+          applicationId,
+          fromStatus: 'READY',
+          toStatus: 'SUBMITTED',
+          source: `AUTOMATED:${provider.id}`,
+          externalApplicationId: result.externalApplicationId,
+          occurredAt: result.submittedAt,
+        },
+      });
+      return application;
     });
 
     await this.audit.record('APPLICATION_SUBMITTED', 'Application', applicationId, {

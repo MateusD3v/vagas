@@ -124,13 +124,26 @@ describe('ApplicationSubmissionService', () => {
       .fn()
       .mockImplementation(({ data }) => Promise.resolve({ ...application, ...data }));
     const audit = vi.fn().mockResolvedValue({ id: 'audit-1' });
+    const applicationEvent = vi.fn().mockResolvedValue({ id: 'event-1' });
     const db = {
       application: {
         findUnique: vi.fn().mockResolvedValue(application),
         count: vi.fn().mockResolvedValue(0),
         update,
       },
+      applicationEvent: { create: applicationEvent },
       auditLog: { create: audit },
+      $transaction: vi
+        .fn()
+        .mockImplementation(
+          (
+            callback: (tx: {
+              application: { update: typeof update };
+              applicationEvent: { create: typeof applicationEvent };
+            }) => Promise<unknown>,
+          ) =>
+            callback({ application: { update }, applicationEvent: { create: applicationEvent } }),
+        ),
     } as unknown as PrismaClient;
     const service = new ApplicationSubmissionService(
       db,
@@ -143,7 +156,17 @@ describe('ApplicationSubmissionService', () => {
     expect(result.status).toBe('SUBMITTED');
     expect(result.applicationMethod).toBe('AUTOMATED:authorized-test-provider');
     expect(result.externalApplicationId).toBe('external-123');
+    expect(result.nextFollowUpAt).toEqual(new Date('2026-10-10T12:00:00Z'));
     expect(update).toHaveBeenCalledOnce();
+    expect(applicationEvent).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        applicationId: 'app-1',
+        fromStatus: 'READY',
+        toStatus: 'SUBMITTED',
+        source: 'AUTOMATED:authorized-test-provider',
+        externalApplicationId: 'external-123',
+      }) as object,
+    });
     expect(audit).toHaveBeenCalledOnce();
   });
 });
