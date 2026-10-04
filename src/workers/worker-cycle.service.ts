@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Environment } from '../config/env.js';
 import { createJobSourceRegistry } from '../integrations/job-sources/registry.factory.js';
+import { ApplicationFollowUpService } from '../modules/applications/application-follow-up.service.js';
 import { ApplicationPreparationService } from '../modules/applications/application-preparation.service.js';
 import { JobAvailabilitySyncService } from '../modules/maintenance/job-availability-sync.service.js';
 import { RetentionService } from '../modules/maintenance/retention.service.js';
@@ -13,6 +14,7 @@ export interface WorkerCycleResult {
   resumed: number;
   availability: Awaited<ReturnType<JobAvailabilitySyncService['run']>> | null;
   preparation: Awaited<ReturnType<ApplicationPreparationService['preparePending']>> | null;
+  followUps: Awaited<ReturnType<ApplicationFollowUpService['scanDue']>> | null;
   maintenance: Awaited<ReturnType<RetentionService['run']>> | null;
 }
 
@@ -20,6 +22,7 @@ export interface WorkerCycleDependencies {
   collection: Pick<ReturnType<typeof createCollectionService>, 'runEnabled' | 'resumePending'>;
   availabilitySync: Pick<JobAvailabilitySyncService, 'run'>;
   applicationPreparation: Pick<ApplicationPreparationService, 'preparePending'>;
+  followUps: Pick<ApplicationFollowUpService, 'scanDue'>;
   retention: Pick<RetentionService, 'run'>;
 }
 
@@ -27,6 +30,7 @@ export class WorkerCycleService {
   private readonly collection: WorkerCycleDependencies['collection'];
   private readonly availabilitySync: WorkerCycleDependencies['availabilitySync'];
   private readonly applicationPreparation: WorkerCycleDependencies['applicationPreparation'];
+  private readonly followUps: WorkerCycleDependencies['followUps'];
   private readonly retention: WorkerCycleDependencies['retention'];
 
   constructor(
@@ -39,6 +43,7 @@ export class WorkerCycleService {
       this.collection = dependencies.collection;
       this.availabilitySync = dependencies.availabilitySync;
       this.applicationPreparation = dependencies.applicationPreparation;
+      this.followUps = dependencies.followUps;
       this.retention = dependencies.retention;
       return;
     }
@@ -47,6 +52,7 @@ export class WorkerCycleService {
     this.collection = createCollectionService(db, config, logger, registry);
     this.availabilitySync = new JobAvailabilitySyncService(db, registry, logger);
     this.applicationPreparation = new ApplicationPreparationService(db);
+    this.followUps = new ApplicationFollowUpService(db);
     this.retention = new RetentionService(
       db,
       config.COLLECTION_RUN_RETENTION_DAYS,
@@ -110,6 +116,7 @@ export class WorkerCycleService {
         resumed: 0,
         availability: null,
         preparation: null,
+        followUps: null,
         maintenance: null,
       };
     }
@@ -123,6 +130,7 @@ export class WorkerCycleService {
             this.config.APPLICATION_PREPARATION_BATCH_SIZE,
           )
         : null;
+      const followUps = await this.followUps.scanDue();
       const maintenance = await this.retention.run();
 
       await this.heartbeat('IDLE', trigger, {
@@ -130,6 +138,7 @@ export class WorkerCycleService {
         resumed,
         availability,
         preparation,
+        followUps,
         maintenance,
       });
 
@@ -139,6 +148,7 @@ export class WorkerCycleService {
         resumed,
         availability,
         preparation,
+        followUps,
         maintenance,
       };
       this.logger.info({ trigger, workerCycle: result }, 'Ciclo agendado concluído');

@@ -37,6 +37,9 @@ function dependencies(): WorkerCycleDependencies {
         failures: [],
       }),
     },
+    followUps: {
+      scanDue: vi.fn().mockResolvedValue({ due: 1, applicationIds: ['application-1'] }),
+    },
     retention: {
       run: vi.fn().mockResolvedValue({
         collectionRunsDeleted: 0,
