@@ -5,18 +5,99 @@ on:
     - cron: '0 */6 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-worker-production
+  cancel-in-progress: false
+
 jobs:
   trigger:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Trigger protected worker cycle
+      - name: Trigger and verify protected worker cycle
+        shell: bash
         env:
           VAGAS_API_URL: ${{ secrets.VAGAS_API_URL }}
           VAGAS_ADMIN_API_KEY: ${{ secrets.VAGAS_ADMIN_API_KEY }}
         run: |
-          if [ -z "$VAGAS_API_URL" ] || [ -z "$VAGAS_ADMIN_API_KEY" ]; then
-            echo "VAGAS_API_URL/VAGAS_ADMIN_API_KEY not configured; skipping."
-            exit 0
+          set -euo pipefail
+
+          if [[ -z "${VAGAS_API_URL:-}" || -z "${VAGAS_ADMIN_API_KEY:-}" ]]; then
+            echo "Required worker secrets are not configured."
+            exit 1
           fi
 
-          curl --fail --show-error --silent             --retry 3             --retry-delay 10             --max-time 120             -X POST "${VAGAS_API_URL%/}/worker/run-once"             -H "X-Admin-Key: $VAGAS_ADMIN_API_KEY"             -H "Content-Type: application/json"             -d '{}'
+          readonly expected_api_url="https://vagas-api-z5wn.onrender.com"
+          readonly api_url="${VAGAS_API_URL%/}"
+          if [[ "$api_url" != "$expected_api_url" ]]; then
+            echo "VAGAS_API_URL does not match the approved production service."
+            exit 1
+          fi
+
+          baseline_payload="$(
+            curl --fail --show-error --silent \
+              --connect-timeout 15 \
+              --max-time 30 \
+              --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+              "$api_url/worker/status"
+          )"
+          baseline_last_seen="$(jq -r '.lastSeenAt // ""' <<<"$baseline_payload")"
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          http_status="$(
+            curl --show-error --silent \
+              --retry 3 \
+              --retry-all-errors \
+              --retry-delay 10 \
+              --connect-timeout 15 \
+              --max-time 120 \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
+              --request POST \
+              --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+              --header "Content-Type: application/json" \
+              --data '{}' \
+              "$api_url/worker/run-once"
+          )"
+
+          if [[ "$http_status" != "202" ]]; then
+            echo "Worker trigger returned HTTP $http_status."
+            exit 1
+          fi
+          if [[ "$(jq -r '.scheduled // false' "$response_file")" != "true" ]]; then
+            echo "Worker trigger response did not confirm scheduling."
+            exit 1
+          fi
+
+          for attempt in $(seq 1 60); do
+            status_payload="$(
+              curl --fail --show-error --silent \
+                --connect-timeout 15 \
+                --max-time 30 \
+                --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+                "$api_url/worker/status"
+            )"
+            worker_status="$(jq -r '.status // ""' <<<"$status_payload")"
+            last_seen="$(jq -r '.lastSeenAt // ""' <<<"$status_payload")"
+
+            if [[ -n "$last_seen" && "$last_seen" != "$baseline_last_seen" ]]; then
+              if [[ "$worker_status" == "FAILED" ]]; then
+                echo "Worker cycle finished with FAILED status."
+                exit 1
+              fi
+              if [[ "$worker_status" == "IDLE" ]]; then
+                echo "Worker cycle completed and heartbeat advanced."
+                exit 0
+              fi
+            fi
+
+            echo "Waiting for worker cycle completion (attempt $attempt/60)."
+            sleep 10
+          done
+
+          echo "Worker heartbeat did not confirm completion within 10 minutes."
+          exit 1
