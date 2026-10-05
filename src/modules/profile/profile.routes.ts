@@ -75,7 +75,11 @@ export function profileRoutes(app: FastifyInstance): void {
     {
       preHandler: requireAdmin,
       config: { rateLimit: adminRateLimit },
-      schema: { tags: ['Profile'], summary: 'Substitui o perfil ativo', security: [{ adminKey: [] }] },
+      schema: {
+        tags: ['Profile'],
+        summary: 'Substitui o perfil ativo',
+        security: [{ adminKey: [] }],
+      },
     },
     (request) => service.replace(profileUpdateSchema.parse(request.body)),
   );
@@ -85,7 +89,11 @@ export function profileRoutes(app: FastifyInstance): void {
     {
       preHandler: requireAdmin,
       config: { rateLimit: adminRateLimit },
-      schema: { tags: ['Profile'], summary: 'Atualiza parcialmente o perfil ativo', security: [{ adminKey: [] }] },
+      schema: {
+        tags: ['Profile'],
+        summary: 'Atualiza parcialmente o perfil ativo',
+        security: [{ adminKey: [] }],
+      },
     },
     (request) => service.patch(profilePatchSchema.parse(request.body)),
   );
