@@ -127,7 +127,8 @@ export class JobCollectionService {
         ? { publishedAfter: new Date(Date.now() - search.publishedWithinHours * 3_600_000) }
         : {}),
     };
-    const rotatesKeyword = source.slug === 'remotive' || source.slug === 'jobicy';
+    const rotatesKeyword =
+      source.slug === 'remotive' || source.slug === 'jobicy' || source.slug === 'himalayas';
     const selectedKeyword =
       rotatesKeyword && query.keywords.length
         ? query.keywords[source.keywordCursor % query.keywords.length]
