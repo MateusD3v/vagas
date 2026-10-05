@@ -38,7 +38,11 @@ describe('sourceSearchKeywords', () => {
       'Estagio TI',
     ]);
 
-    expect(keywords).toEqual(['Java Developer', 'Technical Support', 'Software Engineering Intern']);
+    expect(keywords).toEqual([
+      'Java Developer',
+      'Technical Support',
+      'Software Engineering Intern',
+    ]);
   });
 
   it('não altera keywords de fontes que processam a lista completa', () => {
