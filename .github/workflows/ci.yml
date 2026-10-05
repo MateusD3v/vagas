@@ -17,7 +17,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:generate
-      - run: npm run format:check
+      - run: |
+          npx prettier --write src/modules/sources/source-keywords.ts tests/source-keywords.test.ts
+          git diff -- src/modules/sources/source-keywords.ts tests/source-keywords.test.ts
+          exit 1
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
