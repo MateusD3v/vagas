@@ -322,14 +322,11 @@ describe('AtsJobResolverService Recruitee', () => {
         location: 'Belém',
         remoteType: 'HYBRID',
         employmentType: 'internship',
-        applicationUrl:
-          'https://acme.recruitee.com/o/estagio-desenvolvimento-software/c/new',
+        applicationUrl: 'https://acme.recruitee.com/o/estagio-desenvolvimento-software/c/new',
         publishedAt: '2026-10-05T08:00:00.000Z',
       },
     });
-    expect(String(getJson.mock.calls[0]?.[0])).toBe(
-      'https://acme.recruitee.com/api/offers/',
-    );
+    expect(String(getJson.mock.calls[0]?.[0])).toBe('https://acme.recruitee.com/api/offers/');
   });
 
   it('não inventa dados quando o slug não aparece no feed público', async () => {
