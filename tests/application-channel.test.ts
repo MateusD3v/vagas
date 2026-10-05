@@ -59,6 +59,12 @@ describe('application channel', () => {
       classifyApplicationChannel('https://acme.jobs.personio.de/job/12345', 'manual'),
     ).toMatchObject({ platform: 'PERSONIO', flow: 'ATS' });
     expect(
+      classifyApplicationChannel(
+        'https://careers.pinpointhq.com/en/postings/9447bc5f-30f9-4dbe-8531-3d66df1fc1a5',
+        'manual',
+      ),
+    ).toMatchObject({ platform: 'PINPOINT', flow: 'ATS' });
+    expect(
       classifyApplicationChannel('https://acme.wd5.myworkdayjobs.com/job/1', 'manual'),
     ).toMatchObject({ platform: 'WORKDAY', flow: 'ATS' });
   });

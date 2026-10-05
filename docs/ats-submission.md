@@ -47,6 +47,20 @@ Referências:
 - https://developer.personio.de/docs/integration-of-open-positions
 - https://developer.personio.de/changelog/job-application-submission
 
+## Pinpoint
+
+- O Pinpoint oferece um endpoint JSON público em `https://<conta>.pinpointhq.com/postings.json` para listar publicações externas.
+- O resolvedor usa somente esse feed público e nunca a API autenticada `/api/v1`.
+- O feed público expõe ID da publicação, título, descrição, responsabilidades, requisitos, benefícios, localização, modalidade, tipo de contratação e URL pública/formulário quando disponíveis.
+- O nome da empresa não é inferido pelo subdomínio; permanece como pendência quando não é publicado no feed.
+- A API autenticada de Pinpoint usa `X-API-KEY` e inclui operações de escrita; sem credencial oficialmente autorizada pela organização, o agente apenas prepara os dados e usa o formulário público hospedado.
+
+Referências:
+
+- https://developers.pinpointhq.com/docs/jobs-json-endpoint
+- https://help.pinpoint.support/en/articles/5878344-how-to-list-pinpoint-jobs-on-any-website
+- https://developers.pinpointhq.com/reference/get-job-postings
+
 ## Regra do agente
 
 1. **Provider autorizado + credencial válida + política elegível + SAFE_MODE desativado conscientemente**: pode existir submissão automática.
