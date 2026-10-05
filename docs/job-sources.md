@@ -50,7 +50,7 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Autenticação: não requerida.
 - Filtros usados: uma keyword por execução em `q` e ordenação `recent`; a keyword é rotacionada entre os termos do perfil para manter a coleta conservadora.
 - Campos: GUID, título, empresa, descrição HTML, tipo de contratação, senioridade, restrições de país/fuso, categorias, salário, publicação, expiração e link de candidatura.
-- Normalização: descrição sem HTML, modalidade `REMOTE`, senioridade inferida de forma conservadora, localização baseada nas restrições de país e tecnologias reconhecidas.
+- Normalização: descrição sem HTML, modalidade `REMOTE`, senioridade inferida de forma conservadora, localização baseada nas restrições de país e tecnologias reconhecidas. O parser aceita as duas representações oficiais atualmente publicadas para `locationRestrictions` (nomes de país como strings ou objetos com `alpha2`/`name`/`slug`) e fusos como strings ou números, evitando quebra por divergência entre README/OpenAPI.
 - Limite público: até 20 registros por resposta; o adapter usa no máximo 20 e faz somente uma requisição por execução.
 - Atualização/rate limit: a documentação informa atualização diária e rate limit sem cota numérica pública. O adapter usa limite interno de uma requisição a cada 30 segundos e concorrência 1.
 - Atribuição: ao exibir dados da vaga, manter o link retornado e identificar Himalayas como fonte. O projeto não republica as vagas em outros job boards.
@@ -62,7 +62,7 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Endpoint: `GET https://remoteok.com/api`.
 - Documentação/FAQ oficial: <https://remoteok.com/faq>.
 - Autenticação: não requerida.
-- Formato: o primeiro item do array é um objeto de metadados/termos; os demais são vagas.
+- Formato: o primeiro item do array é um objeto de metadados/termos; os demais são vagas. `id` é a identidade estável usada pelo projeto; `slug` é metadado e pode vir vazio em entradas reais sem invalidar todo o feed.
 - Filtros usados: o adapter faz uma única requisição por ciclo e aplica as keywords do perfil localmente em cargo, empresa, tags e descrição. Isso evita depender da taxonomia própria de tags da plataforma.
 - Campos: ID, slug, data/epoch, empresa, cargo, tags, descrição HTML, localização, salário mínimo/máximo, URL da vaga e URL de aplicação.
 - Normalização: descrição sem HTML, modalidade `REMOTE`, contratação e senioridade inferidas conservadoramente, tecnologias reconhecidas e salário preservado sem inventar moeda.

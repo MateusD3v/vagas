@@ -23,7 +23,7 @@ const remoteOkMetadataSchema = z
 
 const remoteOkJobSchema = z
   .object({
-    slug: z.string().min(1),
+    slug: z.string().default(''),
     id: z.union([z.string(), z.number()]),
     epoch: z.number().nullish(),
     date: z.string().nullish(),
