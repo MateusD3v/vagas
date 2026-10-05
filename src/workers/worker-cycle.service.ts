@@ -99,7 +99,7 @@ export class WorkerCycleService {
   }
 
   private async heartbeat(
-    status: 'IDLE' | 'FAILED',
+    status: 'RUNNING' | 'IDLE' | 'FAILED',
     trigger: string,
     metadata: Record<string, unknown> = {},
   ): Promise<void> {
@@ -129,13 +129,20 @@ export class WorkerCycleService {
 
     try {
       const collectionRuns = this.config.ENABLE_SCHEDULER ? await this.collection.runEnabled() : [];
+      await this.heartbeat('RUNNING', trigger, {
+        stage: 'collection',
+        collectionRuns: collectionRuns.length,
+      });
       const resumed = await this.collection.resumePending();
+      await this.heartbeat('RUNNING', trigger, { stage: 'resume', resumed });
       const availability = await this.availabilitySync.run(this.config.JOB_STATUS_SYNC_BATCH_SIZE);
+      await this.heartbeat('RUNNING', trigger, { stage: 'availability', availability });
       const preparation = this.config.AUTO_PREPARE_APPLICATIONS
         ? await this.applicationPreparation.preparePending(
             this.config.APPLICATION_PREPARATION_BATCH_SIZE,
           )
         : null;
+      await this.heartbeat('RUNNING', trigger, { stage: 'preparation', preparation });
       const followUps = await this.followUps.scanDue();
       if (followUps.due > 0 && this.notifications.length > 0) {
         await Promise.all(
@@ -148,6 +155,7 @@ export class WorkerCycleService {
           data: { followUpNotifiedAt: new Date() },
         });
       }
+      await this.heartbeat('RUNNING', trigger, { stage: 'follow-ups', followUps });
       const maintenance = await this.retention.run();
 
       await this.heartbeat('IDLE', trigger, {

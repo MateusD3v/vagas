@@ -90,6 +90,7 @@ describe('WorkerCycleService', () => {
     });
     expect(result.followUps).toEqual({ due: 1, applicationIds: ['application-1'] });
     expect(update).toHaveBeenCalled();
+    expect(update.mock.calls.some(([call]) => call.data.status === 'RUNNING')).toBe(true);
     const idleUpdate = update.mock.calls.at(-1)?.[0];
     expect(idleUpdate?.data.status).toBe('IDLE');
   });
