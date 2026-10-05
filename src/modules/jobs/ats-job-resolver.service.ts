@@ -265,6 +265,39 @@ function canonicalPublicUrl(value: string): string {
   return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
 }
 
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&#x([0-9a-f]+);/gi, (_, encoded: string) =>
+      String.fromCodePoint(Number.parseInt(encoded, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, encoded: string) =>
+      String.fromCodePoint(Number.parseInt(encoded, 10)),
+    )
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+function validXmlTag(tag: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9:_-]*$/.test(tag);
+}
+
+function extractXmlTag(xml: string, tag: string): string | undefined {
+  if (!validXmlTag(tag)) return undefined;
+  const pattern = '<' + tag + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + tag + '>';
+  const match = xml.match(new RegExp(pattern, 'i'));
+  return match?.[1] ? decodeXmlEntities(match[1]) : undefined;
+}
+
+function extractXmlBlocks(xml: string, tag: string): string[] {
+  if (!validXmlTag(tag)) return [];
+  const pattern = '<' + tag + '(?:\\s[^>]*)?>[\\s\\S]*?<\\/' + tag + '>';
+  return xml.match(new RegExp(pattern, 'gi')) ?? [];
+}
 export class AtsJobResolverService {
   constructor(private readonly http: JobSourceHttpClient) {}
 
@@ -294,6 +327,9 @@ export class AtsJobResolverService {
       (host.endsWith('.workable.com') && host !== 'api.workable.com')
     ) {
       return this.resolveWorkable(url, channel.flow);
+    }
+    if (host.endsWith('.jobs.personio.de')) {
+      return this.resolvePersonio(url, channel.flow);
     }
     if (host.includes('linkedin.com') || host.includes('indeed.com')) {
       return {
@@ -651,6 +687,94 @@ export class AtsJobResolverService {
         publishedAt: job.published_on ?? job.created_at ?? undefined,
       },
       missingFields: description ? [] : ['description'],
+    };
+  }
+
+  private async resolvePersonio(
+    url: URL,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    const parts = url.pathname.split('/').filter(Boolean);
+    const jobIndex = parts.findIndex((part) => part === 'job');
+    const jobId = jobIndex >= 0 ? parts[jobIndex + 1] : undefined;
+
+    if (!jobId) {
+      return {
+        supported: false,
+        platform: 'PERSONIO',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'URL Personio sem ID de vaga reconhecível.',
+      };
+    }
+
+    const endpoint = `${url.origin}/xml`;
+    const xml = await this.http.getText(endpoint, {
+      source: 'personio-resolver',
+      requestsPerSecond: 1,
+      headers: { Accept: 'application/xml, text/xml;q=0.9' },
+    });
+
+    if (!/<workzag-jobs\b/i.test(xml)) {
+      throw new Error('XML público da Personio em formato inesperado.');
+    }
+
+    const position = extractXmlBlocks(xml, 'position').find(
+      (block) => extractXmlTag(block, 'id') === jobId,
+    );
+    if (!position) {
+      return {
+        supported: false,
+        platform: 'PERSONIO',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'A vaga não foi localizada entre as publicações atuais desse site Personio.',
+      };
+    }
+
+    const title = extractXmlTag(position, 'name');
+    if (!title) {
+      throw new Error('Vaga Personio sem título no feed público.');
+    }
+
+    const description = extractXmlBlocks(position, 'jobDescription')
+      .map((block) => {
+        const section = extractXmlTag(block, 'name');
+        const value = stripHtml(extractXmlTag(block, 'value') ?? '').trim();
+        return [section, value].filter(Boolean).join('\n');
+      })
+      .filter(Boolean)
+      .join('\n\n');
+    const company = extractXmlTag(position, 'subcompany');
+    const office = extractXmlTag(position, 'office');
+    const employmentType = extractXmlTag(position, 'employmentType');
+    const schedule = extractXmlTag(position, 'schedule');
+    const createdAt = extractXmlTag(position, 'createdAt');
+    const publishedAt =
+      createdAt && !Number.isNaN(Date.parse(createdAt))
+        ? new Date(createdAt).toISOString()
+        : undefined;
+    const employment = [employmentType, schedule].filter(Boolean).join(' / ');
+
+    return {
+      supported: true,
+      platform: 'PERSONIO',
+      flow: 'ATS',
+      data: {
+        externalId: jobId,
+        title,
+        company,
+        description: description || title,
+        location: office,
+        remoteType: remoteTypeFromText(office),
+        employmentType: employment || undefined,
+        applicationUrl: url.toString(),
+        publishedAt,
+      },
+      missingFields: [...(company ? [] : ['company']), ...(description ? [] : ['description'])],
+      message: company
+        ? undefined
+        : 'Dados públicos da vaga Personio carregados; confirme a empresa antes de importar.',
     };
   }
 

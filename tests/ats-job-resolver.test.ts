@@ -438,3 +438,121 @@ describe('AtsJobResolverService Workable', () => {
     expect(getJson).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('AtsJobResolverService Personio', () => {
+  const feed = `<?xml version="1.0" encoding="UTF-8"?>
+<workzag-jobs>
+  <position>
+    <id>12345</id>
+    <subcompany><![CDATA[Acme Tecnologia]]></subcompany>
+    <office><![CDATA[Remote Brazil]]></office>
+    <department>Engineering</department>
+    <recruitingCategory>Technology</recruitingCategory>
+    <name><![CDATA[Estágio em Desenvolvimento de Software]]></name>
+    <jobDescriptions>
+      <jobDescription>
+        <name>Responsabilidades</name>
+        <value><![CDATA[<p>Desenvolver APIs REST com Node.js &amp; Java.</p>]]></value>
+      </jobDescription>
+      <jobDescription>
+        <name>Requisitos</name>
+        <value><![CDATA[<p>Git, Docker e vontade de aprender.</p>]]></value>
+      </jobDescription>
+    </jobDescriptions>
+    <employmentType>intern</employmentType>
+    <seniority>student</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>lt-1</yearsOfExperience>
+    <createdAt>2026-10-05T08:00:00+00:00</createdAt>
+  </position>
+  <position>
+    <id>67890</id>
+    <office>Belém</office>
+    <name>Analista de Suporte</name>
+    <jobDescriptions>
+      <jobDescription>
+        <name>Descrição</name>
+        <value><![CDATA[<p>Suporte técnico e infraestrutura.</p>]]></value>
+      </jobDescription>
+    </jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <schedule>full-time</schedule>
+  </position>
+</workzag-jobs>`;
+
+  it('carrega a vaga pelo ID usando o XML público da carreira Personio', async () => {
+    const getText = vi.fn().mockResolvedValue(feed);
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://acme.jobs.personio.de/job/12345');
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'PERSONIO',
+      flow: 'ATS',
+      missingFields: [],
+      data: {
+        externalId: '12345',
+        title: 'Estágio em Desenvolvimento de Software',
+        company: 'Acme Tecnologia',
+        description:
+          'Responsabilidades\nDesenvolver APIs REST com Node.js & Java.\n\nRequisitos\nGit, Docker e vontade de aprender.',
+        location: 'Remote Brazil',
+        remoteType: 'REMOTE',
+        employmentType: 'intern / full-time',
+        applicationUrl: 'https://acme.jobs.personio.de/job/12345',
+        publishedAt: '2026-10-05T08:00:00.000Z',
+      },
+    });
+    expect(String(getText.mock.calls[0]?.[0])).toBe('https://acme.jobs.personio.de/xml');
+  });
+
+  it('preserva empresa como pendência quando subcompany não é publicado', async () => {
+    const getText = vi.fn().mockResolvedValue(feed);
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://acme.jobs.personio.de/job/67890?display=pt');
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'PERSONIO',
+      missingFields: ['company'],
+      data: {
+        externalId: '67890',
+        title: 'Analista de Suporte',
+        location: 'Belém',
+        remoteType: 'UNSPECIFIED',
+        employmentType: 'permanent / full-time',
+      },
+    });
+    expect(result.data?.company).toBeUndefined();
+  });
+
+  it('não consulta o feed quando a URL não contém ID da vaga', async () => {
+    const getText = vi.fn();
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://acme.jobs.personio.de/');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'PERSONIO',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getText).not.toHaveBeenCalled();
+  });
+
+  it('não inventa dados quando o ID não está mais no feed público', async () => {
+    const getText = vi.fn().mockResolvedValue(feed);
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://acme.jobs.personio.de/job/99999');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'PERSONIO',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getText).toHaveBeenCalledOnce();
+  });
+});

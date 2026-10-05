@@ -56,6 +56,9 @@ describe('application channel', () => {
       classifyApplicationChannel('https://apply.workable.com/acme/j/ABC123', 'manual'),
     ).toMatchObject({ platform: 'WORKABLE', flow: 'ATS' });
     expect(
+      classifyApplicationChannel('https://acme.jobs.personio.de/job/12345', 'manual'),
+    ).toMatchObject({ platform: 'PERSONIO', flow: 'ATS' });
+    expect(
       classifyApplicationChannel('https://acme.wd5.myworkdayjobs.com/job/1', 'manual'),
     ).toMatchObject({ platform: 'WORKDAY', flow: 'ATS' });
   });

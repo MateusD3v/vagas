@@ -1,6 +1,6 @@
 # Submissão por ATS
 
-Estado pesquisado em 2026-10-03. O registry de submissão só deve habilitar um provider quando existir credencial oficialmente autorizada para aquela integração. `SAFE_MODE=true` continua sendo a trava operacional adicional.
+Estado pesquisado em 2026-10-05. O registry de submissão só deve habilitar um provider quando existir credencial oficialmente autorizada para aquela integração. `SAFE_MODE=true` continua sendo a trava operacional adicional.
 
 ## Greenhouse
 
@@ -33,6 +33,19 @@ Referências:
 
 - https://developers.ashbyhq.com/docs/public-job-posting-api
 - https://developers.ashbyhq.com/reference/applicationformsubmit
+
+## Personio
+
+- A Career Site expõe um XML público em `https://<conta>.jobs.personio.de/xml` com as vagas abertas e o conteúdo da publicação.
+- O resolvedor usa somente esse feed público para enriquecer links `https://<conta>.jobs.personio.de/job/<id>`.
+- A submissão de candidatura existe na API de Recruiting, mas os endpoints atuais de escrita usam credencial/autorização da integração da organização (v2 com OAuth 2.0); isso não é tratado como uma API pública de candidato.
+- Sem credencial oficialmente autorizada pela organização, o agente apenas prepara os dados e abre o formulário Personio hospedado.
+
+Referências:
+
+- https://developer.personio.de/v1.0/reference/get_xml
+- https://developer.personio.de/docs/integration-of-open-positions
+- https://developer.personio.de/changelog/job-application-submission
 
 ## Regra do agente
 
