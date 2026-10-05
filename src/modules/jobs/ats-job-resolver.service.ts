@@ -282,27 +282,22 @@ function decodeXmlEntities(value: string): string {
     .trim();
 }
 
-function extractXmlTag(xml: string, tag: string): string | undefined {
-  const escapedTag = tag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\function canonicalPublicUrl(value: string): string {
-  const url = new URL(value);
-  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+function validXmlTag(tag: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9:_-]*$/.test(tag);
 }
-');
-  const pattern = '<' + escapedTag + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + escapedTag + '>';
+
+function extractXmlTag(xml: string, tag: string): string | undefined {
+  if (!validXmlTag(tag)) return undefined;
+  const pattern = '<' + tag + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + tag + '>';
   const match = xml.match(new RegExp(pattern, 'i'));
   return match?.[1] ? decodeXmlEntities(match[1]) : undefined;
 }
 
 function extractXmlBlocks(xml: string, tag: string): string[] {
-  const escapedTag = tag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\function canonicalPublicUrl(value: string): string {
-  const url = new URL(value);
-  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
-}
-');
-  const pattern = '<' + escapedTag + '(?:\\s[^>]*)?>[\\s\\S]*?<\\/' + escapedTag + '>';
+  if (!validXmlTag(tag)) return [];
+  const pattern = '<' + tag + '(?:\\s[^>]*)?>[\\s\\S]*?<\\/' + tag + '>';
   return xml.match(new RegExp(pattern, 'gi')) ?? [];
 }
-
 export class AtsJobResolverService {
   constructor(private readonly http: JobSourceHttpClient) {}
 
