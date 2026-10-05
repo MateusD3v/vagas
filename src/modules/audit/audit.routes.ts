@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../database/client.js';
+import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { paginationMeta, paginationSchema } from '../../shared/http.js';
 
 const auditQuerySchema = paginationSchema.extend({
@@ -14,6 +15,8 @@ export function auditRoutes(app: FastifyInstance): void {
   app.get(
     '/audit-logs',
     {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
       schema: {
         tags: ['Audit'],
         summary: 'Lista eventos de auditoria em ordem cronológica inversa',
