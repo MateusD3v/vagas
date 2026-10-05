@@ -45,6 +45,19 @@ const sourceDefinitions = [
       recommendedPolling: 'few-times-per-day',
     },
   },
+  {
+    name: 'Himalayas',
+    slug: 'himalayas',
+    type: 'API' as const,
+    baseUrl: 'https://himalayas.app/jobs/api/search',
+    configuration: {
+      authentication: 'none',
+      attributionRequired: true,
+      maxResultsPerRequest: 20,
+      dataRefresh: 'daily',
+      recommendedPolling: 'few-times-per-day',
+    },
+  },
 ];
 
 async function seedSources() {
