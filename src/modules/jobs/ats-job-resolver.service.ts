@@ -231,6 +231,55 @@ const workableAccountSchema = z
   })
   .passthrough();
 
+const pinpointNamedResourceSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+  })
+  .passthrough();
+
+const pinpointPostingSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().nullish(),
+    key_responsibilities: z.string().nullish(),
+    skills_knowledge_expertise: z.string().nullish(),
+    benefits: z.string().nullish(),
+    employment_type: z.string().nullish(),
+    employment_type_text: z.string().nullish(),
+    workplace_type: z.string().nullish(),
+    workplace_type_text: z.string().nullish(),
+    compensation_visible: z.boolean().nullish(),
+    compensation_minimum: z.number().nullish(),
+    compensation_maximum: z.number().nullish(),
+    compensation_currency: z.string().nullish(),
+    compensation_frequency: z.string().nullish(),
+    deadline_at: z.string().nullish(),
+    created_at: z.string().nullish(),
+    url: z.string().url(),
+    application_form_url: z.string().url().nullish(),
+    path: z.string().min(1).nullish(),
+    location: pinpointNamedResourceSchema.nullish(),
+    department: pinpointNamedResourceSchema.nullish(),
+    division: pinpointNamedResourceSchema.nullish(),
+    job: z
+      .object({
+        id: z.string().min(1),
+        requisition_id: z.string().nullish(),
+        department: pinpointNamedResourceSchema.nullish(),
+        division: pinpointNamedResourceSchema.nullish(),
+        structure_custom_group_one: pinpointNamedResourceSchema.nullish(),
+      })
+      .passthrough()
+      .nullish(),
+  })
+  .passthrough();
+
+const pinpointFeedSchema = z.object({
+  data: z.array(pinpointPostingSchema),
+});
+
 export interface ResolvedJobUrl {
   supported: boolean;
   platform: string;
@@ -330,6 +379,9 @@ export class AtsJobResolverService {
     }
     if (host.endsWith('.jobs.personio.de')) {
       return this.resolvePersonio(url, channel.flow);
+    }
+    if (host.endsWith('.pinpointhq.com')) {
+      return this.resolvePinpoint(url, channel.flow);
     }
     if (host.includes('linkedin.com') || host.includes('indeed.com')) {
       return {
@@ -775,6 +827,72 @@ export class AtsJobResolverService {
       message: company
         ? undefined
         : 'Dados públicos da vaga Personio carregados; confirme a empresa antes de importar.',
+    };
+  }
+
+  private async resolvePinpoint(
+    url: URL,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    const endpoint = `${url.origin}/postings.json`;
+    const raw = await this.http.getJson<unknown>(endpoint, {
+      source: 'pinpoint-resolver',
+      requestsPerSecond: 1,
+    });
+    const feed = pinpointFeedSchema.parse(raw);
+    const requested = canonicalPublicUrl(url.toString());
+    const parts = url.pathname.split('/').filter(Boolean);
+    const resourceIndex = parts.findIndex((part) => part === 'postings' || part === 'jobs');
+    const pathId = resourceIndex >= 0 ? parts[resourceIndex + 1] : undefined;
+
+    const posting = feed.data.find((item) => {
+      if (canonicalPublicUrl(item.url) === requested) return true;
+      if (item.path && new URL(item.path, url.origin).pathname === url.pathname) return true;
+      if (!pathId) return false;
+      if (parts[resourceIndex] === 'postings' && item.id === pathId) return true;
+      return parts[resourceIndex] === 'jobs' && item.job?.id === pathId;
+    });
+
+    if (!posting) {
+      return {
+        supported: false,
+        platform: 'PINPOINT',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'A vaga não foi localizada entre as publicações atuais desse site Pinpoint.',
+      };
+    }
+
+    const description = [
+      posting.description,
+      posting.key_responsibilities,
+      posting.skills_knowledge_expertise,
+      posting.benefits,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => stripHtml(value).trim())
+      .filter(Boolean)
+      .join('\n\n');
+    const workplace = [posting.workplace_type, posting.workplace_type_text, posting.location?.name]
+      .filter((value): value is string => Boolean(value))
+      .join(' ');
+
+    return {
+      supported: true,
+      platform: 'PINPOINT',
+      flow: 'ATS',
+      data: {
+        externalId: posting.id,
+        title: posting.title,
+        description: description || posting.title,
+        location: posting.location?.name ?? undefined,
+        remoteType: remoteTypeFromText(workplace),
+        employmentType: posting.employment_type_text ?? posting.employment_type ?? undefined,
+        applicationUrl: posting.application_form_url ?? posting.url,
+        publishedAt: posting.created_at ?? undefined,
+      },
+      missingFields: ['company', ...(description ? [] : ['description'])],
+      message: 'Dados públicos da vaga Pinpoint carregados; confirme a empresa antes de importar.',
     };
   }
 
