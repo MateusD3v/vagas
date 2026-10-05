@@ -330,6 +330,25 @@ describe('Himalayas adapter', () => {
     );
   });
 
+  it('aceita a variante oficial com países string, fusos numéricos e timestamps em segundos', async () => {
+    const officialShape = {
+      ...sample,
+      locationRestrictions: ['Brazil', 'Portugal'],
+      timezoneRestrictions: [-3, 0, 1],
+      pubDate: 1791201600,
+      expiryDate: 1793793600,
+      guid: 'himalayas-official-shape',
+    };
+    const adapter = new HimalayasJobSource(unusedHttp, 50_000);
+    const job = adapter.normalizeJob(officialShape);
+
+    expect(job.location).toBe('Brazil, Portugal');
+    expect(job.country).toBeUndefined();
+    expect(job.publishedAt).toEqual(new Date(1791201600 * 1000));
+    expect(job.rawData.locationRestrictions).toEqual(['Brazil', 'Portugal']);
+    expect(job.rawData.timezoneRestrictions).toEqual([-3, 0, 1]);
+  });
+
   it('faz uma busca pública conservadora usando somente uma keyword', async () => {
     const getJson = vi.fn().mockResolvedValue({ jobs: [sample] });
     const adapter = new HimalayasJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
@@ -441,6 +460,33 @@ describe('Remote OK adapter', () => {
     expect(jobs.map((job) => String(job.id))).toEqual(['remoteok-123']);
     expect(getJson).toHaveBeenCalledOnce();
     expect(String(getJson.mock.calls[0]?.[0])).toBe('https://remoteok.com/api');
+  });
+
+  it('aceita vaga real com slug vazio porque o ID continua sendo a identidade da fonte', async () => {
+    const getJson = vi.fn().mockResolvedValue([
+      { last_updated: 1791201603, legal: 'Please link back to Remote OK.' },
+      {
+        ...sample,
+        slug: '',
+        id: '1136379',
+        url: 'https://remoteok.com/remote-jobs/',
+        apply_url: 'https://remoteok.com/remote-jobs/',
+      },
+    ]);
+    const adapter = new RemoteOkJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
+
+    const jobs = await adapter.searchJobs({
+      keywords: [],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 25,
+    });
+
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.slug).toBe('');
+    expect(String(jobs[0]?.id)).toBe('1136379');
+    expect(adapter.normalizeJob(jobs[0]).externalId).toBe('1136379');
   });
 
   it('não descarta a primeira vaga quando o feed vier sem objeto de metadados', async () => {
