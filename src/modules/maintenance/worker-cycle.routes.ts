@@ -31,9 +31,12 @@ export function workerCycleRoutes(app: FastifyInstance): void {
   app.get(
     '/worker/status',
     {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
       schema: {
         tags: ['Worker'],
         summary: 'Retorna o último heartbeat do worker',
+        security: [{ adminKey: [] }],
       },
     },
     () =>
