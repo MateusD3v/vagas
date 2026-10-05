@@ -1,7 +1,10 @@
 const GLOBAL_REMOTE_SOURCES = new Set(['remotive', 'jobicy', 'himalayas']);
 
 const aliases: Array<{ pattern: RegExp; replacement: string }> = [
-  { pattern: /^(analista de suporte|suporte técnico|suporte tecnico)$/i, replacement: 'Technical Support' },
+  {
+    pattern: /^(analista de suporte|suporte técnico|suporte tecnico)$/i,
+    replacement: 'Technical Support',
+  },
   { pattern: /^(suporte ti|suporte de ti)$/i, replacement: 'IT Support' },
   { pattern: /^desenvolvedor(a)? backend$/i, replacement: 'Backend Developer' },
   { pattern: /^desenvolvedor(a)? java$/i, replacement: 'Java Developer' },
