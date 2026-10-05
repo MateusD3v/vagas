@@ -293,7 +293,20 @@ export function applicationRoutes(app: FastifyInstance): void {
       const input = followUpSchema.parse(request.body);
       const application = await prisma.application.findUnique({ where: { id: applicationId } });
       if (!application) throw new AppError('Candidatura não encontrada', 404);
+      if (
+        input.nextFollowUpAt &&
+        !input.completed &&
+        !['SUBMITTED', 'INTERVIEW', 'OFFER'].includes(application.status)
+      ) {
+        throw new AppError(
+          'Follow-up só pode ser agendado para candidatura submetida, entrevista ou oferta',
+          409,
+        );
+      }
       const now = new Date();
+      if (input.nextFollowUpAt && input.nextFollowUpAt <= now && !input.completed) {
+        throw new AppError('Follow-up deve ser agendado para uma data futura', 400);
+      }
       const updated = await prisma.application.update({
         where: { id: applicationId },
         data: {
