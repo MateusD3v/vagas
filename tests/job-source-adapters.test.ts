@@ -4,6 +4,7 @@ import { HimalayasJobSource } from '../src/integrations/job-sources/providers/hi
 import { JobicyJobSource } from '../src/integrations/job-sources/providers/jobicy/jobicy.adapter.js';
 import { RemotiveJobSource } from '../src/integrations/job-sources/providers/remotive/remotive.adapter.js';
 import { RemoteOkJobSource } from '../src/integrations/job-sources/providers/remoteok/remoteok.adapter.js';
+import { WeWorkRemotelyJobSource } from '../src/integrations/job-sources/providers/weworkremotely/weworkremotely.adapter.js';
 import type { JobSourceHttpClient } from '../src/integrations/job-sources/shared/http-client.js';
 
 const unusedHttp = {} as JobSourceHttpClient;
@@ -466,6 +467,163 @@ describe('Remote OK adapter', () => {
         { id: 'broken', position: 'Missing company and URLs' },
       ]);
     const adapter = new RemoteOkJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
+
+    await expect(
+      adapter.searchJobs({
+        keywords: [],
+        locations: [],
+        remoteTypes: ['REMOTE'],
+        employmentTypes: [],
+        limit: 25,
+      }),
+    ).rejects.toMatchObject({ errorType: 'INVALID_RESPONSE' });
+  });
+});
+
+
+describe('We Work Remotely adapter', () => {
+  const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>We Work Remotely</title>
+    <item>
+      <title><![CDATA[Example Remote: Junior Backend Developer]]></title>
+      <link>https://weworkremotely.com/remote-jobs/example-junior-backend</link>
+      <guid>wwr-guid-1</guid>
+      <pubDate>Mon, 05 Oct 2026 12:00:00 +0000</pubDate>
+      <description><![CDATA[<p>Build REST API services with Node.js &amp; PostgreSQL using Git.</p>]]></description>
+      <region>Anywhere in the World</region>
+      <country>Brazil</country>
+      <state>Pará</state>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <skills>Node.js, PostgreSQL, Git</skills>
+      <expires_at>2026-11-04T12:00:00Z</expires_at>
+    </item>
+    <item>
+      <title>Design Co: Product Designer</title>
+      <link>https://weworkremotely.com/remote-jobs/design-product-designer</link>
+      <guid>wwr-guid-2</guid>
+      <pubDate>Mon, 05 Oct 2026 11:00:00 +0000</pubDate>
+      <description><![CDATA[<p>Design interfaces and prototypes.</p>]]></description>
+      <region>North America Only</region>
+      <category>Design</category>
+      <type>Contract</type>
+      <skills>Figma, UX</skills>
+    </item>
+  </channel>
+</rss>`;
+
+  it('lê RSS, separa empresa/cargo e filtra keywords localmente', async () => {
+    const getText = vi.fn().mockResolvedValue(rss);
+    const adapter = new WeWorkRemotelyJobSource(
+      { getText } as unknown as JobSourceHttpClient,
+      50_000,
+    );
+
+    const jobs = await adapter.searchJobs({
+      keywords: ['Node.js'],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 25,
+    });
+
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({
+      company: 'Example Remote',
+      position: 'Junior Backend Developer',
+      guid: 'wwr-guid-1',
+      region: 'Anywhere in the World',
+      country: 'Brazil',
+      state: 'Pará',
+      category: 'Back-End Programming',
+      type: 'Full-Time',
+      skills: 'Node.js, PostgreSQL, Git',
+    });
+    expect(getText).toHaveBeenCalledOnce();
+    expect(String(getText.mock.calls[0]?.[0])).toBe(
+      'https://weworkremotely.com/remote-jobs.rss',
+    );
+  });
+
+  it('normaliza atribuição, link de volta, localização e tecnologias', async () => {
+    const getText = vi.fn().mockResolvedValue(rss);
+    const adapter = new WeWorkRemotelyJobSource(
+      { getText } as unknown as JobSourceHttpClient,
+      50_000,
+    );
+    const [raw] = await adapter.searchJobs({
+      keywords: ['Node.js'],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 25,
+    });
+    const job = adapter.normalizeJob(raw);
+
+    expect(job.source).toBe('weworkremotely');
+    expect(job.externalId).toBe('wwr-guid-1');
+    expect(job.title).toBe('Junior Backend Developer');
+    expect(job.company).toBe('Example Remote');
+    expect(job.remoteType).toBe('REMOTE');
+    expect(job.employmentType).toBe('FULL_TIME');
+    expect(job.seniority).toBe('JUNIOR');
+    expect(job.location).toBe('Anywhere in the World, Brazil, Pará');
+    expect(job.country).toBe('Brazil');
+    expect(job.state).toBe('Pará');
+    expect(job.description).not.toContain('<p>');
+    expect(job.applicationUrl).toBe(
+      'https://weworkremotely.com/remote-jobs/example-junior-backend',
+    );
+    expect(job.originalUrl).toBe(job.applicationUrl);
+    expect(job.rawData.attribution).toBe('We Work Remotely');
+    expect(job.skills.map((skill) => skill.skill)).toEqual(
+      expect.arrayContaining(['Node.js', 'PostgreSQL', 'Git', 'REST API']),
+    );
+  });
+
+  it('usa dc:creator quando o título não contém empresa', async () => {
+    const creatorRss = `<rss><channel><item>
+      <title>Backend Developer</title>
+      <dc:creator><![CDATA[Creator Company]]></dc:creator>
+      <link>https://weworkremotely.com/remote-jobs/creator-backend</link>
+      <guid>creator-guid</guid>
+      <pubDate>Mon, 05 Oct 2026 10:00:00 +0000</pubDate>
+      <description>Node.js backend</description>
+    </item></channel></rss>`;
+    const getText = vi.fn().mockResolvedValue(creatorRss);
+    const adapter = new WeWorkRemotelyJobSource(
+      { getText } as unknown as JobSourceHttpClient,
+      50_000,
+    );
+
+    const jobs = await adapter.searchJobs({
+      keywords: [],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 25,
+    });
+
+    expect(jobs[0]).toMatchObject({
+      company: 'Creator Company',
+      position: 'Backend Developer',
+    });
+  });
+
+  it('rejeita RSS sem vagas utilizáveis em vez de inventar empresa', async () => {
+    const invalidRss = `<rss><channel><item>
+      <title>Backend Developer</title>
+      <link>https://weworkremotely.com/remote-jobs/no-company</link>
+      <guid>no-company</guid>
+      <pubDate>Mon, 05 Oct 2026 10:00:00 +0000</pubDate>
+    </item></channel></rss>`;
+    const getText = vi.fn().mockResolvedValue(invalidRss);
+    const adapter = new WeWorkRemotelyJobSource(
+      { getText } as unknown as JobSourceHttpClient,
+      50_000,
+    );
 
     await expect(
       adapter.searchJobs({
