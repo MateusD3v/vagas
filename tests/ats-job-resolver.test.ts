@@ -672,7 +672,7 @@ describe('AtsJobResolverService Pinpoint', () => {
         externalId: 'posting-2',
         title: 'Analista de Suporte',
         location: 'Ananindeua, PA',
-        remoteType: 'UNSPECIFIED',
+        remoteType: 'ONSITE',
         employmentType: 'Full Time',
         applicationUrl: 'https://careers.pinpointhq.com/en/jobs/53913',
       },
