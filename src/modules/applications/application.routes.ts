@@ -76,7 +76,11 @@ export function applicationRoutes(app: FastifyInstance): void {
 
   app.get(
     '/applications',
-    { schema: { tags: ['Applications'], summary: 'Lista candidaturas preparadas' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Lista candidaturas preparadas' },
+    },
     async (request) => {
       const query = applicationQuerySchema.parse(request.query);
       const where = query.status ? { status: query.status } : {};
@@ -112,6 +116,8 @@ export function applicationRoutes(app: FastifyInstance): void {
   app.get(
     '/applications/:id/resume.md',
     {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
       schema: { tags: ['Applications'], summary: 'Exporta o currículo preparado em Markdown' },
     },
     async (request, reply) => {
@@ -123,6 +129,8 @@ export function applicationRoutes(app: FastifyInstance): void {
   app.get(
     '/applications/:id/fast-apply-kit',
     {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
       schema: {
         tags: ['Applications'],
         summary: 'Monta o kit local para candidatura rápida/manual',
@@ -203,6 +211,8 @@ export function applicationRoutes(app: FastifyInstance): void {
   app.get(
     '/applications/:id/preparation',
     {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
       schema: { tags: ['Applications'], summary: 'Obtém o pacote preparado da candidatura' },
     },
     (request) => preparation.get(idParamsSchema.parse(request.params).id),
@@ -225,6 +235,8 @@ export function applicationRoutes(app: FastifyInstance): void {
   app.get(
     '/applications/:id/eligibility',
     {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
       schema: {
         tags: ['Applications'],
         summary: 'Avalia elegibilidade e bloqueios para automação',
@@ -313,7 +325,11 @@ export function applicationRoutes(app: FastifyInstance): void {
 
   app.get(
     '/applications/follow-ups/due',
-    { schema: { tags: ['Applications'], summary: 'Lista acompanhamentos vencidos ou para agora' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Lista acompanhamentos vencidos ou para agora' },
+    },
     async () => ({
       data: await prisma.application.findMany({
         where: {
@@ -328,7 +344,11 @@ export function applicationRoutes(app: FastifyInstance): void {
 
   app.get(
     '/applications/:id/timeline',
-    { schema: { tags: ['Applications'], summary: 'Lista o histórico de estágios da candidatura' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Lista o histórico de estágios da candidatura' },
+    },
     async (request) => {
       const applicationId = idParamsSchema.parse(request.params).id;
       const application = await prisma.application.findUnique({
@@ -347,7 +367,11 @@ export function applicationRoutes(app: FastifyInstance): void {
 
   app.get(
     '/applications/:id',
-    { schema: { tags: ['Applications'], summary: 'Detalha uma candidatura' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Detalha uma candidatura' },
+    },
     async (request) => {
       const application = await prisma.application.findUnique({
         where: { id: idParamsSchema.parse(request.params).id },
