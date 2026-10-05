@@ -86,8 +86,8 @@ const dashboardHtml = `<!doctype html>
   <section>
     <h2>Pipeline de candidaturas</h2>
     <table>
-      <thead><tr><th>Vaga</th><th>Empresa</th><th>Score</th><th>Status</th><th>Canal</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
-      <tbody id="applications"><tr><td colspan="8" class="muted">Sem dados.</td></tr></tbody>
+      <thead><tr><th>Vaga</th><th>Empresa</th><th>Fonte</th><th>Score</th><th>Status</th><th>Canal</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
+      <tbody id="applications"><tr><td colspan="9" class="muted">Sem dados.</td></tr></tbody>
     </table>
   </section>
 
@@ -156,6 +156,18 @@ const dashboardHtml = `<!doctype html>
 
   function card(label, value, cls='') {
     return '<div class="card"><div class="muted">' + esc(label) + '</div><div class="value ' + cls + '">' + esc(value) + '</div></div>';
+  }
+
+  function sourceLabel(value) {
+    const labels = {
+      remoteok: 'Remote OK',
+      himalayas: 'Himalayas',
+      jobicy: 'Jobicy',
+      remotive: 'Remotive',
+      arbeitnow: 'Arbeitnow',
+      mock: 'Mock',
+    };
+    return labels[value] || value || '—';
   }
 
   const statusTransitions = {
@@ -239,12 +251,13 @@ const dashboardHtml = `<!doctype html>
           ? '<span class="ok">' + esc(channel.label) + '</span>'
           : esc(channel.label);
         return '<tr><td>' + esc(item.job?.title) + '</td><td>' + esc(item.job?.company) + '</td><td>' +
-          esc(item.matchScore) + '</td><td><strong>' + esc(item.status) + '</strong></td><td>' + channelLabel +
+          esc(sourceLabel(item.job?.source)) + '</td><td>' + esc(item.matchScore) +
+          '</td><td><strong>' + esc(item.status) + '</strong></td><td>' + channelLabel +
           '</td><td>' + prepLabel + '</td><td>' + actions + '</td><td>' +
           esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
       });
       document.getElementById('applications').innerHTML =
-        appRows.join('') || '<tr><td colspan="8" class="muted">Nenhuma candidatura registrada.</td></tr>';
+        appRows.join('') || '<tr><td colspan="9" class="muted">Nenhuma candidatura registrada.</td></tr>';
 
       const runRows = (runs.data || []).map(item =>
         '<tr><td>' + esc(item.source?.name || item.source?.slug) + '</td><td>' + esc(item.status) + '</td><td>' +
