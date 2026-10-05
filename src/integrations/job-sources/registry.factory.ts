@@ -2,6 +2,7 @@ import type { Environment } from '../../config/env.js';
 import { MockJobSource } from './mock/mock.adapter.js';
 import { JobSourceRegistry } from './job-source.registry.js';
 import { ArbeitnowJobSource } from './providers/arbeitnow/arbeitnow.adapter.js';
+import { HimalayasJobSource } from './providers/himalayas/himalayas.adapter.js';
 import { JobicyJobSource } from './providers/jobicy/jobicy.adapter.js';
 import { RemotiveJobSource } from './providers/remotive/remotive.adapter.js';
 import { JobSourceHttpClient } from './shared/http-client.js';
@@ -22,6 +23,9 @@ export function createJobSourceRegistry(config: Environment): JobSourceRegistry 
     }
     if (config.JOBICY_ENABLED) {
       registry.register(new JobicyJobSource(http, config.RAW_DATA_MAX_BYTES));
+    }
+    if (config.HIMALAYAS_ENABLED) {
+      registry.register(new HimalayasJobSource(http, config.RAW_DATA_MAX_BYTES));
     }
   }
   return registry;
