@@ -355,3 +355,87 @@ describe('AtsJobResolverService Recruitee', () => {
     expect(getJson).not.toHaveBeenCalled();
   });
 });
+
+
+describe('AtsJobResolverService Workable', () => {
+  it('carrega vaga publicada usando a API pública da conta Workable', async () => {
+    const getJson = vi.fn().mockResolvedValue({
+      name: 'Acme Tecnologia',
+      jobs: [
+        {
+          title: 'Backend Developer',
+          code: 'DEV-01',
+          shortcode: 'ABC123',
+          country: 'Brazil',
+          state: 'Pará',
+          city: 'Belém',
+          department: 'Engineering',
+          telecommuting: false,
+          published_on: '2026-10-05',
+          url: 'https://apply.workable.com/j/ABC123/apply',
+          application_url: 'https://apply.workable.com/j/ABC123',
+          shortlink: 'https://apply.workable.com/j/ABC123',
+          created_at: '2026-10-04T12:00:00Z',
+          description: '<p>Node.js, PostgreSQL e APIs REST.</p>',
+          employment_type: 'Full-time',
+          workplace_type: 'hybrid',
+        },
+      ],
+    });
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://apply.workable.com/acme/j/ABC123');
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'WORKABLE',
+      flow: 'ATS',
+      missingFields: [],
+      data: {
+        externalId: 'ABC123',
+        title: 'Backend Developer',
+        company: 'Acme Tecnologia',
+        description: 'Node.js, PostgreSQL e APIs REST.',
+        location: 'Belém, Pará, Brazil',
+        remoteType: 'HYBRID',
+        employmentType: 'Full-time',
+        applicationUrl: 'https://apply.workable.com/j/ABC123/apply',
+        publishedAt: '2026-10-05',
+      },
+    });
+    expect(String(getJson.mock.calls[0]?.[0])).toBe(
+      'https://www.workable.com/api/accounts/acme?details=true',
+    );
+  });
+
+  it('não consulta a API quando o shortlink não informa a conta', async () => {
+    const getJson = vi.fn();
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://apply.workable.com/j/ABC123');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'WORKABLE',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getJson).not.toHaveBeenCalled();
+  });
+
+  it('não inventa dados quando a vaga não está mais publicada', async () => {
+    const getJson = vi.fn().mockResolvedValue({
+      name: 'Acme Tecnologia',
+      jobs: [],
+    });
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://apply.workable.com/acme/j/REMOVED');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'WORKABLE',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getJson).toHaveBeenCalledTimes(1);
+  });
+});
