@@ -130,7 +130,8 @@ export class HimalayasJobSource implements JobSourceAdapter {
       company: raw.companyName.trim(),
       description: description || raw.excerpt || raw.title,
       location,
-      country: raw.locationRestrictions.length === 1 ? raw.locationRestrictions[0]?.name : undefined,
+      country:
+        raw.locationRestrictions.length === 1 ? raw.locationRestrictions[0]?.name : undefined,
       remoteType: 'REMOTE',
       employmentType,
       seniority: inferSeniority(`${raw.title} ${seniority}`),
