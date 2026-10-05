@@ -21,7 +21,7 @@ describe('dashboard de fontes', () => {
     expect(response.body).toContain('Fontes de vagas');
     expect(response.body).toContain('Executar coleta agora');
     expect(response.body).toContain("api('/job-sources?pageSize=50')");
-    expect(response.body).toContain("data-run-source");
+    expect(response.body).toContain('data-run-source');
     expect(response.body).toContain("api('/job-sources/run', { method: 'POST' })");
   });
 });
