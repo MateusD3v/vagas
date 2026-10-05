@@ -353,10 +353,7 @@ describe('Himalayas adapter', () => {
       guid: 'himalayas-guid-' + index,
     }));
     const getJson = vi.fn().mockResolvedValue({ jobs });
-    const adapter = new HimalayasJobSource(
-      { getJson } as unknown as JobSourceHttpClient,
-      50_000,
-    );
+    const adapter = new HimalayasJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
 
     const result = await adapter.searchJobs({
       keywords: ['Support'],
