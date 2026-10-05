@@ -78,7 +78,9 @@ export function applicationRoutes(app: FastifyInstance): void {
     '/applications',
     {
       preHandler: requireAdmin,
-      config: { rateLimit: adminRateLimit }, schema: { tags: ['Applications'], summary: 'Lista candidaturas preparadas' } },
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Lista candidaturas preparadas' },
+    },
     async (request) => {
       const query = applicationQuerySchema.parse(request.query);
       const where = query.status ? { status: query.status } : {};
