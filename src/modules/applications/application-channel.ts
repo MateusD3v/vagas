@@ -7,6 +7,7 @@ export type ApplicationPlatform =
   | 'SMARTRECRUITERS'
   | 'RECRUITEE'
   | 'WORKABLE'
+  | 'PERSONIO'
   | 'WORKDAY'
   | 'OTHER';
 
@@ -78,6 +79,9 @@ export function classifyApplicationChannel(
   }
   if (host === 'workable.com' || host.endsWith('.workable.com')) {
     return { platform: 'WORKABLE', flow: 'ATS', label: 'Workable' };
+  }
+  if (host.endsWith('.jobs.personio.de')) {
+    return { platform: 'PERSONIO', flow: 'ATS', label: 'Personio' };
   }
   if (host.includes('myworkdayjobs.com') || host.includes('workday.com')) {
     return { platform: 'WORKDAY', flow: 'ATS', label: 'Workday' };
