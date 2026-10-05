@@ -368,7 +368,6 @@ describe('Himalayas adapter', () => {
   });
 });
 
-
 describe('Remote OK adapter', () => {
   const sample = {
     slug: 'junior-backend-developer-example',
@@ -444,11 +443,13 @@ describe('Remote OK adapter', () => {
   });
 
   it('recusa payload com item de vaga inválido em vez de ocultar mudança de schema', async () => {
-    const getJson = vi.fn().mockResolvedValue([
-      { last_updated: 1791201603, legal: 'Please link back to Remote OK.' },
-      sample,
-      { id: 'broken', position: 'Missing company and URLs' },
-    ]);
+    const getJson = vi
+      .fn()
+      .mockResolvedValue([
+        { last_updated: 1791201603, legal: 'Please link back to Remote OK.' },
+        sample,
+        { id: 'broken', position: 'Missing company and URLs' },
+      ]);
     const adapter = new RemoteOkJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
 
     await expect(
