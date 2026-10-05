@@ -327,7 +327,9 @@ export function applicationRoutes(app: FastifyInstance): void {
     '/applications/follow-ups/due',
     {
       preHandler: requireAdmin,
-      config: { rateLimit: adminRateLimit }, schema: { tags: ['Applications'], summary: 'Lista acompanhamentos vencidos ou para agora' } },
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Lista acompanhamentos vencidos ou para agora' },
+    },
     async () => ({
       data: await prisma.application.findMany({
         where: {
@@ -344,7 +346,9 @@ export function applicationRoutes(app: FastifyInstance): void {
     '/applications/:id/timeline',
     {
       preHandler: requireAdmin,
-      config: { rateLimit: adminRateLimit }, schema: { tags: ['Applications'], summary: 'Lista o histórico de estágios da candidatura' } },
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Lista o histórico de estágios da candidatura' },
+    },
     async (request) => {
       const applicationId = idParamsSchema.parse(request.params).id;
       const application = await prisma.application.findUnique({
@@ -365,7 +369,9 @@ export function applicationRoutes(app: FastifyInstance): void {
     '/applications/:id',
     {
       preHandler: requireAdmin,
-      config: { rateLimit: adminRateLimit }, schema: { tags: ['Applications'], summary: 'Detalha uma candidatura' } },
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Applications'], summary: 'Detalha uma candidatura' },
+    },
     async (request) => {
       const application = await prisma.application.findUnique({
         where: { id: idParamsSchema.parse(request.params).id },
