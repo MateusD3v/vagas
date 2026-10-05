@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../database/client.js';
+import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
 
 const matchQuerySchema = paginationSchema.extend({
@@ -11,7 +12,11 @@ const matchQuerySchema = paginationSchema.extend({
 export function matchRoutes(app: FastifyInstance): void {
   app.get(
     '/matches',
-    { schema: { tags: ['Matching'], summary: 'Lista análises' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Matching'], summary: 'Lista análises', security: [{ adminKey: [] }] },
+    },
     async (request) => {
       const query = matchQuerySchema.parse(request.query);
       const where = {
@@ -34,7 +39,11 @@ export function matchRoutes(app: FastifyInstance): void {
 
   app.get(
     '/matches/:id',
-    { schema: { tags: ['Matching'], summary: 'Detalha uma análise' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Matching'], summary: 'Detalha uma análise', security: [{ adminKey: [] }] },
+    },
     async (request) => {
       const match = await prisma.jobMatch.findUnique({
         where: { id: idParamsSchema.parse(request.params).id },
