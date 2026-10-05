@@ -17,7 +17,7 @@ import {
 const remoteOkMetadataSchema = z
   .object({
     last_updated: z.union([z.number(), z.string()]).optional(),
-    legal: z.string().optional(),
+    legal: z.string().min(1),
   })
   .passthrough();
 
