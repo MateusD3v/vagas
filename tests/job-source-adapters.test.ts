@@ -3,6 +3,7 @@ import { ArbeitnowJobSource } from '../src/integrations/job-sources/providers/ar
 import { HimalayasJobSource } from '../src/integrations/job-sources/providers/himalayas/himalayas.adapter.js';
 import { JobicyJobSource } from '../src/integrations/job-sources/providers/jobicy/jobicy.adapter.js';
 import { RemotiveJobSource } from '../src/integrations/job-sources/providers/remotive/remotive.adapter.js';
+import { RemoteOkJobSource } from '../src/integrations/job-sources/providers/remoteok/remoteok.adapter.js';
 import type { JobSourceHttpClient } from '../src/integrations/job-sources/shared/http-client.js';
 
 const unusedHttp = {} as JobSourceHttpClient;
@@ -364,5 +365,116 @@ describe('Himalayas adapter', () => {
     });
 
     expect(result).toHaveLength(20);
+  });
+});
+
+describe('Remote OK adapter', () => {
+  const sample = {
+    slug: 'junior-backend-developer-example',
+    id: 'remoteok-123',
+    epoch: 1791201600,
+    date: '2026-10-05T12:00:00+00:00',
+    company: 'Example Remote',
+    company_logo: '',
+    position: 'Junior Backend Developer',
+    tags: ['node.js', 'postgresql', 'full time', 'git'],
+    description: '<p>Build REST API services with Node.js and PostgreSQL.</p>',
+    location: 'Worldwide',
+    salary_min: 45000,
+    salary_max: 65000,
+    apply_url: 'https://remoteok.com/remote-jobs/remoteok-123',
+    original: true,
+    logo: '',
+    url: 'https://remoteok.com/remote-jobs/remoteok-123',
+  };
+
+  it('normaliza uma vaga preservando atribuição e link de volta ao Remote OK', () => {
+    const adapter = new RemoteOkJobSource(unusedHttp, 50_000);
+    const job = adapter.normalizeJob(sample);
+
+    expect(job.source).toBe('remoteok');
+    expect(job.externalId).toBe('remoteok-123');
+    expect(job.remoteType).toBe('REMOTE');
+    expect(job.employmentType).toBe('FULL_TIME');
+    expect(job.seniority).toBe('JUNIOR');
+    expect(job.description).not.toContain('<p>');
+    expect(job.salaryMin).toBe(45000);
+    expect(job.salaryMax).toBe(65000);
+    expect(job.salaryCurrency).toBeUndefined();
+    expect(job.applicationUrl).toBe('https://remoteok.com/remote-jobs/remoteok-123');
+    expect(job.originalUrl).toBe('https://remoteok.com/remote-jobs/remoteok-123');
+    expect(job.rawData.attribution).toBe('Remote OK');
+    expect(job.skills.map((skill) => skill.skill)).toEqual(
+      expect.arrayContaining(['Node.js', 'PostgreSQL', 'Git', 'REST API']),
+    );
+  });
+
+  it('ignora metadados legais e filtra keywords localmente com uma única chamada', async () => {
+    const getJson = vi.fn().mockResolvedValue([
+      {
+        last_updated: 1791201603,
+        legal: 'Please link back to Remote OK.',
+      },
+      sample,
+      {
+        ...sample,
+        id: 'remoteok-456',
+        slug: 'product-designer',
+        position: 'Product Designer',
+        tags: ['design'],
+        description: '<p>Design product interfaces.</p>',
+        url: 'https://remoteok.com/remote-jobs/remoteok-456',
+        apply_url: 'https://remoteok.com/remote-jobs/remoteok-456',
+      },
+    ]);
+    const adapter = new RemoteOkJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
+
+    const jobs = await adapter.searchJobs({
+      keywords: ['Node.js'],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 25,
+    });
+
+    expect(jobs.map((job) => String(job.id))).toEqual(['remoteok-123']);
+    expect(getJson).toHaveBeenCalledOnce();
+    expect(String(getJson.mock.calls[0]?.[0])).toBe('https://remoteok.com/api');
+  });
+
+  it('não descarta a primeira vaga quando o feed vier sem objeto de metadados', async () => {
+    const getJson = vi.fn().mockResolvedValue([sample]);
+    const adapter = new RemoteOkJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
+
+    const jobs = await adapter.searchJobs({
+      keywords: [],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 25,
+    });
+
+    expect(jobs.map((job) => String(job.id))).toEqual(['remoteok-123']);
+  });
+
+  it('recusa payload com item de vaga inválido em vez de ocultar mudança de schema', async () => {
+    const getJson = vi
+      .fn()
+      .mockResolvedValue([
+        { last_updated: 1791201603, legal: 'Please link back to Remote OK.' },
+        sample,
+        { id: 'broken', position: 'Missing company and URLs' },
+      ]);
+    const adapter = new RemoteOkJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
+
+    await expect(
+      adapter.searchJobs({
+        keywords: [],
+        locations: [],
+        remoteTypes: ['REMOTE'],
+        employmentTypes: [],
+        limit: 25,
+      }),
+    ).rejects.toMatchObject({ errorType: 'INVALID_RESPONSE' });
   });
 });

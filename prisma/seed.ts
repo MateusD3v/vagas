@@ -58,6 +58,19 @@ const sourceDefinitions = [
       recommendedPolling: 'few-times-per-day',
     },
   },
+  {
+    name: 'Remote OK',
+    slug: 'remoteok',
+    type: 'API' as const,
+    baseUrl: 'https://remoteok.com/api',
+    configuration: {
+      authentication: 'none',
+      attributionRequired: true,
+      linkBackRequired: true,
+      filtering: 'local-keywords',
+      recommendedPolling: 'few-times-per-day',
+    },
+  },
 ];
 
 async function seedSources() {

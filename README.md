@@ -13,7 +13,7 @@ src/
   integrations/
     job-sources/
       mock/                     fonte determinística
-      providers/                Remotive, Arbeitnow, Jobicy e Himalayas
+      providers/                Remotive, Arbeitnow, Jobicy, Himalayas e Remote OK
       shared/                   HTTP, normalização e erros
       job-source.registry.ts
     llm/                        mock/OpenAI e validação
@@ -220,7 +220,8 @@ Use health path `/health`. Não use hostname `postgres` fora do Compose; ele exi
 
 - Um perfil operacional, embora as relações já sejam por candidato.
 - Arbeitnow pagina de forma limitada (até cinco páginas por execução) para manter coleta conservadora.
-- Remotive alterna uma keyword por execução, em vez de disparar várias chamadas no mesmo ciclo.
+- Remotive, Jobicy e Himalayas alternam uma keyword por execução, em vez de disparar várias chamadas no mesmo ciclo.
+- Remote OK faz uma única leitura do feed por ciclo e aplica as keywords localmente, preservando a atribuição e o link de volta exigidos pela fonte.
 - O limite diário possui reserva atômica compartilhada, mas cada processo ainda limita apenas sua própria concorrência por execução; dimensione múltiplos workers com cautela para não sobrecarregar as fontes.
 - Jobicy usa confirmação explícita de `active/closed/unknown`; Remotive e Arbeitnow continuam usando ausência temporal (`lastSeenAt`) como evidência de `STALE`/`CLOSED`.
 - Notificações externas suportam webhook genérico, mas ainda não existem providers específicos de e-mail/Slack/Discord.
