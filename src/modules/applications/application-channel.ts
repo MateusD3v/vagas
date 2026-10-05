@@ -6,6 +6,7 @@ export type ApplicationPlatform =
   | 'ASHBY'
   | 'SMARTRECRUITERS'
   | 'RECRUITEE'
+  | 'WORKABLE'
   | 'WORKDAY'
   | 'OTHER';
 
@@ -74,6 +75,9 @@ export function classifyApplicationChannel(
   }
   if (host.endsWith('.recruitee.com')) {
     return { platform: 'RECRUITEE', flow: 'ATS', label: 'Recruitee' };
+  }
+  if (host === 'workable.com' || host.endsWith('.workable.com')) {
+    return { platform: 'WORKABLE', flow: 'ATS', label: 'Workable' };
   }
   if (host.includes('myworkdayjobs.com') || host.includes('workday.com')) {
     return { platform: 'WORKDAY', flow: 'ATS', label: 'Workday' };
