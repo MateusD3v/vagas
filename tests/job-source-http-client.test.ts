@@ -76,6 +76,34 @@ describe('JobSourceHttpClient', () => {
     expect(sleep.mock.calls.some(([delay]) => delay === 2000)).toBe(true);
   });
 
+  it('lê respostas de texto preservando retry e headers', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('<rss><channel /></rss>', {
+        status: 200,
+        headers: { 'Content-Type': 'application/rss+xml' },
+      }),
+    );
+    const client = new JobSourceHttpClient(
+      { timeoutMs: 1000, maxRetries: 0, userAgent: 'test-agent' },
+      fetchMock,
+      vi.fn(async () => Promise.resolve()),
+    );
+
+    await expect(
+      client.getText('https://example.test/feed.rss', {
+        source: 'rss-test',
+        headers: { Accept: 'application/rss+xml' },
+      }),
+    ).resolves.toBe('<rss><channel /></rss>');
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const request = fetchMock.mock.calls[0]?.[1];
+    expect(request?.headers).toMatchObject({
+      Accept: 'application/rss+xml',
+      'User-Agent': 'test-agent',
+    });
+  });
+
   it('preserva erros normalizados', () => {
     const error = new JobSourceError('rate', 'RATE_LIMIT', true, 429, 1000);
     expect(error.httpStatus).toBe(429);
