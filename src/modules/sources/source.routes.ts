@@ -129,7 +129,14 @@ export function sourceRoutes(app: FastifyInstance): void {
 
   app.get(
     '/job-search-profile',
-    { schema: { tags: ['Sources'], summary: 'Retorna configuração de busca' } },
+    {
+      ...adminOptions,
+      schema: {
+        tags: ['Sources'],
+        summary: 'Retorna configuração de busca',
+        security: [{ adminKey: [] }],
+      },
+    },
     async () => {
       const profile = await prisma.jobSearchProfile.findFirst();
       if (!profile) throw new AppError('Perfil de busca não configurado', 404);
