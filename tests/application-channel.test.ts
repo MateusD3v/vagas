@@ -53,6 +53,9 @@ describe('application channel', () => {
       classifyApplicationChannel('https://acme.recruitee.com/o/junior-developer', 'manual'),
     ).toMatchObject({ platform: 'RECRUITEE', flow: 'ATS' });
     expect(
+      classifyApplicationChannel('https://apply.workable.com/acme/j/ABC123', 'manual'),
+    ).toMatchObject({ platform: 'WORKABLE', flow: 'ATS' });
+    expect(
       classifyApplicationChannel('https://acme.wd5.myworkdayjobs.com/job/1', 'manual'),
     ).toMatchObject({ platform: 'WORKDAY', flow: 'ATS' });
   });
