@@ -58,7 +58,11 @@ export function profileRoutes(app: FastifyInstance): void {
     {
       preHandler: requireAdmin,
       config: { rateLimit: adminRateLimit },
-      schema: { tags: ['Profile'], summary: 'Cadastra o perfil único', security: [{ adminKey: [] }] },
+      schema: {
+        tags: ['Profile'],
+        summary: 'Cadastra o perfil único',
+        security: [{ adminKey: [] }],
+      },
     },
     async (request, reply) => {
       const result = await service.create(profileCreateSchema.parse(request.body));
