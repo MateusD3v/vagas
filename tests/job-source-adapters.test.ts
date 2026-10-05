@@ -330,7 +330,7 @@ describe('Himalayas adapter', () => {
     );
   });
 
-  it('aceita a variante oficial com países string, fusos numéricos e timestamps em segundos', async () => {
+  it('aceita a variante oficial com países string, fusos numéricos e timestamps em segundos', () => {
     const officialShape = {
       ...sample,
       locationRestrictions: ['Brazil', 'Portugal'],
