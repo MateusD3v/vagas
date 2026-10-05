@@ -61,7 +61,10 @@ function extractTag(xml: string, tag: string): string | undefined {
   return match?.[1] ? decodeXmlEntities(match[1]) : undefined;
 }
 
-function parseTitle(rawTitle: string, creator?: string): { company: string; position: string } | undefined {
+function parseTitle(
+  rawTitle: string,
+  creator?: string,
+): { company: string; position: string } | undefined {
   const title = rawTitle.trim();
   const separator = title.indexOf(': ');
   if (separator > 0 && separator < title.length - 2) {
@@ -185,8 +188,8 @@ export class WeWorkRemotelyJobSource implements JobSourceAdapter {
       })
       .parse(input);
     const description = stripHtml(raw.description);
-    const locations = [raw.region, raw.country, raw.state].filter(
-      (value): value is string => Boolean(value?.trim()),
+    const locations = [raw.region, raw.country, raw.state].filter((value): value is string =>
+      Boolean(value?.trim()),
     );
     const skillTags = raw.skills
       ? raw.skills
