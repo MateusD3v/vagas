@@ -771,10 +771,7 @@ export class AtsJobResolverService {
         applicationUrl: url.toString(),
         publishedAt,
       },
-      missingFields: [
-        ...(company ? [] : ['company']),
-        ...(description ? [] : ['description']),
-      ],
+      missingFields: [...(company ? [] : ['company']), ...(description ? [] : ['description'])],
       message: company
         ? undefined
         : 'Dados públicos da vaga Personio carregados; confirme a empresa antes de importar.',
