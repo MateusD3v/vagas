@@ -368,6 +368,22 @@ describe('Himalayas adapter', () => {
     expect(String(getJson.mock.calls[0]?.[0])).toContain('sort=recent');
   });
 
+  it('aceita logo vazia observada no feed público sem derrubar a vaga', () => {
+    const adapter = new HimalayasJobSource(unusedHttp, 50_000);
+    const job = adapter.normalizeJob({
+      ...sample,
+      companyName: 'Work Better Now',
+      companySlug: 'work-better-now',
+      companyLogo: '',
+      guid: 'https://himalayas.app/companies/work-better-now/jobs/ai-software-developer',
+      applicationLink:
+        'https://himalayas.app/companies/work-better-now/jobs/ai-software-developer',
+    });
+
+    expect(job.company).toBe('Work Better Now');
+    expect(job.rawData.companyLogo).toBeUndefined();
+  });
+
   it('limita o resultado localmente a no máximo 20 vagas', async () => {
     const jobs = Array.from({ length: 24 }, (_, index) => ({
       ...sample,
