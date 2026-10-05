@@ -74,7 +74,7 @@ const sourceDefinitions = [
   {
     name: 'We Work Remotely',
     slug: 'weworkremotely',
-    type: 'RSS' as const,
+    type: 'FEED' as const,
     baseUrl: 'https://weworkremotely.com/remote-jobs.rss',
     configuration: {
       authentication: 'none',
