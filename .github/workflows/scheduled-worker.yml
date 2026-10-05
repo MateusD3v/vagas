@@ -37,10 +37,14 @@ jobs:
             exit 1
           fi
 
+          echo "Waking the Render free service and reading the worker baseline."
           baseline_payload="$(
             curl --fail --show-error --silent \
-              --connect-timeout 15 \
-              --max-time 30 \
+              --retry 4 \
+              --retry-all-errors \
+              --retry-delay 15 \
+              --connect-timeout 20 \
+              --max-time 180 \
               --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
               "$api_url/worker/status"
           )"
@@ -74,13 +78,21 @@ jobs:
           fi
 
           for attempt in $(seq 1 60); do
-            status_payload="$(
+            if ! status_payload="$(
               curl --fail --show-error --silent \
+                --retry 2 \
+                --retry-all-errors \
+                --retry-delay 5 \
                 --connect-timeout 15 \
-                --max-time 30 \
+                --max-time 45 \
                 --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
                 "$api_url/worker/status"
-            )"
+            )"; then
+              echo "Transient status check failure (attempt $attempt/60)."
+              sleep 10
+              continue
+            fi
+
             worker_status="$(jq -r '.status // ""' <<<"$status_payload")"
             last_seen="$(jq -r '.lastSeenAt // ""' <<<"$status_payload")"
 
