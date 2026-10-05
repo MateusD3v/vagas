@@ -17,10 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:generate
-      - run: |
-          npx prettier --write src/integrations/job-sources/providers/himalayas/himalayas.adapter.ts tests/job-source-adapters.test.ts
-          git diff -- src/integrations/job-sources/providers/himalayas/himalayas.adapter.ts tests/job-source-adapters.test.ts
-          exit 1
+      - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
