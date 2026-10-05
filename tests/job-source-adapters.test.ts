@@ -480,7 +480,6 @@ describe('Remote OK adapter', () => {
   });
 });
 
-
 describe('We Work Remotely adapter', () => {
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -542,9 +541,7 @@ describe('We Work Remotely adapter', () => {
       skills: 'Node.js, PostgreSQL, Git',
     });
     expect(getText).toHaveBeenCalledOnce();
-    expect(String(getText.mock.calls[0]?.[0])).toBe(
-      'https://weworkremotely.com/remote-jobs.rss',
-    );
+    expect(String(getText.mock.calls[0]?.[0])).toBe('https://weworkremotely.com/remote-jobs.rss');
   });
 
   it('normaliza atribuição, link de volta, localização e tecnologias', async () => {
