@@ -18,6 +18,7 @@ import { canAnalyze } from '../matching/analysis-budget.js';
 import { AnalysisBudgetService } from '../matching/analysis-budget.service.js';
 import type { JobMatchingService } from '../matching/job-matching.service.js';
 import { resolveCollectionStatus } from './collection-status.js';
+import { sourceSearchKeywords } from './source-keywords.js';
 
 export class JobCollectionService {
   private readonly ingestion: JobIngestionService;
@@ -129,13 +130,14 @@ export class JobCollectionService {
     };
     const rotatesKeyword =
       source.slug === 'remotive' || source.slug === 'jobicy' || source.slug === 'himalayas';
+    const sourceKeywords = sourceSearchKeywords(source.slug, query.keywords);
     const selectedKeyword =
-      rotatesKeyword && query.keywords.length
-        ? query.keywords[source.keywordCursor % query.keywords.length]
+      rotatesKeyword && sourceKeywords.length
+        ? sourceKeywords[source.keywordCursor % sourceKeywords.length]
         : undefined;
     const sourceQuery: JobSearchQuery = selectedKeyword
       ? { ...query, keywords: [selectedKeyword] }
-      : query;
+      : { ...query, keywords: sourceKeywords };
     const counters = {
       queriesExecuted: 1,
       jobsFetched: 0,
@@ -298,8 +300,8 @@ export class JobCollectionService {
           lastSuccessfulRunAt: new Date(),
           consecutiveFailures: 0,
           cooldownUntil: null,
-          ...(rotatesKeyword && search.keywords.length > 1
-            ? { keywordCursor: (source.keywordCursor + 1) % search.keywords.length }
+          ...(rotatesKeyword && sourceKeywords.length > 1
+            ? { keywordCursor: (source.keywordCursor + 1) % sourceKeywords.length }
             : {}),
         },
       });
