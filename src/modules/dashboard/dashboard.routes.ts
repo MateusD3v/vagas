@@ -92,6 +92,17 @@ const dashboardHtml = `<!doctype html>
   </section>
 
   <section>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <h2>Fontes de vagas</h2>
+      <button id="runAllSources" type="button">Executar coleta agora</button>
+    </div>
+    <table>
+      <thead><tr><th>Fonte</th><th>Estado</th><th>Falhas</th><th>Último sucesso</th><th>Última falha</th><th>Ação</th></tr></thead>
+      <tbody id="sources"><tr><td colspan="6" class="muted">Sem dados.</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
     <h2>Coletas recentes</h2>
     <table>
       <thead><tr><th>Fonte</th><th>Status</th><th>Encontradas</th><th>Inseridas</th><th>Erros</th><th>Início</th></tr></thead>
@@ -193,11 +204,12 @@ const dashboardHtml = `<!doctype html>
     statusEl.textContent = 'Carregando...';
     statusEl.className = 'muted';
     try {
-      const [health, stats, readiness, applications, runs, audit] = await Promise.all([
+      const [health, stats, readiness, applications, sources, runs, audit] = await Promise.all([
         api('/health'),
         api('/stats'),
         api('/profile/readiness'),
         api('/applications?pageSize=25'),
+        api('/job-sources?pageSize=50'),
         api('/collection-runs?pageSize=10'),
         api('/audit-logs?pageSize=12'),
       ]);
@@ -259,6 +271,35 @@ const dashboardHtml = `<!doctype html>
       });
       document.getElementById('applications').innerHTML =
         appRows.join('') || '<tr><td colspan="9" class="muted">Nenhuma candidatura registrada.</td></tr>';
+
+      const sourceRows = (sources.data || []).map(item => {
+        const cooldownUntil = item.cooldownUntil ? new Date(item.cooldownUntil) : null;
+        const cooldownActive = cooldownUntil && cooldownUntil.getTime() > Date.now();
+        const failures = Number(item.consecutiveFailures || 0);
+        const stateClass = !item.enabled || cooldownActive || failures > 0 ? 'warn' : 'ok';
+        const stateLabel = !item.enabled
+          ? 'desativada'
+          : cooldownActive
+            ? 'cooldown até ' + cooldownUntil.toLocaleString('pt-BR')
+            : failures > 0
+              ? 'atenção'
+              : 'saudável';
+        const lastSuccess = item.lastSuccessfulRunAt
+          ? new Date(item.lastSuccessfulRunAt).toLocaleString('pt-BR')
+          : '—';
+        const lastFailure = item.lastFailedRunAt
+          ? new Date(item.lastFailedRunAt).toLocaleString('pt-BR')
+          : '—';
+        const action = item.enabled
+          ? '<button type="button" data-run-source="' + esc(item.id) + '">Executar</button>'
+          : '<span class="muted">Desativada</span>';
+        return '<tr><td>' + esc(item.name || sourceLabel(item.slug)) +
+          '</td><td><span class="' + stateClass + '">' + esc(stateLabel) + '</span></td><td>' +
+          esc(failures) + '</td><td>' + esc(lastSuccess) + '</td><td>' + esc(lastFailure) +
+          '</td><td>' + action + '</td></tr>';
+      });
+      document.getElementById('sources').innerHTML =
+        sourceRows.join('') || '<tr><td colspan="6" class="muted">Nenhuma fonte registrada.</td></tr>';
 
       const runRows = (runs.data || []).map(item =>
         '<tr><td>' + esc(item.source?.name || item.source?.slug) + '</td><td>' + esc(item.status) + '</td><td>' +
@@ -684,6 +725,45 @@ const dashboardHtml = `<!doctype html>
   document.getElementById('kitModal').addEventListener('click', (event) => {
     if (event.target === document.getElementById('kitModal')) {
       document.getElementById('kitModal').classList.add('hidden');
+    }
+  });
+
+  document.getElementById('runAllSources').addEventListener('click', async () => {
+    const button = document.getElementById('runAllSources');
+    try {
+      button.setAttribute('disabled', 'true');
+      button.textContent = 'Agendando...';
+      const result = await api('/job-sources/run', { method: 'POST' });
+      const count = Array.isArray(result.collectionRunIds) ? result.collectionRunIds.length : 0;
+      statusEl.textContent = 'Coleta agendada para ' + count + ' fonte(s).';
+      statusEl.className = 'ok';
+      window.setTimeout(() => void refresh(), 1500);
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Falha ao agendar coleta';
+      statusEl.className = 'bad';
+    } finally {
+      button.removeAttribute('disabled');
+      button.textContent = 'Executar coleta agora';
+    }
+  });
+
+  document.getElementById('sources').addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement) || !target.dataset.runSource) return;
+    try {
+      target.disabled = true;
+      target.textContent = 'Agendando...';
+      await api('/job-sources/' + encodeURIComponent(target.dataset.runSource) + '/run', {
+        method: 'POST',
+      });
+      statusEl.textContent = 'Coleta da fonte agendada.';
+      statusEl.className = 'ok';
+      window.setTimeout(() => void refresh(), 1500);
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Falha ao agendar fonte';
+      statusEl.className = 'bad';
+      target.disabled = false;
+      target.textContent = 'Executar';
     }
   });
 
