@@ -56,6 +56,19 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Atribuição: ao exibir dados da vaga, manter o link retornado e identificar Himalayas como fonte. O projeto não republica as vagas em outros job boards.
 - Controle interno: cron padrão a cada seis horas, deduplicação central e `HIMALAYAS_ENABLED` para desativação explícita.
 
+## Remote OK — ACTIVE
+
+- Tipo: API pública JSON de vagas remotas.
+- Endpoint: `GET https://remoteok.com/api`.
+- Documentação/FAQ oficial: <https://remoteok.com/faq>.
+- Autenticação: não requerida.
+- Formato: o primeiro item do array é um objeto de metadados/termos; os demais são vagas.
+- Filtros usados: o adapter faz uma única requisição por ciclo e aplica as keywords do perfil localmente em cargo, empresa, tags e descrição. Isso evita depender da taxonomia própria de tags da plataforma.
+- Campos: ID, slug, data/epoch, empresa, cargo, tags, descrição HTML, localização, salário mínimo/máximo, URL da vaga e URL de aplicação.
+- Normalização: descrição sem HTML, modalidade `REMOTE`, contratação e senioridade inferidas conservadoramente, tecnologias reconhecidas e salário preservado sem inventar moeda.
+- Atribuição: o dashboard exibe a fonte como **Remote OK** e o link principal armazenado aponta para a URL da vaga no Remote OK. A fonte exige crédito e hyperlink de volta quando os dados são usados.
+- Controle interno: uma requisição por execução, concorrência 1, limite interno de uma requisição a cada 30 segundos, deduplicação central e `REMOTEOK_ENABLED` para desativação explícita.
+
 ## Mock Job Source — DEVELOPMENT
 
 - Tipo: mock local.
@@ -66,4 +79,4 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 
 ## Falhas e desativação
 
-Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED` e `HIMALAYAS_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
+Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED`, `HIMALAYAS_ENABLED` e `REMOTEOK_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
