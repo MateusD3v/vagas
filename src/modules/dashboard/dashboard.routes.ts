@@ -23,7 +23,11 @@ const dashboardHtml = `<!doctype html>
     button { cursor:pointer; font-weight:700; }
     button:hover { background:#17213a; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+    .action-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; }
     .card { background:#11182b; border:1px solid #222b42; border-radius:14px; padding:16px; }
+    .action-card { display:flex; flex-direction:column; gap:10px; }
+    .action-card .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; }
+    .queue-title { font-size:16px; font-weight:800; }
     .value { font-size:28px; font-weight:800; margin-top:8px; }
     section { margin-top:24px; }
     table { width:100%; border-collapse:collapse; background:#11182b; border-radius:14px; overflow:hidden; }
@@ -84,7 +88,32 @@ const dashboardHtml = `<!doctype html>
   </section>
 
   <section>
-    <h2>Pipeline de candidaturas</h2>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin-bottom:4px">Próximas ações</h2>
+        <div id="actionQueueSummary" class="muted">Sem dados.</div>
+      </div>
+    </div>
+    <div id="actionQueue" class="action-grid">
+      <div class="card muted">Sem candidaturas acionáveis.</div>
+    </div>
+  </section>
+
+  <section>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <h2>Pipeline de candidaturas</h2>
+      <label class="muted">Filtro
+        <select id="applicationFilter">
+          <option value="ALL">Todas</option>
+          <option value="ACTIONABLE">Próximas ações</option>
+          <option value="READY">READY</option>
+          <option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option>
+          <option value="SUBMITTED">SUBMITTED</option>
+          <option value="PROGRESS">Entrevista / oferta</option>
+          <option value="CLOSED">Encerradas</option>
+        </select>
+      </label>
+    </div>
     <table>
       <thead><tr><th>Vaga</th><th>Empresa</th><th>Fonte</th><th>Score</th><th>Status</th><th>Canal</th><th>Pacote</th><th>Ações</th><th>Atualizado</th></tr></thead>
       <tbody id="applications"><tr><td colspan="9" class="muted">Sem dados.</td></tr></tbody>
@@ -136,6 +165,7 @@ const dashboardHtml = `<!doctype html>
   const keyInput = document.getElementById('apiKey');
   const statusEl = document.getElementById('status');
   let resolvedApplicationQuestions = [];
+  let cachedApplications = [];
   keyInput.value = sessionStorage.getItem('vagas-admin-key') || '';
 
   function esc(value) {
@@ -200,6 +230,125 @@ const dashboardHtml = `<!doctype html>
     return select + ' <button type="button" data-update-status="' + esc(item.id) + '">Atualizar</button>';
   }
 
+  function applicationPriority(item) {
+    const priorities = {
+      READY: 0,
+      REVIEW_REQUIRED: 1,
+      SUBMITTED: 2,
+      INTERVIEW: 3,
+      OFFER: 4,
+      FAILED: 5,
+      DISCOVERED: 6,
+      ANALYZED: 7,
+      REJECTED: 8,
+      WITHDRAWN: 9,
+      ACCEPTED: 10,
+    };
+    return priorities[item.status] ?? 99;
+  }
+
+  function sortedApplications(items) {
+    return [...items].sort((left, right) => {
+      const priority = applicationPriority(left) - applicationPriority(right);
+      if (priority !== 0) return priority;
+      const score = Number(right.matchScore || 0) - Number(left.matchScore || 0);
+      if (score !== 0) return score;
+      return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+    });
+  }
+
+  function applicationMatchesFilter(item, filter) {
+    if (filter === 'ACTIONABLE') return ['READY', 'REVIEW_REQUIRED'].includes(item.status);
+    if (filter === 'PROGRESS') return ['INTERVIEW', 'OFFER'].includes(item.status);
+    if (filter === 'CLOSED') return ['REJECTED', 'WITHDRAWN', 'ACCEPTED'].includes(item.status);
+    if (filter === 'ALL') return true;
+    return item.status === filter;
+  }
+
+  function applicationActions(item, compact = false) {
+    const preparation = item.preparation;
+    const applicationUrl = safeHttpUrl(item.job?.applicationUrl);
+    const channel = item.applicationChannel || { label: 'Externa', flow: 'MANUAL' };
+    const openLabel = channel.flow === 'FAST_APPLY' ? 'Abrir candidatura rápida' : 'Abrir vaga';
+    const actions = [
+      applicationUrl
+        ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">' + esc(openLabel) + '</button></a>'
+        : '',
+      preparation
+        ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>'
+        : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
+      preparation ? '<button type="button" data-fast-kit="' + esc(item.id) + '">Kit rápido</button>' : '',
+      compact ? '' : '<button type="button" data-timeline="' + esc(item.id) + '">Histórico</button>',
+      compact || !['SUBMITTED', 'INTERVIEW', 'OFFER'].includes(item.status)
+        ? ''
+        : '<button type="button" data-follow-up="' + esc(item.id) + '">Follow-up</button>' +
+          (item.nextFollowUpAt
+            ? ' <button type="button" data-complete-follow-up="' + esc(item.id) + '">Concluir follow-up</button>'
+            : ''),
+      compact ? '' : statusAction(item),
+    ];
+    return actions.filter(Boolean).join(' ');
+  }
+
+  function renderActionQueue() {
+    const actionable = sortedApplications(
+      cachedApplications.filter(item => ['READY', 'REVIEW_REQUIRED'].includes(item.status)),
+    );
+    const ready = actionable.filter(item => item.status === 'READY').length;
+    const review = actionable.filter(item => item.status === 'REVIEW_REQUIRED').length;
+    document.getElementById('actionQueueSummary').textContent = actionable.length
+      ? ready + ' READY · ' + review + ' REVIEW_REQUIRED'
+      : 'Nenhuma ação pendente agora.';
+
+    document.getElementById('actionQueue').innerHTML = actionable.length
+      ? actionable.slice(0, 6).map(item => {
+          const preparation = item.preparation;
+          const missing = preparation?.missingInformation?.length ?? 0;
+          const channel = item.applicationChannel || { label: 'Externa', flow: 'MANUAL' };
+          const statusClass = item.status === 'READY' ? 'ok' : 'warn';
+          const prepText = preparation
+            ? (missing ? missing + ' pendência(s) no pacote' : 'pacote pronto')
+            : 'pacote ainda não preparado';
+          return '<div class="card action-card">' +
+            '<div><span class="' + statusClass + '"><strong>' + esc(item.status) + '</strong></span>' +
+            ' · score <strong>' + esc(item.matchScore) + '</strong></div>' +
+            '<div class="queue-title">' + esc(item.job?.title) + '</div>' +
+            '<div>' + esc(item.job?.company) + '</div>' +
+            '<div class="muted">' + esc(sourceLabel(item.job?.source)) + ' · ' + esc(channel.label) +
+            ' · ' + esc(prepText) + '</div>' +
+            '<div class="actions">' + applicationActions(item, true) + '</div>' +
+            '</div>';
+        }).join('')
+      : '<div class="card muted">Sem candidaturas acionáveis.</div>';
+  }
+
+  function renderApplications() {
+    const filter = document.getElementById('applicationFilter').value;
+    const visible = sortedApplications(
+      cachedApplications.filter(item => applicationMatchesFilter(item, filter)),
+    );
+    const appRows = visible.map(item => {
+      const preparation = item.preparation;
+      const missing = preparation?.missingInformation?.length ?? 0;
+      const prepLabel = preparation
+        ? (missing
+            ? '<span class="warn">' + missing + ' pendência(s)</span>'
+            : '<span class="ok">pronto</span>')
+        : '<span class="warn">pendente</span>';
+      const channel = item.applicationChannel || { label: 'Externa', flow: 'MANUAL' };
+      const channelLabel = channel.flow === 'FAST_APPLY'
+        ? '<span class="ok">' + esc(channel.label) + '</span>'
+        : esc(channel.label);
+      return '<tr><td>' + esc(item.job?.title) + '</td><td>' + esc(item.job?.company) +
+        '</td><td>' + esc(sourceLabel(item.job?.source)) + '</td><td>' + esc(item.matchScore) +
+        '</td><td><strong>' + esc(item.status) + '</strong></td><td>' + channelLabel +
+        '</td><td>' + prepLabel + '</td><td>' + applicationActions(item) + '</td><td>' +
+        esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
+    });
+    document.getElementById('applications').innerHTML =
+      appRows.join('') || '<tr><td colspan="9" class="muted">Nenhuma candidatura neste filtro.</td></tr>';
+  }
+
   async function refresh() {
     statusEl.textContent = 'Carregando...';
     statusEl.className = 'muted';
@@ -238,39 +387,9 @@ const dashboardHtml = `<!doctype html>
         (blockers.length ? '<p class="bad"><strong>Bloqueios:</strong> ' + blockers.map(esc).join(' · ') + '</p>' : '') +
         (recommendations.length ? '<p class="warn"><strong>Recomendado:</strong> ' + recommendations.map(esc).join(' · ') + '</p>' : '');
 
-      const appRows = (applications.data || []).map(item => {
-        const preparation = item.preparation;
-        const missing = preparation?.missingInformation?.length ?? 0;
-        const prepLabel = preparation
-          ? (missing ? '<span class="warn">' + missing + ' pendência(s)</span>' : '<span class="ok">pronto</span>')
-          : '<span class="warn">pendente</span>';
-        const applicationUrl = safeHttpUrl(item.job?.applicationUrl);
-        const channel = item.applicationChannel || { label: 'Externa', flow: 'MANUAL' };
-        const openLabel = channel.flow === 'FAST_APPLY' ? 'Abrir candidatura rápida' : 'Abrir vaga';
-        const actions = [
-          applicationUrl ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">' + esc(openLabel) + '</button></a>' : '',
-          preparation ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>' : '<button type="button" data-prepare="' + esc(item.id) + '">Preparar</button>',
-          preparation ? '<button type="button" data-fast-kit="' + esc(item.id) + '">Kit rápido</button>' : '',
-          '<button type="button" data-timeline="' + esc(item.id) + '">Histórico</button>',
-          ['SUBMITTED', 'INTERVIEW', 'OFFER'].includes(item.status)
-            ? '<button type="button" data-follow-up="' + esc(item.id) + '">Follow-up</button>' +
-              (item.nextFollowUpAt
-                ? ' <button type="button" data-complete-follow-up="' + esc(item.id) + '">Concluir follow-up</button>'
-                : '')
-            : '',
-          statusAction(item),
-        ].filter(Boolean).join(' ');
-        const channelLabel = channel.flow === 'FAST_APPLY'
-          ? '<span class="ok">' + esc(channel.label) + '</span>'
-          : esc(channel.label);
-        return '<tr><td>' + esc(item.job?.title) + '</td><td>' + esc(item.job?.company) + '</td><td>' +
-          esc(sourceLabel(item.job?.source)) + '</td><td>' + esc(item.matchScore) +
-          '</td><td><strong>' + esc(item.status) + '</strong></td><td>' + channelLabel +
-          '</td><td>' + prepLabel + '</td><td>' + actions + '</td><td>' +
-          esc(new Date(item.updatedAt).toLocaleString('pt-BR')) + '</td></tr>';
-      });
-      document.getElementById('applications').innerHTML =
-        appRows.join('') || '<tr><td colspan="9" class="muted">Nenhuma candidatura registrada.</td></tr>';
+      cachedApplications = Array.isArray(applications.data) ? applications.data : [];
+      renderActionQueue();
+      renderApplications();
 
       const sourceRows = (sources.data || []).map(item => {
         const cooldownUntil = item.cooldownUntil ? new Date(item.cooldownUntil) : null;
@@ -415,7 +534,7 @@ const dashboardHtml = `<!doctype html>
     }
   });
 
-  document.getElementById('applications').addEventListener('click', async (event) => {
+  document.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
@@ -766,6 +885,8 @@ const dashboardHtml = `<!doctype html>
       target.textContent = 'Executar';
     }
   });
+
+  document.getElementById('applicationFilter').addEventListener('change', renderApplications);
 
   document.getElementById('saveKey').addEventListener('click', () => {
     sessionStorage.setItem('vagas-admin-key', keyInput.value);
