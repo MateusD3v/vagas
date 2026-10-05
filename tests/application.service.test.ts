@@ -116,6 +116,7 @@ describe('acompanhamento de candidatura', () => {
         submittedAt?: Date;
         nextFollowUpAt?: Date;
         externalApplicationId?: string;
+        followUpNotifiedAt?: Date | null;
       };
     };
     expect(updateCall.where.id).toBe('application-1');
@@ -126,6 +127,7 @@ describe('acompanhamento de candidatura', () => {
       7 * 24 * 60 * 60 * 1000,
     );
     expect(updateCall.data.externalApplicationId).toBe('ats-123');
+    expect(updateCall.data.followUpNotifiedAt).toBeNull();
     const eventCall = eventCreate.mock.calls[0]?.[0] as {
       data: {
         applicationId: string;
