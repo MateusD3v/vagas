@@ -69,6 +69,19 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Atribuição: o dashboard exibe a fonte como **Remote OK** e o link principal armazenado aponta para a URL da vaga no Remote OK. A fonte exige crédito e hyperlink de volta quando os dados são usados.
 - Controle interno: uma requisição por execução, concorrência 1, limite interno de uma requisição a cada 30 segundos, deduplicação central e `REMOTEOK_ENABLED` para desativação explícita.
 
+## We Work Remotely — ACTIVE
+
+- Tipo: RSS público oficial de vagas remotas.
+- Feed: `GET https://weworkremotely.com/remote-jobs.rss`.
+- Página oficial do feed: <https://weworkremotely.com/remote-job-rss-feed>.
+- Autenticação: não requerida. A própria WWR informa que qualquer pessoa pode usar o feed.
+- Regra de uso: a WWR pede atribuição e link de volta; por isso a URL da vaga no WWR é preservada como `applicationUrl`/`originalUrl` e o dashboard exibe a fonte **We Work Remotely**.
+- Campos lidos: título, link, GUID, publicação, descrição, região, país, estado, categoria, tipo, skills e expiração quando presentes.
+- Empresa/cargo: o feed usa normalmente o título no formato `Empresa: Cargo`; se o formato não vier assim, o adapter só aceita a vaga quando houver criador explícito no RSS, sem inventar empresa.
+- Filtros: uma única leitura do feed por ciclo; keywords do perfil são aplicadas localmente em cargo, empresa, descrição, skills e categoria.
+- Normalização: HTML removido da descrição, modalidade `REMOTE`, contratação e senioridade inferidas conservadoramente e tecnologias reconhecidas por dicionário limitado.
+- Controle interno: concorrência 1, limite conservador de uma requisição a cada 30 segundos, deduplicação central e `WEWORKREMOTELY_ENABLED` para desativação explícita.
+
 ## Mock Job Source — DEVELOPMENT
 
 - Tipo: mock local.
@@ -79,4 +92,4 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 
 ## Falhas e desativação
 
-Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED`, `HIMALAYAS_ENABLED` e `REMOTEOK_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
+Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED`, `HIMALAYAS_ENABLED`, `REMOTEOK_ENABLED` e `WEWORKREMOTELY_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.

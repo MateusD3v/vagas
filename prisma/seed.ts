@@ -71,6 +71,19 @@ const sourceDefinitions = [
       recommendedPolling: 'few-times-per-day',
     },
   },
+  {
+    name: 'We Work Remotely',
+    slug: 'weworkremotely',
+    type: 'FEED' as const,
+    baseUrl: 'https://weworkremotely.com/remote-jobs.rss',
+    configuration: {
+      authentication: 'none',
+      attributionRequired: true,
+      linkBackRequired: true,
+      filtering: 'local-keywords',
+      recommendedPolling: 'few-times-per-day',
+    },
+  },
 ];
 
 async function seedSources() {

@@ -161,6 +161,7 @@ const dashboardHtml = `<!doctype html>
   function sourceLabel(value) {
     const labels = {
       remoteok: 'Remote OK',
+      weworkremotely: 'We Work Remotely',
       himalayas: 'Himalayas',
       jobicy: 'Jobicy',
       remotive: 'Remotive',
