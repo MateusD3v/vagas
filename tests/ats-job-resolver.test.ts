@@ -269,3 +269,91 @@ describe('AtsJobResolverService SmartRecruiters', () => {
     expect(getJson).not.toHaveBeenCalled();
   });
 });
+
+
+describe('AtsJobResolverService Recruitee', () => {
+  it('carrega vaga publicada usando o feed público do Recruitee', async () => {
+    const getJson = vi.fn().mockResolvedValue({
+      offers: [
+        {
+          id: 2683104,
+          guid: 'abc123',
+          title: 'Estágio em Desenvolvimento de Software',
+          slug: 'estagio-desenvolvimento-software',
+          company_name: 'Acme Tecnologia',
+          description: '<p>Desenvolvimento com Node.js e APIs REST.</p>',
+          requirements: '<p>Git, Docker e vontade de aprender.</p>',
+          location: 'Belém, Pará, Brasil',
+          locations: [
+            {
+              name: 'Belém',
+              city: 'Belém',
+              state: 'Pará',
+              country: 'Brasil',
+            },
+          ],
+          remote: false,
+          hybrid: true,
+          on_site: false,
+          employment_type_code: 'internship',
+          published_at: '2026-10-05T08:00:00.000Z',
+          careers_url: 'https://acme.recruitee.com/o/estagio-desenvolvimento-software',
+          careers_apply_url:
+            'https://acme.recruitee.com/o/estagio-desenvolvimento-software/c/new',
+        },
+      ],
+    });
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://acme.recruitee.com/o/estagio-desenvolvimento-software',
+    );
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'RECRUITEE',
+      flow: 'ATS',
+      missingFields: [],
+      data: {
+        externalId: '2683104',
+        title: 'Estágio em Desenvolvimento de Software',
+        company: 'Acme Tecnologia',
+        description:
+          'Desenvolvimento com Node.js e APIs REST.\n\nGit, Docker e vontade de aprender.',
+        location: 'Belém',
+        remoteType: 'HYBRID',
+        employmentType: 'internship',
+        applicationUrl: 'https://acme.recruitee.com/o/estagio-desenvolvimento-software/c/new',
+        publishedAt: '2026-10-05T08:00:00.000Z',
+      },
+    });
+    expect(String(getJson.mock.calls[0]?.[0])).toBe('https://acme.recruitee.com/api/offers/');
+  });
+
+  it('não inventa dados quando o slug não aparece no feed público', async () => {
+    const getJson = vi.fn().mockResolvedValue({ offers: [] });
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://acme.recruitee.com/o/vaga-removida');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'RECRUITEE',
+      missingFields: ['title', 'company', 'description'],
+    });
+  });
+
+  it('não consulta o feed quando a URL não contém slug de vaga', async () => {
+    const getJson = vi.fn();
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://acme.recruitee.com/');
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'RECRUITEE',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getJson).not.toHaveBeenCalled();
+  });
+});
