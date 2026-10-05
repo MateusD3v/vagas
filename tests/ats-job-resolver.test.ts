@@ -557,7 +557,6 @@ describe('AtsJobResolverService Personio', () => {
   });
 });
 
-
 describe('AtsJobResolverService Pinpoint', () => {
   const feed = {
     data: [
@@ -653,9 +652,7 @@ describe('AtsJobResolverService Pinpoint', () => {
       },
     });
     expect(result.data?.company).toBeUndefined();
-    expect(String(getJson.mock.calls[0]?.[0])).toBe(
-      'https://careers.pinpointhq.com/postings.json',
-    );
+    expect(String(getJson.mock.calls[0]?.[0])).toBe('https://careers.pinpointhq.com/postings.json');
   });
 
   it('também reconhece URL pública legada de job pelo ID interno', async () => {
