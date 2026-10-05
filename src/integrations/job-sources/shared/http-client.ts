@@ -136,6 +136,8 @@ export class JobSourceHttpClient {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
   private assertSuccessfulResponse(response: Response): void {
     if (response.ok) return;
     const status = response.status;
