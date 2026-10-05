@@ -34,7 +34,9 @@ const himalayasJobSchema = z
     salaryPeriod: z.string().nullish(),
     seniority: z.union([z.string(), z.array(z.string())]).nullish(),
     currency: z.string().nullish(),
-    locationRestrictions: z.array(himalayasLocationSchema).default([]),
+    locationRestrictions: z
+      .array(z.union([z.string().min(1), himalayasLocationSchema]))
+      .default([]),
     timezoneRestrictions: z.array(z.union([z.string(), z.number()])).default([]),
     categories: z.array(z.string()).default([]),
     parentCategories: z.array(z.string()).default([]),
@@ -111,9 +113,10 @@ export class HimalayasJobSource implements JobSourceAdapter {
     const seniority = Array.isArray(raw.seniority)
       ? raw.seniority.join(' ')
       : (raw.seniority ?? '');
-    const location = raw.locationRestrictions.length
-      ? raw.locationRestrictions.map((item) => item.name).join(', ')
-      : 'Worldwide';
+    const locationNames = raw.locationRestrictions.map((item) =>
+      typeof item === 'string' ? item : item.name,
+    );
+    const location = locationNames.length ? locationNames.join(', ') : 'Worldwide';
     const annualSalary = raw.salaryPeriod?.toLowerCase() === 'annual';
     const employmentType = raw.employmentType?.replace(/[ -]+/g, '_').toUpperCase();
     const skillText = [
@@ -130,8 +133,7 @@ export class HimalayasJobSource implements JobSourceAdapter {
       company: raw.companyName.trim(),
       description: description || raw.excerpt || raw.title,
       location,
-      country:
-        raw.locationRestrictions.length === 1 ? raw.locationRestrictions[0]?.name : undefined,
+      country: locationNames.length === 1 ? locationNames[0] : undefined,
       remoteType: 'REMOTE',
       employmentType,
       seniority: inferSeniority(`${raw.title} ${seniority}`),
