@@ -50,6 +50,9 @@ describe('application channel', () => {
       ),
     ).toMatchObject({ platform: 'SMARTRECRUITERS', flow: 'ATS' });
     expect(
+      classifyApplicationChannel('https://acme.recruitee.com/o/junior-developer', 'manual'),
+    ).toMatchObject({ platform: 'RECRUITEE', flow: 'ATS' });
+    expect(
       classifyApplicationChannel('https://acme.wd5.myworkdayjobs.com/job/1', 'manual'),
     ).toMatchObject({ platform: 'WORKDAY', flow: 'ATS' });
   });

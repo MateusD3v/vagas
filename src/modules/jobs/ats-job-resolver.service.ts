@@ -169,6 +169,40 @@ const smartRecruitersPostingSchema = z
   })
   .passthrough();
 
+const recruiteeLocationSchema = z
+  .object({
+    name: z.string().nullish(),
+    city: z.string().nullish(),
+    state: z.string().nullish(),
+    country: z.string().nullish(),
+  })
+  .passthrough();
+
+const recruiteeOfferSchema = z
+  .object({
+    id: z.union([z.number(), z.string()]),
+    guid: z.string().nullish(),
+    title: z.string().min(1),
+    slug: z.string().min(1),
+    company_name: z.string().nullish(),
+    description: z.string().nullish(),
+    requirements: z.string().nullish(),
+    location: z.string().nullish(),
+    locations: z.array(recruiteeLocationSchema).default([]),
+    remote: z.boolean().nullish(),
+    hybrid: z.boolean().nullish(),
+    on_site: z.boolean().nullish(),
+    employment_type_code: z.string().nullish(),
+    published_at: z.string().nullish(),
+    careers_url: z.string().url().nullish(),
+    careers_apply_url: z.string().url().nullish(),
+  })
+  .passthrough();
+
+const recruiteeFeedSchema = z.object({
+  offers: z.array(recruiteeOfferSchema),
+});
+
 export interface ResolvedJobUrl {
   supported: boolean;
   platform: string;
@@ -223,6 +257,9 @@ export class AtsJobResolverService {
     }
     if (host === 'jobs.smartrecruiters.com') {
       return this.resolveSmartRecruiters(url, channel.flow);
+    }
+    if (host.endsWith('.recruitee.com')) {
+      return this.resolveRecruitee(url, channel.flow);
     }
     if (host.includes('linkedin.com') || host.includes('indeed.com')) {
       return {
@@ -406,6 +443,94 @@ export class AtsJobResolverService {
         job.active === false
           ? 'A publicação SmartRecruiters está marcada como inativa.'
           : undefined,
+    };
+  }
+
+  private async resolveRecruitee(
+    url: URL,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    const parts = url.pathname.split('/').filter(Boolean);
+    const offerIndex = parts.findIndex((part) => part === 'o');
+    const slug = offerIndex >= 0 ? parts[offerIndex + 1] : undefined;
+    if (!slug) {
+      return {
+        supported: false,
+        platform: 'RECRUITEE',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'URL Recruitee sem slug de vaga reconhecível.',
+      };
+    }
+
+    const endpoint = `${url.origin}/api/offers/`;
+    const raw = await this.http.getJson<unknown>(endpoint, {
+      source: 'recruitee-resolver',
+      requestsPerSecond: 1,
+    });
+    const feed = recruiteeFeedSchema.parse(raw);
+    const requested = canonicalPublicUrl(url.toString());
+    const job = feed.offers.find((offer) => {
+      if (offer.slug === slug) return true;
+      return [offer.careers_url, offer.careers_apply_url]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => canonicalPublicUrl(value) === requested);
+    });
+
+    if (!job) {
+      return {
+        supported: false,
+        platform: 'RECRUITEE',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'A vaga não foi localizada entre as publicações atuais desse site Recruitee.',
+      };
+    }
+
+    const description = [job.description, job.requirements]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => stripHtml(value).trim())
+      .filter(Boolean)
+      .join('\n\n');
+    const structuredLocations = job.locations
+      .map((location) => {
+        if (location.name) return location.name;
+        return [location.city, location.state, location.country]
+          .filter((value): value is string => Boolean(value))
+          .join(', ');
+      })
+      .filter(Boolean);
+    const location = structuredLocations.join(' / ') || job.location || undefined;
+    const remoteType = job.remote
+      ? 'REMOTE'
+      : job.hybrid
+        ? 'HYBRID'
+        : job.on_site
+          ? 'ONSITE'
+          : remoteTypeFromText(location);
+
+    return {
+      supported: true,
+      platform: 'RECRUITEE',
+      flow: 'ATS',
+      data: {
+        externalId: String(job.id),
+        title: job.title,
+        company: job.company_name ?? undefined,
+        description: description || job.title,
+        location,
+        remoteType,
+        employmentType: job.employment_type_code ?? undefined,
+        applicationUrl: job.careers_apply_url ?? job.careers_url ?? url.toString(),
+        publishedAt: job.published_at ?? undefined,
+      },
+      missingFields: [
+        ...(job.company_name ? [] : ['company']),
+        ...(description ? [] : ['description']),
+      ],
+      message: job.company_name
+        ? undefined
+        : 'Dados públicos da vaga Recruitee carregados; confirme a empresa antes de importar.',
     };
   }
 
