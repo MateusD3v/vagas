@@ -77,19 +77,20 @@ jobs:
             exit 1
           fi
 
-          for attempt in $(seq 1 60); do
+          # Baseline + trigger already consume two administrative requests.
+          # Wait before polling and keep status checks under the 5 req/min rate limit.
+          sleep 20
+
+          for attempt in $(seq 1 30); do
             if ! status_payload="$(
               curl --fail --show-error --silent \
-                --retry 2 \
-                --retry-all-errors \
-                --retry-delay 5 \
                 --connect-timeout 15 \
                 --max-time 45 \
                 --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
                 "$api_url/worker/status"
             )"; then
-              echo "Transient status check failure (attempt $attempt/60)."
-              sleep 10
+              echo "Transient status check failure (attempt $attempt/30)."
+              sleep 20
               continue
             fi
 
