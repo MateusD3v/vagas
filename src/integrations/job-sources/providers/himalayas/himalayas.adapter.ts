@@ -13,6 +13,14 @@ import {
   stripHtml,
 } from '../../shared/normalization.js';
 
+const himalayasLocationSchema = z
+  .object({
+    alpha2: z.string().min(2),
+    name: z.string().min(1),
+    slug: z.string().min(1),
+  })
+  .passthrough();
+
 const himalayasJobSchema = z
   .object({
     title: z.string().min(1),
@@ -26,7 +34,7 @@ const himalayasJobSchema = z
     salaryPeriod: z.string().nullish(),
     seniority: z.union([z.string(), z.array(z.string())]).nullish(),
     currency: z.string().nullish(),
-    locationRestrictions: z.array(z.string()).default([]),
+    locationRestrictions: z.array(himalayasLocationSchema).default([]),
     timezoneRestrictions: z.array(z.union([z.string(), z.number()])).default([]),
     categories: z.array(z.string()).default([]),
     parentCategories: z.array(z.string()).default([]),
@@ -47,7 +55,8 @@ const responseSchema = z
 export type HimalayasExternalJob = z.infer<typeof himalayasJobSchema>;
 
 function publicationDate(value: string | number): Date {
-  return typeof value === 'number' ? new Date(value * 1000) : new Date(value);
+  if (typeof value === 'string') return new Date(value);
+  return new Date(value < 10_000_000_000 ? value * 1000 : value);
 }
 
 export class HimalayasJobSource implements JobSourceAdapter {
@@ -103,7 +112,7 @@ export class HimalayasJobSource implements JobSourceAdapter {
       ? raw.seniority.join(' ')
       : (raw.seniority ?? '');
     const location = raw.locationRestrictions.length
-      ? raw.locationRestrictions.join(', ')
+      ? raw.locationRestrictions.map((item) => item.name).join(', ')
       : 'Worldwide';
     const annualSalary = raw.salaryPeriod?.toLowerCase() === 'annual';
     const employmentType = raw.employmentType?.replace(/[ -]+/g, '_').toUpperCase();
@@ -121,7 +130,7 @@ export class HimalayasJobSource implements JobSourceAdapter {
       company: raw.companyName.trim(),
       description: description || raw.excerpt || raw.title,
       location,
-      country: raw.locationRestrictions.length === 1 ? raw.locationRestrictions[0] : undefined,
+      country: raw.locationRestrictions.length === 1 ? raw.locationRestrictions[0]?.name : undefined,
       remoteType: 'REMOTE',
       employmentType,
       seniority: inferSeniority(`${raw.title} ${seniority}`),
