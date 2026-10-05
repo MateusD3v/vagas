@@ -556,3 +556,157 @@ describe('AtsJobResolverService Personio', () => {
     expect(getText).toHaveBeenCalledOnce();
   });
 });
+
+
+describe('AtsJobResolverService Pinpoint', () => {
+  const feed = {
+    data: [
+      {
+        id: '9447bc5f-30f9-4dbe-8531-3d66df1fc1a5',
+        title: 'Estágio em Desenvolvimento Backend',
+        description: '<p>Desenvolvimento de APIs REST com Node.js.</p>',
+        key_responsibilities: '<p>Implementar integrações e corrigir bugs.</p>',
+        skills_knowledge_expertise: '<p>Git, Docker e PostgreSQL.</p>',
+        benefits: '<p>Horário flexível.</p>',
+        employment_type: 'internship',
+        employment_type_text: 'Internship',
+        workplace_type: 'hybrid',
+        workplace_type_text: 'Hybrid',
+        compensation_visible: false,
+        compensation_minimum: null,
+        compensation_maximum: null,
+        compensation_currency: null,
+        compensation_frequency: null,
+        deadline_at: '2026-11-01T23:59:59Z',
+        created_at: '2026-10-05T08:00:00Z',
+        url: 'https://careers.pinpointhq.com/en/postings/9447bc5f-30f9-4dbe-8531-3d66df1fc1a5',
+        application_form_url:
+          'https://careers.pinpointhq.com/en/postings/9447bc5f-30f9-4dbe-8531-3d66df1fc1a5/applications/new',
+        path: '/en/postings/9447bc5f-30f9-4dbe-8531-3d66df1fc1a5',
+        location: { id: '10', name: 'Belém, PA' },
+        department: { id: '20', name: 'Engineering' },
+        division: null,
+        job: {
+          id: '130185',
+          requisition_id: 'ENG-001',
+          department: { id: '20', name: 'Engineering' },
+          division: null,
+          structure_custom_group_one: null,
+        },
+      },
+      {
+        id: 'posting-2',
+        title: 'Analista de Suporte',
+        description: '<p>Suporte técnico e infraestrutura.</p>',
+        employment_type: 'full_time',
+        employment_type_text: 'Full Time',
+        workplace_type: 'on_site',
+        workplace_type_text: 'On site',
+        compensation_visible: false,
+        compensation_minimum: null,
+        compensation_maximum: null,
+        compensation_currency: null,
+        compensation_frequency: null,
+        deadline_at: null,
+        created_at: null,
+        url: 'https://careers.pinpointhq.com/en/jobs/53913',
+        application_form_url: null,
+        path: '/en/jobs/53913',
+        location: { id: '11', name: 'Ananindeua, PA' },
+        department: { id: '21', name: 'IT' },
+        division: null,
+        job: {
+          id: '53913',
+          requisition_id: null,
+          department: { id: '21', name: 'IT' },
+          division: null,
+          structure_custom_group_one: null,
+        },
+      },
+    ],
+  };
+
+  it('carrega publicação pública pelo UUID do posting', async () => {
+    const getJson = vi.fn().mockResolvedValue(feed);
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://careers.pinpointhq.com/en/postings/9447bc5f-30f9-4dbe-8531-3d66df1fc1a5',
+    );
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'PINPOINT',
+      flow: 'ATS',
+      missingFields: ['company'],
+      data: {
+        externalId: '9447bc5f-30f9-4dbe-8531-3d66df1fc1a5',
+        title: 'Estágio em Desenvolvimento Backend',
+        description:
+          'Desenvolvimento de APIs REST com Node.js.\n\nImplementar integrações e corrigir bugs.\n\nGit, Docker e PostgreSQL.\n\nHorário flexível.',
+        location: 'Belém, PA',
+        remoteType: 'HYBRID',
+        employmentType: 'Internship',
+        applicationUrl:
+          'https://careers.pinpointhq.com/en/postings/9447bc5f-30f9-4dbe-8531-3d66df1fc1a5/applications/new',
+        publishedAt: '2026-10-05T08:00:00Z',
+      },
+    });
+    expect(result.data?.company).toBeUndefined();
+    expect(String(getJson.mock.calls[0]?.[0])).toBe(
+      'https://careers.pinpointhq.com/postings.json',
+    );
+  });
+
+  it('também reconhece URL pública legada de job pelo ID interno', async () => {
+    const getJson = vi.fn().mockResolvedValue(feed);
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve('https://careers.pinpointhq.com/en/jobs/53913');
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'PINPOINT',
+      missingFields: ['company'],
+      data: {
+        externalId: 'posting-2',
+        title: 'Analista de Suporte',
+        location: 'Ananindeua, PA',
+        remoteType: 'UNSPECIFIED',
+        employmentType: 'Full Time',
+        applicationUrl: 'https://careers.pinpointhq.com/en/jobs/53913',
+      },
+    });
+  });
+
+  it('não inventa dados quando a publicação não existe mais', async () => {
+    const getJson = vi.fn().mockResolvedValue(feed);
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://careers.pinpointhq.com/en/postings/removed-posting',
+    );
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'PINPOINT',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getJson).toHaveBeenCalledOnce();
+  });
+
+  it('aceita URL sem ID somente quando ela corresponde exatamente ao url/path publicado', async () => {
+    const getJson = vi.fn().mockResolvedValue(feed);
+    const service = new AtsJobResolverService({ getJson } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://careers.pinpointhq.com/en/postings/9447bc5f-30f9-4dbe-8531-3d66df1fc1a5?utm_source=test',
+    );
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'PINPOINT',
+      data: { title: 'Estágio em Desenvolvimento Backend' },
+    });
+  });
+});
