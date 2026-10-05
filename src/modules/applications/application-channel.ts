@@ -8,6 +8,7 @@ export type ApplicationPlatform =
   | 'RECRUITEE'
   | 'WORKABLE'
   | 'PERSONIO'
+  | 'PINPOINT'
   | 'WORKDAY'
   | 'OTHER';
 
@@ -82,6 +83,9 @@ export function classifyApplicationChannel(
   }
   if (host.endsWith('.jobs.personio.de')) {
     return { platform: 'PERSONIO', flow: 'ATS', label: 'Personio' };
+  }
+  if (host.endsWith('.pinpointhq.com')) {
+    return { platform: 'PINPOINT', flow: 'ATS', label: 'Pinpoint' };
   }
   if (host.includes('myworkdayjobs.com') || host.includes('workday.com')) {
     return { platform: 'WORKDAY', flow: 'ATS', label: 'Workday' };
