@@ -304,7 +304,13 @@ function remoteTypeFromText(value?: string | null): 'REMOTE' | 'HYBRID' | 'ONSIT
   const text = (value ?? '').toLowerCase();
   if (text.includes('remote')) return 'REMOTE';
   if (text.includes('hybrid')) return 'HYBRID';
-  if (text.includes('onsite') || text.includes('on-site') || text.includes('office'))
+  if (
+    text.includes('onsite') ||
+    text.includes('on-site') ||
+    text.includes('on_site') ||
+    text.includes('on site') ||
+    text.includes('office')
+  )
     return 'ONSITE';
   return 'UNSPECIFIED';
 }
