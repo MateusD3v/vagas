@@ -92,8 +92,6 @@ export async function buildApp(): Promise<FastifyInstance> {
         database: 'connected',
         worker: {
           status: workerAlive ? 'healthy' : 'unavailable',
-          mode: env.WORKER_MODE,
-          lastSeenAt: worker?.lastSeenAt ?? null,
         },
         profile: {
           status: !profile ? 'missing' : profile.isDemo ? 'demo' : 'ready',
