@@ -203,6 +203,34 @@ const recruiteeFeedSchema = z.object({
   offers: z.array(recruiteeOfferSchema),
 });
 
+const workableJobSchema = z
+  .object({
+    title: z.string().min(1),
+    code: z.string().nullish(),
+    shortcode: z.string().min(1),
+    country: z.string().nullish(),
+    state: z.string().nullish(),
+    city: z.string().nullish(),
+    department: z.string().nullish(),
+    telecommuting: z.boolean().nullish(),
+    published_on: z.string().nullish(),
+    url: z.string().url().nullish(),
+    application_url: z.string().url().nullish(),
+    shortlink: z.string().url().nullish(),
+    created_at: z.string().nullish(),
+    description: z.string().nullish(),
+    employment_type: z.string().nullish(),
+    workplace_type: z.enum(['on_site', 'hybrid', 'remote']).nullish(),
+  })
+  .passthrough();
+
+const workableAccountSchema = z
+  .object({
+    name: z.string().min(1),
+    jobs: z.array(workableJobSchema),
+  })
+  .passthrough();
+
 export interface ResolvedJobUrl {
   supported: boolean;
   platform: string;
@@ -260,6 +288,12 @@ export class AtsJobResolverService {
     }
     if (host.endsWith('.recruitee.com')) {
       return this.resolveRecruitee(url, channel.flow);
+    }
+    if (
+      host === 'apply.workable.com' ||
+      (host.endsWith('.workable.com') && host !== 'api.workable.com')
+    ) {
+      return this.resolveWorkable(url, channel.flow);
     }
     if (host.includes('linkedin.com') || host.includes('indeed.com')) {
       return {
@@ -531,6 +565,92 @@ export class AtsJobResolverService {
       message: job.company_name
         ? undefined
         : 'Dados públicos da vaga Recruitee carregados; confirme a empresa antes de importar.',
+    };
+  }
+
+  private async resolveWorkable(
+    url: URL,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    const host = url.hostname.toLowerCase().replace(/^www\./, '');
+    const parts = url.pathname.split('/').filter(Boolean);
+    const jobIndex = parts.findIndex((part) => part === 'j');
+    const shortcode = jobIndex >= 0 ? parts[jobIndex + 1] : undefined;
+
+    let account: string | undefined;
+    if (host === 'apply.workable.com') {
+      account = jobIndex > 0 ? parts[jobIndex - 1] : undefined;
+    } else if (host.endsWith('.workable.com') && host !== 'api.workable.com') {
+      const subdomain = host.slice(0, -'.workable.com'.length);
+      account = subdomain && subdomain !== 'apply' ? subdomain : undefined;
+    }
+
+    if (!account) {
+      return {
+        supported: false,
+        platform: 'WORKABLE',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message:
+          'A URL Workable não informa a conta da empresa; use o link do board da empresa para enriquecimento automático.',
+      };
+    }
+
+    const endpoint = `https://www.workable.com/api/accounts/${encodeURIComponent(account)}?details=true`;
+    const raw = await this.http.getJson<unknown>(endpoint, {
+      source: 'workable-resolver',
+      requestsPerSecond: 1,
+    });
+    const board = workableAccountSchema.parse(raw);
+    const requested = canonicalPublicUrl(url.toString());
+    const job = board.jobs.find((posting) => {
+      if (shortcode && posting.shortcode === shortcode) return true;
+      return [posting.url, posting.application_url, posting.shortlink]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => canonicalPublicUrl(value) === requested);
+    });
+
+    if (!job) {
+      return {
+        supported: false,
+        platform: 'WORKABLE',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'A vaga não foi localizada entre as publicações atuais dessa conta Workable.',
+      };
+    }
+
+    const description = stripHtml(job.description ?? '').trim();
+    const location = [job.city, job.state, job.country]
+      .filter((value): value is string => Boolean(value))
+      .join(', ');
+    const remoteType =
+      job.workplace_type === 'remote'
+        ? 'REMOTE'
+        : job.workplace_type === 'hybrid'
+          ? 'HYBRID'
+          : job.workplace_type === 'on_site'
+            ? 'ONSITE'
+            : job.telecommuting
+              ? 'REMOTE'
+              : remoteTypeFromText(location);
+
+    return {
+      supported: true,
+      platform: 'WORKABLE',
+      flow: 'ATS',
+      data: {
+        externalId: job.shortcode,
+        title: job.title,
+        company: board.name,
+        description: description || job.title,
+        location: location || undefined,
+        remoteType,
+        employmentType: job.employment_type ?? undefined,
+        applicationUrl: job.url ?? job.application_url ?? job.shortlink ?? url.toString(),
+        publishedAt: job.published_on ?? job.created_at ?? undefined,
+      },
+      missingFields: description ? [] : ['description'],
     };
   }
 
