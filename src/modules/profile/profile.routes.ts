@@ -55,7 +55,11 @@ export function profileRoutes(app: FastifyInstance): void {
 
   app.post(
     '/profile',
-    { schema: { tags: ['Profile'], summary: 'Cadastra o perfil único' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Profile'], summary: 'Cadastra o perfil único', security: [{ adminKey: [] }] },
+    },
     async (request, reply) => {
       const result = await service.create(profileCreateSchema.parse(request.body));
       return reply.code(201).send(result);
@@ -64,13 +68,21 @@ export function profileRoutes(app: FastifyInstance): void {
 
   app.put(
     '/profile',
-    { schema: { tags: ['Profile'], summary: 'Substitui o perfil ativo' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Profile'], summary: 'Substitui o perfil ativo', security: [{ adminKey: [] }] },
+    },
     (request) => service.replace(profileUpdateSchema.parse(request.body)),
   );
 
   app.patch(
     '/profile',
-    { schema: { tags: ['Profile'], summary: 'Atualiza parcialmente o perfil ativo' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: { tags: ['Profile'], summary: 'Atualiza parcialmente o perfil ativo', security: [{ adminKey: [] }] },
+    },
     (request) => service.patch(profilePatchSchema.parse(request.body)),
   );
 }
