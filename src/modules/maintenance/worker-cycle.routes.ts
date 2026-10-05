@@ -19,10 +19,20 @@ export function workerCycleRoutes(app: FastifyInstance): void {
       },
     },
     async (_request, reply) => {
-      setImmediate(() => {
-        void cycle.run('api').catch((error: unknown) => {
-          app.log.error({ err: error }, 'Ciclo agendado pela API falhou');
-        });
+      const run = cycle.run('api');
+      const outcome = await Promise.race([
+        run.then((result) => ({ started: result.started })),
+        new Promise<{ started: true }>((resolve) =>
+          setTimeout(() => resolve({ started: true }), 250),
+        ),
+      ]);
+
+      if (!outcome.started) {
+        return reply.code(409).send({ scheduled: false, reason: 'WORKER_ALREADY_RUNNING' });
+      }
+
+      void run.catch((error: unknown) => {
+        app.log.error({ err: error }, 'Ciclo agendado pela API falhou');
       });
       return reply.code(202).send({ scheduled: true });
     },
