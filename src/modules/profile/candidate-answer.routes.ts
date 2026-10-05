@@ -10,7 +10,15 @@ export function candidateAnswerRoutes(app: FastifyInstance): void {
 
   app.get(
     '/candidate-answers',
-    { schema: { tags: ['Profile'], summary: 'Lista respostas reutilizáveis do candidato' } },
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Profile'],
+        summary: 'Lista respostas reutilizáveis do candidato',
+        security: [{ adminKey: [] }],
+      },
+    },
     () => service.list(),
   );
 

@@ -10,8 +10,18 @@ export function profileRoutes(app: FastifyInstance): void {
   const service = new ProfileService(prisma);
   const transfer = new ProfileTransferService(prisma);
 
-  app.get('/profile', { schema: { tags: ['Profile'], summary: 'Retorna o perfil ativo' } }, () =>
-    service.get(),
+  app.get(
+    '/profile',
+    {
+      preHandler: requireAdmin,
+      config: { rateLimit: adminRateLimit },
+      schema: {
+        tags: ['Profile'],
+        summary: 'Retorna o perfil ativo',
+        security: [{ adminKey: [] }],
+      },
+    },
+    () => service.get(),
   );
 
   app.get(
