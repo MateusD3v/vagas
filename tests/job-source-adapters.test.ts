@@ -283,7 +283,6 @@ describe('Jobicy adapter', () => {
   });
 });
 
-
 describe('Himalayas adapter', () => {
   const sample = {
     title: 'Junior Backend Developer',
@@ -297,9 +296,7 @@ describe('Himalayas adapter', () => {
     salaryPeriod: 'monthly',
     seniority: ['Entry-level'],
     currency: 'USD',
-    locationRestrictions: [
-      { alpha2: 'BR', name: 'Brazil', slug: 'brazil' },
-    ],
+    locationRestrictions: [{ alpha2: 'BR', name: 'Brazil', slug: 'brazil' }],
     timezoneRestrictions: ['UTC-3'],
     categories: ['Engineering', 'Node.js'],
     parentCategories: ['Engineering'],
@@ -333,10 +330,7 @@ describe('Himalayas adapter', () => {
 
   it('faz uma busca pública conservadora usando somente uma keyword', async () => {
     const getJson = vi.fn().mockResolvedValue({ jobs: [sample] });
-    const adapter = new HimalayasJobSource(
-      { getJson } as unknown as JobSourceHttpClient,
-      50_000,
-    );
+    const adapter = new HimalayasJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
 
     const jobs = await adapter.searchJobs({
       keywords: ['Node.js', 'Java'],
@@ -348,9 +342,7 @@ describe('Himalayas adapter', () => {
 
     expect(jobs).toHaveLength(1);
     expect(getJson).toHaveBeenCalledOnce();
-    expect(String(getJson.mock.calls[0]?.[0])).toContain(
-      'https://himalayas.app/jobs/api/search',
-    );
+    expect(String(getJson.mock.calls[0]?.[0])).toContain('https://himalayas.app/jobs/api/search');
     expect(String(getJson.mock.calls[0]?.[0])).toContain('q=Node.js');
     expect(String(getJson.mock.calls[0]?.[0])).toContain('sort=recent');
   });
