@@ -86,15 +86,16 @@ export class RemoteOkJobSource implements JobSourceAdapter {
       requestsPerSecond: this.rateLimit.requestsPerSecond,
     });
 
-    if (!Array.isArray(response)) {
+    let items: unknown[];
+    try {
+      items = z.array(z.unknown()).parse(response);
+    } catch {
       throw new JobSourceError(
         'Schema inválido retornado pela Remote OK',
         'INVALID_RESPONSE',
         false,
       );
     }
-
-    const items = [...response];
     if (items.length && remoteOkMetadataSchema.safeParse(items[0]).success) items.shift();
 
     let jobs: RemoteOkExternalJob[];
