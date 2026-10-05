@@ -297,8 +297,7 @@ describe('AtsJobResolverService Recruitee', () => {
           employment_type_code: 'internship',
           published_at: '2026-10-05T08:00:00.000Z',
           careers_url: 'https://acme.recruitee.com/o/estagio-desenvolvimento-software',
-          careers_apply_url:
-            'https://acme.recruitee.com/o/estagio-desenvolvimento-software/c/new',
+          careers_apply_url: 'https://acme.recruitee.com/o/estagio-desenvolvimento-software/c/new',
         },
       ],
     });
@@ -317,7 +316,8 @@ describe('AtsJobResolverService Recruitee', () => {
         externalId: '2683104',
         title: 'Estágio em Desenvolvimento de Software',
         company: 'Acme Tecnologia',
-        description: 'Desenvolvimento com Node.js e APIs REST.\n\nGit, Docker e vontade de aprender.',
+        description:
+          'Desenvolvimento com Node.js e APIs REST.\n\nGit, Docker e vontade de aprender.',
         location: 'Belém',
         remoteType: 'HYBRID',
         employmentType: 'internship',
