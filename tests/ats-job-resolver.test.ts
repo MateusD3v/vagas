@@ -317,8 +317,7 @@ describe('AtsJobResolverService Recruitee', () => {
         externalId: '2683104',
         title: 'Estágio em Desenvolvimento de Software',
         company: 'Acme Tecnologia',
-        description:
-          'Desenvolvimento com Node.js e APIs REST.\n\nGit, Docker e vontade de aprender.',
+        description: 'Desenvolvimento com Node.js e APIs REST.\n\nGit, Docker e vontade de aprender.',
         location: 'Belém',
         remoteType: 'HYBRID',
         employmentType: 'internship',
