@@ -376,8 +376,7 @@ describe('Himalayas adapter', () => {
       companySlug: 'work-better-now',
       companyLogo: '',
       guid: 'https://himalayas.app/companies/work-better-now/jobs/ai-software-developer',
-      applicationLink:
-        'https://himalayas.app/companies/work-better-now/jobs/ai-software-developer',
+      applicationLink: 'https://himalayas.app/companies/work-better-now/jobs/ai-software-developer',
     });
 
     expect(job.company).toBe('Work Better Now');
