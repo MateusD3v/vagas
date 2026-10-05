@@ -129,7 +129,10 @@ export class WorkerCycleService {
 
     try {
       const collectionRuns = this.config.ENABLE_SCHEDULER ? await this.collection.runEnabled() : [];
-      await this.heartbeat('RUNNING', trigger, { stage: 'collection', collectionRuns: collectionRuns.length });
+      await this.heartbeat('RUNNING', trigger, {
+        stage: 'collection',
+        collectionRuns: collectionRuns.length,
+      });
       const resumed = await this.collection.resumePending();
       await this.heartbeat('RUNNING', trigger, { stage: 'resume', resumed });
       const availability = await this.availabilitySync.run(this.config.JOB_STATUS_SYNC_BATCH_SIZE);
