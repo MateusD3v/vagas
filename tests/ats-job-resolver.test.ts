@@ -356,7 +356,6 @@ describe('AtsJobResolverService Recruitee', () => {
   });
 });
 
-
 describe('AtsJobResolverService Workable', () => {
   it('carrega vaga publicada usando a API pública da conta Workable', async () => {
     const getJson = vi.fn().mockResolvedValue({
