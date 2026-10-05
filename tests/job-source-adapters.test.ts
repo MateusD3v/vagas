@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ArbeitnowJobSource } from '../src/integrations/job-sources/providers/arbeitnow/arbeitnow.adapter.js';
+import { HimalayasJobSource } from '../src/integrations/job-sources/providers/himalayas/himalayas.adapter.js';
 import { JobicyJobSource } from '../src/integrations/job-sources/providers/jobicy/jobicy.adapter.js';
 import { RemotiveJobSource } from '../src/integrations/job-sources/providers/remotive/remotive.adapter.js';
 import type { JobSourceHttpClient } from '../src/integrations/job-sources/shared/http-client.js';
@@ -279,5 +280,100 @@ describe('Jobicy adapter', () => {
     ]);
     expect(getJson).toHaveBeenCalledOnce();
     expect(String(getJson.mock.calls[0]?.[0])).toContain('ids=10%2C11%2C12');
+  });
+});
+
+
+describe('Himalayas adapter', () => {
+  const sample = {
+    title: 'Junior Backend Developer',
+    excerpt: 'Build backend APIs',
+    companyName: 'Example Remote',
+    companySlug: 'example-remote',
+    companyLogo: 'https://example.com/logo.png',
+    employmentType: 'Full Time',
+    minSalary: 3000,
+    maxSalary: 5000,
+    salaryPeriod: 'monthly',
+    seniority: ['Entry-level'],
+    currency: 'USD',
+    locationRestrictions: [
+      { alpha2: 'BR', name: 'Brazil', slug: 'brazil' },
+    ],
+    timezoneRestrictions: ['UTC-3'],
+    categories: ['Engineering', 'Node.js'],
+    parentCategories: ['Engineering'],
+    description: '<p>Node.js, PostgreSQL, Git and REST API.</p>',
+    pubDate: 1791201600000,
+    expiryDate: 1793793600000,
+    applicationLink: 'https://himalayas.app/companies/example-remote/jobs/junior-backend',
+    guid: 'himalayas-guid-1',
+  };
+
+  it('normaliza vaga remota, localização e atribuição sem anualizar salário mensal', () => {
+    const adapter = new HimalayasJobSource(unusedHttp, 50_000);
+    const job = adapter.normalizeJob(sample);
+
+    expect(job.source).toBe('himalayas');
+    expect(job.externalId).toBe('himalayas-guid-1');
+    expect(job.remoteType).toBe('REMOTE');
+    expect(job.location).toBe('Brazil');
+    expect(job.country).toBe('Brazil');
+    expect(job.employmentType).toBe('FULL_TIME');
+    expect(job.seniority).toBe('JUNIOR');
+    expect(job.salaryMin).toBeUndefined();
+    expect(job.salaryMax).toBeUndefined();
+    expect(job.publishedAt).toEqual(new Date(1791201600000));
+    expect(job.applicationUrl).toContain('himalayas.app');
+    expect(job.rawData.attribution).toBe('Himalayas');
+    expect(job.skills.map((skill) => skill.skill)).toEqual(
+      expect.arrayContaining(['Node.js', 'PostgreSQL', 'Git', 'REST API']),
+    );
+  });
+
+  it('faz uma busca pública conservadora usando somente uma keyword', async () => {
+    const getJson = vi.fn().mockResolvedValue({ jobs: [sample] });
+    const adapter = new HimalayasJobSource(
+      { getJson } as unknown as JobSourceHttpClient,
+      50_000,
+    );
+
+    const jobs = await adapter.searchJobs({
+      keywords: ['Node.js', 'Java'],
+      locations: ['Brazil'],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: ['FULL_TIME'],
+      limit: 25,
+    });
+
+    expect(jobs).toHaveLength(1);
+    expect(getJson).toHaveBeenCalledOnce();
+    expect(String(getJson.mock.calls[0]?.[0])).toContain(
+      'https://himalayas.app/jobs/api/search',
+    );
+    expect(String(getJson.mock.calls[0]?.[0])).toContain('q=Node.js');
+    expect(String(getJson.mock.calls[0]?.[0])).toContain('sort=recent');
+  });
+
+  it('limita o resultado localmente a no máximo 20 vagas', async () => {
+    const jobs = Array.from({ length: 24 }, (_, index) => ({
+      ...sample,
+      guid: 'himalayas-guid-' + index,
+    }));
+    const getJson = vi.fn().mockResolvedValue({ jobs });
+    const adapter = new HimalayasJobSource(
+      { getJson } as unknown as JobSourceHttpClient,
+      50_000,
+    );
+
+    const result = await adapter.searchJobs({
+      keywords: ['Support'],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 50,
+    });
+
+    expect(result).toHaveLength(20);
   });
 });
