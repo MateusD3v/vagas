@@ -27,7 +27,7 @@ const himalayasJobSchema = z
     excerpt: z.string().nullish(),
     companyName: z.string().min(1),
     companySlug: z.string().nullish(),
-    companyLogo: z.string().url().nullish(),
+    companyLogo: z.union([z.string().url(), z.literal('')]).nullish(),
     employmentType: z.string().nullish(),
     minSalary: z.number().nullish(),
     maxSalary: z.number().nullish(),
@@ -149,7 +149,7 @@ export class HimalayasJobSource implements JobSourceAdapter {
         {
           guid: raw.guid,
           companySlug: raw.companySlug,
-          companyLogo: raw.companyLogo,
+          companyLogo: raw.companyLogo || undefined,
           employmentType: raw.employmentType,
           seniority: raw.seniority,
           locationRestrictions: raw.locationRestrictions,
