@@ -1,6 +1,6 @@
 # Fontes de vagas
 
-Verificação mais recente: **3 de outubro de 2026**.
+Verificação mais recente: **5 de outubro de 2026**.
 
 Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. Eles não autenticam como candidato, não enviam candidaturas e não contornam CAPTCHA, rate limits ou controles anti-bot. Toda vaga preserva a URL original e a referência da fonte.
 
@@ -42,6 +42,20 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Status explícito: `GET /api/v2/remote-jobs/status?ids=...` verifica até 100 IDs por chamada. `closed` pode encerrar a vaga; `unknown` nunca é tratado como confirmação de fechamento.
 - Controle interno: concorrência 1, limite conservador de uma requisição a cada 30 segundos, sincronização periódica de disponibilidade e sem uso da API comercial paga por padrão.
 
+## Himalayas — ACTIVE
+
+- Tipo: API pública JSON de vagas remotas.
+- Endpoint usado: `GET https://himalayas.app/jobs/api/search`.
+- Documentação oficial: <https://himalayas.app/docs/remote-jobs-api>.
+- Autenticação: não requerida.
+- Filtros usados: uma keyword por execução em `q` e ordenação `recent`; a keyword é rotacionada entre os termos do perfil para manter a coleta conservadora.
+- Campos: GUID, título, empresa, descrição HTML, tipo de contratação, senioridade, restrições de país/fuso, categorias, salário, publicação, expiração e link de candidatura.
+- Normalização: descrição sem HTML, modalidade `REMOTE`, senioridade inferida de forma conservadora, localização baseada nas restrições de país e tecnologias reconhecidas.
+- Limite público: até 20 registros por resposta; o adapter usa no máximo 20 e faz somente uma requisição por execução.
+- Atualização/rate limit: a documentação informa atualização diária e rate limit sem cota numérica pública. O adapter usa limite interno de uma requisição a cada 30 segundos e concorrência 1.
+- Atribuição: ao exibir dados da vaga, manter o link retornado e identificar Himalayas como fonte. O projeto não republica as vagas em outros job boards.
+- Controle interno: cron padrão a cada seis horas, deduplicação central e `HIMALAYAS_ENABLED` para desativação explícita.
+
 ## Mock Job Source — DEVELOPMENT
 
 - Tipo: mock local.
@@ -52,4 +66,4 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 
 ## Falhas e desativação
 
-Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED` e `JOBICY_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
+Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED` e `HIMALAYAS_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.

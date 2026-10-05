@@ -21,6 +21,8 @@ services:
         value: 'false'
       - key: SAFE_MODE
         value: 'true'
+      - key: HIMALAYAS_ENABLED
+        value: 'true'
       - key: WORKER_MODE
         value: cron
       - key: WORKER_HEALTH_TTL_SECONDS

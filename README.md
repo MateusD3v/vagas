@@ -13,7 +13,7 @@ src/
   integrations/
     job-sources/
       mock/                     fonte determinística
-      providers/                Remotive, Arbeitnow e Jobicy
+      providers/                Remotive, Arbeitnow, Jobicy e Himalayas
       shared/                   HTTP, normalização e erros
       job-source.registry.ts
     llm/                        mock/OpenAI e validação
