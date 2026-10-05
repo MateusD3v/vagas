@@ -112,6 +112,7 @@ export class ApplicationService {
             ? {
                 submittedAt: occurredAt,
                 nextFollowUpAt: new Date(occurredAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+                followUpNotifiedAt: null,
               }
             : {}),
           ...(['REJECTED', 'OFFER', 'ACCEPTED', 'WITHDRAWN'].includes(input.status)
