@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/database/client.js', () => ({
   prisma: {
@@ -17,13 +17,21 @@ vi.mock('../src/database/client.js', () => ({
   },
 }));
 
+import { env } from '../src/config/env.js';
 import { buildApp } from '../src/app.js';
+
+const originalAdminKey = env.ADMIN_API_KEY;
+env.ADMIN_API_KEY = 'test-admin-key';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  env.ADMIN_API_KEY = 'test-admin-key';
 });
 
 describe('fronteira pública da API', () => {
+  afterAll(() => {
+    env.ADMIN_API_KEY = originalAdminKey;
+  });
   it('mantém health e dashboard públicos', async () => {
     const app = await buildApp();
 
