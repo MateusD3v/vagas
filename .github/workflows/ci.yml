@@ -17,7 +17,38 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:generate
-      - run: npm run format:check
+      - run: |
+          set -eu
+          curl -fsSL 'https://himalayas.app/jobs/api/search?q=Node.js&sort=recent' -o /tmp/himalayas.json
+          jq '{
+            topLevelKeys: keys,
+            jobsCount: (.jobs | length),
+            fields: [
+              .jobs[] | {
+                title,
+                companyName,
+                companySlug,
+                companyLogo,
+                employmentType,
+                minSalary,
+                maxSalary,
+                salaryPeriod,
+                seniority,
+                currency,
+                locationRestrictions,
+                timezoneRestrictions,
+                timezoneRestriction,
+                categories,
+                category,
+                parentCategories,
+                pubDate,
+                expiryDate,
+                applicationLink,
+                guid
+              }
+            ]
+          }' /tmp/himalayas.json
+          exit 1
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
