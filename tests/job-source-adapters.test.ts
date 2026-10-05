@@ -442,6 +442,21 @@ describe('Remote OK adapter', () => {
     expect(String(getJson.mock.calls[0]?.[0])).toBe('https://remoteok.com/api');
   });
 
+  it('não descarta a primeira vaga quando o feed vier sem objeto de metadados', async () => {
+    const getJson = vi.fn().mockResolvedValue([sample]);
+    const adapter = new RemoteOkJobSource({ getJson } as unknown as JobSourceHttpClient, 50_000);
+
+    const jobs = await adapter.searchJobs({
+      keywords: [],
+      locations: [],
+      remoteTypes: ['REMOTE'],
+      employmentTypes: [],
+      limit: 25,
+    });
+
+    expect(jobs.map((job) => String(job.id))).toEqual(['remoteok-123']);
+  });
+
   it('recusa payload com item de vaga inválido em vez de ocultar mudança de schema', async () => {
     const getJson = vi
       .fn()
