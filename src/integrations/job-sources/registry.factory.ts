@@ -2,6 +2,7 @@ import type { Environment } from '../../config/env.js';
 import { MockJobSource } from './mock/mock.adapter.js';
 import { JobSourceRegistry } from './job-source.registry.js';
 import { ArbeitnowJobSource } from './providers/arbeitnow/arbeitnow.adapter.js';
+import { GupyJobSource } from './providers/gupy/gupy.adapter.js';
 import { HimalayasJobSource } from './providers/himalayas/himalayas.adapter.js';
 import { JobicyJobSource } from './providers/jobicy/jobicy.adapter.js';
 import { RemotiveJobSource } from './providers/remotive/remotive.adapter.js';
@@ -38,6 +39,9 @@ export function createJobSourceRegistry(config: Environment): JobSourceRegistry 
     }
     if (config.SOLIDES_ENABLED) {
       registry.register(new SolidesJobSource(http, config.RAW_DATA_MAX_BYTES));
+    }
+    if (config.GUPY_ENABLED) {
+      registry.register(new GupyJobSource(http, config.RAW_DATA_MAX_BYTES));
     }
   }
   return registry;
