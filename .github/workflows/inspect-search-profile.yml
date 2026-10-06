@@ -1,4 +1,4 @@
-name: Inspect Breezy public JobPosting
+name: Inspect actionable applications
 
 on:
   push:
@@ -13,39 +13,70 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read structured public Breezy data
+      - name: Read non-sensitive actionable application state
         shell: bash
+        env:
+          VAGAS_API_URL: ${{ secrets.VAGAS_API_URL }}
+          VAGAS_ADMIN_API_KEY: ${{ secrets.VAGAS_ADMIN_API_KEY }}
         run: |
           set -euo pipefail
-          url='https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer'
-          curl --fail --show-error --silent --location \
-            --connect-timeout 20 --max-time 120 \
-            --header 'User-Agent: Mozilla/5.0' \
-            "$url" -o /tmp/breezy.html
-          python - <<'PY'
-          from pathlib import Path
-          import json, re
-          html = Path('/tmp/breezy.html').read_text(errors='ignore')
-          for m in re.finditer(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html, re.I|re.S):
-              try:
-                  data = json.loads(m.group(1))
-              except Exception:
-                  continue
-              if data.get('@type') != 'JobPosting':
-                  continue
-              print(json.dumps({
-                  'keys': sorted(data.keys()),
-                  'title': data.get('title'),
-                  'identifier': data.get('identifier'),
-                  'datePosted': data.get('datePosted'),
-                  'validThrough': data.get('validThrough'),
-                  'employmentType': data.get('employmentType'),
-                  'hiringOrganization': data.get('hiringOrganization'),
-                  'jobLocation': data.get('jobLocation'),
-                  'applicantLocationRequirements': data.get('applicantLocationRequirements'),
-                  'jobLocationType': data.get('jobLocationType'),
-                  'baseSalary': data.get('baseSalary'),
-                  'url': data.get('url'),
-                  'descriptionLength': len(data.get('description') or ''),
-              }, indent=2))
-          PY
+
+          readonly expected_api_url="https://vagas-api-z5wn.onrender.com"
+          readonly api_url="${VAGAS_API_URL%/}"
+          if [[ "$api_url" != "$expected_api_url" ]]; then
+            echo "Unexpected production URL."
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            --connect-timeout 20 \
+            --max-time 120 \
+            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+            "$api_url/applications?pageSize=100" \
+            | jq '[
+                .data[]
+                | select(.status == "READY" or .status == "REVIEW_REQUIRED")
+                | {
+                    status,
+                    source: .job.source,
+                    company: .job.company,
+                    title: .job.title,
+                    applicationUrl: .job.applicationUrl,
+                    originalUrl: .job.originalUrl,
+                    storedApplyUrl: (.job.rawData.applyUrl // null),
+                    applyUrlResolution: (.job.rawData.applyUrlResolution // null),
+                    atsEnrichment: (.job.rawData.atsEnrichment // null),
+                    platform: .applicationChannel.platform,
+                    flow: .applicationChannel.flow,
+                    host: (
+                      if (.job.applicationUrl // "") == "" then "NO_URL"
+                      else (.job.applicationUrl | capture("^https?://(?<host>[^/]+)").host // "INVALID_URL")
+                      end
+                    )
+                  }
+              ]
+              | {
+                  total: length,
+                  byHost: (group_by(.host) | map({host: .[0].host, count: length})),
+                  byPlatform: (group_by(.platform) | map({platform: .[0].platform, count: length})),
+                  resolutionStates: (
+                    map(select(.applyUrlResolution != null))
+                    | map({
+                        source,
+                        host,
+                        status: .applyUrlResolution.status,
+                        resolvedUrl: (.applyUrlResolution.resolvedUrl // null)
+                      })
+                  ),
+                  enrichmentStates: (
+                    map(select(.atsEnrichment != null))
+                    | map({
+                        source,
+                        host,
+                        platform: .atsEnrichment.platform,
+                        status: .atsEnrichment.status,
+                        supported: .atsEnrichment.supported
+                      })
+                  ),
+                  items: .
+                }'
