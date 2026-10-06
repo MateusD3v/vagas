@@ -65,6 +65,12 @@ describe('application channel', () => {
       ),
     ).toMatchObject({ platform: 'PINPOINT', flow: 'ATS' });
     expect(
+      classifyApplicationChannel(
+        'https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer',
+        'manual',
+      ),
+    ).toMatchObject({ platform: 'BREEZY', flow: 'ATS' });
+    expect(
       classifyApplicationChannel('https://acme.wd5.myworkdayjobs.com/job/1', 'manual'),
     ).toMatchObject({ platform: 'WORKDAY', flow: 'ATS' });
   });
