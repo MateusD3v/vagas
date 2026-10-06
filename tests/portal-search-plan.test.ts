@@ -12,7 +12,7 @@ describe('portal search plan', () => {
     );
 
     expect(plan.generatedAt).toBe('2026-10-06T15:00:00.000Z');
-    expect(plan.links).toHaveLength(48);
+    expect(plan.links).toHaveLength(24);
     expect(plan.links.filter((item) => item.portal === 'LINKEDIN')).toHaveLength(4);
     expect(plan.links.filter((item) => item.portal === 'INDEED')).toHaveLength(4);
     expect(plan.links.filter((item) => item.portal === 'GLASSDOOR')).toHaveLength(4);
