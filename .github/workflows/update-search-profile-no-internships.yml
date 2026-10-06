@@ -1,0 +1,126 @@
+name: Update search profile - no internships
+
+on:
+  push:
+    branches:
+      - update-profile-no-internships-20261006
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Update production search profile
+        shell: bash
+        env:
+          VAGAS_API_URL: ${{ secrets.VAGAS_API_URL }}
+          VAGAS_ADMIN_API_KEY: ${{ secrets.VAGAS_ADMIN_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          readonly expected_api_url="https://vagas-api-z5wn.onrender.com"
+          readonly api_url="${VAGAS_API_URL%/}"
+          if [[ "$api_url" != "$expected_api_url" ]]; then
+            echo "Unexpected production URL."
+            exit 1
+          fi
+
+          current="$(
+            curl --fail --show-error --silent \
+              --connect-timeout 20 \
+              --max-time 120 \
+              --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+              "$api_url/job-search-profile"
+          )"
+
+          echo "Before:"
+          jq '{
+            keywords,
+            excludedKeywords,
+            locations,
+            remoteTypes,
+            employmentTypes,
+            seniorityLevels,
+            maxJobsPerRun,
+            publishedWithinHours
+          }' <<<"$current"
+
+          payload="$(
+            jq '{
+              enabled: true,
+              keywords: [
+                "Technical Support",
+                "IT Support",
+                "Help Desk",
+                "Service Desk",
+                "Support Analyst",
+                "IT Analyst",
+                "Backend Developer",
+                "Junior Developer",
+                "Node.js",
+                "Java Developer",
+                "Flutter Developer",
+                "Analista de Suporte",
+                "Suporte TI",
+                "Analista de TI",
+                "Desenvolvedor Backend",
+                "Desenvolvedor Júnior"
+              ],
+              excludedKeywords: (
+                (.excludedKeywords // [])
+                + [
+                    "estágio",
+                    "estagio",
+                    "estagiário",
+                    "estagiario",
+                    "internship",
+                    "jovem aprendiz",
+                    "apprentice"
+                  ]
+                | unique
+              ),
+              locations: ["Belém", "Ananindeua"],
+              remoteTypes: ["REMOTE", "HYBRID", "ONSITE"],
+              employmentTypes: ["FULL_TIME", "CLT", "CONTRACT"],
+              seniorityLevels: ["ENTRY", "JUNIOR"],
+              maxJobsPerRun: .maxJobsPerRun,
+              publishedWithinHours: .publishedWithinHours
+            }' <<<"$current"
+          )"
+
+          updated="$(
+            curl --fail --show-error --silent \
+              --connect-timeout 20 \
+              --max-time 120 \
+              --request PUT \
+              --header "Content-Type: application/json" \
+              --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+              --data "$payload" \
+              "$api_url/job-search-profile"
+          )"
+
+          echo "After:"
+          jq '{
+            keywords,
+            excludedKeywords,
+            locations,
+            remoteTypes,
+            employmentTypes,
+            seniorityLevels,
+            maxJobsPerRun,
+            publishedWithinHours
+          }' <<<"$updated"
+
+          jq -e '
+            (.enabled == true)
+            and (.locations == ["Belém", "Ananindeua"])
+            and (.remoteTypes == ["REMOTE", "HYBRID", "ONSITE"])
+            and (.employmentTypes == ["FULL_TIME", "CLT", "CONTRACT"])
+            and (.seniorityLevels == ["ENTRY", "JUNIOR"])
+            and ([.keywords[] | ascii_downcase | contains("estágio")] | any | not)
+            and ([.keywords[] | ascii_downcase | contains("estagio")] | any | not)
+            and ([.keywords[] | ascii_downcase | contains("intern")] | any | not)
+          ' <<<"$updated" >/dev/null
