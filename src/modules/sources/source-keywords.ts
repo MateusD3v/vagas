@@ -6,7 +6,12 @@ const aliases: Array<{ pattern: RegExp; replacement: string }> = [
     replacement: 'Technical Support',
   },
   { pattern: /^(suporte ti|suporte de ti)$/i, replacement: 'IT Support' },
+  { pattern: /^analista de ti$/i, replacement: 'IT Analyst' },
   { pattern: /^desenvolvedor(a)? backend$/i, replacement: 'Backend Developer' },
+  {
+    pattern: /^desenvolvedor(a)? júnior$|^desenvolvedor(a)? junior$/i,
+    replacement: 'Junior Developer',
+  },
   { pattern: /^desenvolvedor(a)? java$/i, replacement: 'Java Developer' },
   { pattern: /^desenvolvedor(a)? flutter$/i, replacement: 'Flutter Developer' },
   {
