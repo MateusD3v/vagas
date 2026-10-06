@@ -55,11 +55,9 @@ describe('ApplicationAtsEnrichmentService', () => {
       ],
     });
 
-    const result = await new ApplicationAtsEnrichmentService(
-      db,
-      { resolve },
-      logger,
-    ).enrichPending(5);
+    const result = await new ApplicationAtsEnrichmentService(db, { resolve }, logger).enrichPending(
+      5,
+    );
 
     expect(result).toMatchObject({
       attempted: 1,
@@ -111,11 +109,9 @@ describe('ApplicationAtsEnrichmentService', () => {
       auditLog: { create: vi.fn() },
     } as unknown as PrismaClient;
 
-    const result = await new ApplicationAtsEnrichmentService(
-      db,
-      { resolve },
-      logger,
-    ).enrichPending(5);
+    const result = await new ApplicationAtsEnrichmentService(db, { resolve }, logger).enrichPending(
+      5,
+    );
 
     expect(result.attempted).toBe(0);
     expect(result.skipped).toBe(1);
@@ -126,19 +122,15 @@ describe('ApplicationAtsEnrichmentService', () => {
     const resolve = vi.fn();
     const db = {
       application: {
-        findMany: vi.fn().mockResolvedValue([
-          applicationFixture('https://example.com/jobs/123'),
-        ]),
+        findMany: vi.fn().mockResolvedValue([applicationFixture('https://example.com/jobs/123')]),
       },
       job: { update: vi.fn() },
       auditLog: { create: vi.fn() },
     } as unknown as PrismaClient;
 
-    const result = await new ApplicationAtsEnrichmentService(
-      db,
-      { resolve },
-      logger,
-    ).enrichPending(5);
+    const result = await new ApplicationAtsEnrichmentService(db, { resolve }, logger).enrichPending(
+      5,
+    );
 
     expect(result.attempted).toBe(0);
     expect(result.skipped).toBe(1);
@@ -170,9 +162,7 @@ describe('ApplicationAtsEnrichmentService', () => {
       questionsFound: 0,
       failed: 1,
     });
-    expect(result.failures).toEqual([
-      { applicationId: 'application-1', message: 'timeout' },
-    ]);
+    expect(result.failures).toEqual([{ applicationId: 'application-1', message: 'timeout' }]);
     expect(update).toHaveBeenCalledWith({
       where: { id: 'job-1' },
       data: {
