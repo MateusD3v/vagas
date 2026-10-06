@@ -45,6 +45,24 @@ describe('application channel', () => {
         'manual',
       ),
     ).toEqual({ platform: 'GLASSDOOR', flow: 'MANUAL', label: 'Glassdoor' });
+
+    expect(
+      classifyApplicationChannel('https://www.vagas.com.br/vagas/v1234567/analista-de-suporte', 'manual'),
+    ).toEqual({ platform: 'VAGASCOM', flow: 'MANUAL', label: 'Vagas.com.br' });
+
+    expect(
+      classifyApplicationChannel(
+        'https://empresa.pandape.infojobs.com.br/Detail/3434745',
+        'manual',
+      ),
+    ).toEqual({ platform: 'INFOJOBS', flow: 'MANUAL', label: 'InfoJobs' });
+
+    expect(
+      classifyApplicationChannel(
+        'https://www.catho.com.br/vagas/analista-de-suporte/belem-pa/',
+        'manual',
+      ),
+    ).toEqual({ platform: 'CATHO', flow: 'MANUAL', label: 'Catho' });
   });
 
   it('reconhece ATS conhecidos pela URL sem presumir submissão automática', () => {
