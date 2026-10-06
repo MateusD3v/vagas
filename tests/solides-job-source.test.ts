@@ -33,7 +33,7 @@ describe('Sólides public job source', () => {
   </head></html>`;
 
   it('descobre a página pública de Belém, lê JobPosting e filtra por keyword', async () => {
-    const getText = vi.fn().mockImplementation(async (url: string) => {
+    const getText = vi.fn().mockImplementation((url: string) => {
       if (url === 'https://vagas.solides.com.br/vagas/todas/belem-pa') return searchHtml;
       if (url === 'https://vagas.solides.com.br/vaga/739158/assistente-de-suporte-ti') {
         return detailHtml;
