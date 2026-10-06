@@ -1,6 +1,6 @@
 # Fontes de vagas
 
-Verificação mais recente: **5 de outubro de 2026**.
+Verificação mais recente: **6 de outubro de 2026**.
 
 Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. Eles não autenticam como candidato, não enviam candidaturas e não contornam CAPTCHA, rate limits ou controles anti-bot. Toda vaga preserva a URL original e a referência da fonte.
 
@@ -82,6 +82,19 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Normalização: HTML removido da descrição, modalidade `REMOTE`, contratação e senioridade inferidas conservadoramente e tecnologias reconhecidas por dicionário limitado.
 - Controle interno: concorrência 1, limite conservador de uma requisição a cada 30 segundos, deduplicação central e `WEWORKREMOTELY_ENABLED` para desativação explícita.
 
+## Sólides — ACTIVE
+
+- Tipo: portal/ATS com páginas públicas de busca e páginas públicas de vaga.
+- Páginas usadas: `GET https://vagas.solides.com.br/vagas/<localização>` e as URLs `/vaga/<id>/<slug>` descobertas nelas.
+- Autenticação: não requerida para a coleta. O adapter não usa login de candidato, não envia currículo e não executa candidatura.
+- Descoberta: usa até três localizações do perfil por ciclo; Belém e Ananindeua são resolvidas para as rotas públicas `belem-pa` e `ananindeua-pa`, e busca remota usa `home-office`.
+- Detalhes: lê somente o `JobPosting` JSON-LD publicado na página pública da vaga. Empresa, cargo, descrição, localização, modalidade, contratação, publicação e salário são usados apenas quando publicados.
+- Filtros: keywords do perfil permanecem em português e são aplicadas localmente depois da leitura dos metadados públicos. O pré-filtro central continua responsável pelas preferências finais.
+- Limites internos: no máximo 12 vagas normalizadas por ciclo, leitura sequencial e concorrência 1.
+- Segurança: mudança de estrutura que impeça encontrar links ou `JobPosting` gera `INVALID_RESPONSE`; o adapter não inventa dados nem tenta contornar login/CAPTCHA.
+- Atribuição: `applicationUrl` e `originalUrl` preservam a URL pública da vaga na Sólides, e `rawData.attribution` registra **Sólides Vagas**.
+- Controle interno: `SOLIDES_ENABLED` permite desativação explícita sem afetar as demais fontes.
+
 ## Mock Job Source — DEVELOPMENT
 
 - Tipo: mock local.
@@ -92,4 +105,4 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 
 ## Falhas e desativação
 
-Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED`, `HIMALAYAS_ENABLED`, `REMOTEOK_ENABLED` e `WEWORKREMOTELY_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
+Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED`, `HIMALAYAS_ENABLED`, `REMOTEOK_ENABLED`, `WEWORKREMOTELY_ENABLED` e `SOLIDES_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
