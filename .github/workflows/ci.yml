@@ -17,10 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:generate
-      - run: |
-          npx prettier --write src/modules/applications/application-ats-enrichment.service.ts tests/application-ats-enrichment.test.ts
-          git diff -- src/modules/applications/application-ats-enrichment.service.ts tests/application-ats-enrichment.test.ts
-          exit 1
+      - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
