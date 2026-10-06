@@ -98,6 +98,21 @@ const sourceDefinitions = [
       recommendedPolling: 'few-times-per-day',
     },
   },
+  {
+    name: 'Gupy',
+    slug: 'gupy',
+    type: 'API' as const,
+    baseUrl: 'https://candidates.mcp.api.gupy.io/mcp',
+    configuration: {
+      authentication: 'none',
+      transport: 'mcp-http',
+      audience: 'candidate',
+      readOnly: true,
+      keywordRotation: true,
+      maxResultsPerRequest: 50,
+      recommendedPolling: 'few-times-per-day',
+    },
+  },
 ];
 
 async function seedSources() {

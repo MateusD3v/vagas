@@ -104,6 +104,46 @@ describe('JobSourceHttpClient', () => {
     });
   });
 
+  it('envia POST de texto com JSON, headers e rate limit compartilhado', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('event: message\ndata: {"ok":true}\n\n', {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    );
+    const client = new JobSourceHttpClient(
+      { timeoutMs: 1000, maxRetries: 0, userAgent: 'test-agent' },
+      fetchMock,
+      vi.fn(async () => Promise.resolve()),
+    );
+
+    await expect(
+      client.postText(
+        'https://example.test/mcp',
+        { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
+        {
+          source: 'mcp-test',
+          headers: {
+            Accept: 'application/json, text/event-stream',
+            'mcp-protocol-version': '2025-06-18',
+          },
+        },
+      ),
+    ).resolves.toContain('event: message');
+
+    const request = fetchMock.mock.calls[0]?.[1];
+    expect(request?.method).toBe('POST');
+    expect(request?.body).toBe(
+      JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+    );
+    expect(request?.headers).toMatchObject({
+      Accept: 'application/json, text/event-stream',
+      'Content-Type': 'application/json',
+      'User-Agent': 'test-agent',
+      'mcp-protocol-version': '2025-06-18',
+    });
+  });
+
   it('preserva erros normalizados', () => {
     const error = new JobSourceError('rate', 'RATE_LIMIT', true, 429, 1000);
     expect(error.httpStatus).toBe(429);

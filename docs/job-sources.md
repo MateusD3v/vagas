@@ -95,6 +95,22 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Atribuição: `applicationUrl` e `originalUrl` preservam a URL pública da vaga na Sólides, e `rawData.attribution` registra **Sólides Vagas**.
 - Controle interno: `SOLIDES_ENABLED` permite desativação explícita sem afetar as demais fontes.
 
+## Gupy — ACTIVE
+
+- Tipo: MCP HTTP oficial para pessoas candidatas.
+- Endpoint: `POST https://candidates.mcp.api.gupy.io/mcp`.
+- Ferramenta usada: `search_jobs`, marcada pelo servidor como read-only e idempotente.
+- Autenticação: não requerida para a busca pública de vagas.
+- Filtros usados: uma keyword por ciclo, cidades, estado, país, modalidade e tipo de vaga quando presentes no perfil. Belém/Ananindeua permanecem em português e o estado é enviado como `Pará`.
+- Transporte: JSON-RPC sobre HTTP com resposta `text/event-stream`; o adapter não inicia sessão porque o servidor aceita `tools/call` stateless para a busca pública.
+- Campos: ID, página de carreira, cargo, descrição, tipo, publicação, prazo, cidade, estado, país, URL de candidatura, modalidade, indicador PCD, confidencialidade e salário estruturado quando publicado.
+- Confidencialidade: quando `isConfidentialCareerPage=true`, o projeto preserva a empresa pública como **Vagas Confidenciais** e não tenta descobrir `companyId` ou deanonymizar a vaga.
+- Salário: `min`/`max` só são persistidos quando o MCP informa status `disclosed` ou `range`; moeda não é inventada.
+- Normalização: descrição sem HTML, senioridade inferida conservadoramente e tecnologias reconhecidas pelo dicionário existente.
+- Limite interno: uma requisição por execução, até 50 resultados, concorrência 1 e limite conservador de uma chamada a cada 30 segundos.
+- Segurança: o MCP de candidatos não edita currículo nem envia candidatura; `SAFE_MODE=true` continua inalterado.
+- Controle interno: `GUPY_ENABLED` permite desativação explícita.
+
 ## Mock Job Source — DEVELOPMENT
 
 - Tipo: mock local.
@@ -105,4 +121,4 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 
 ## Falhas e desativação
 
-Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED`, `HIMALAYAS_ENABLED`, `REMOTEOK_ENABLED`, `WEWORKREMOTELY_ENABLED` e `SOLIDES_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
+Cada fonte pode ser desativada no banco (`JobSource.enabled`) e as fontes reais também possuem flags `ENABLE_REAL_JOB_SOURCES`, `REMOTIVE_ENABLED`, `ARBEITNOW_ENABLED`, `JOBICY_ENABLED`, `HIMALAYAS_ENABLED`, `REMOTEOK_ENABLED`, `WEWORKREMOTELY_ENABLED`, `SOLIDES_ENABLED` e `GUPY_ENABLED`. Timeout, 429, 5xx e erros de schema são classificados. Após falhas consecutivas, a fonte entra em cooldown temporário; nunca é desabilitada permanentemente automaticamente.
