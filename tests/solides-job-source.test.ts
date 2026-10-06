@@ -40,10 +40,7 @@ describe('Sólides public job source', () => {
       }
       throw new Error(`URL inesperada: ${url}`);
     });
-    const adapter = new SolidesJobSource(
-      { getText } as unknown as JobSourceHttpClient,
-      50_000,
-    );
+    const adapter = new SolidesJobSource({ getText } as unknown as JobSourceHttpClient, 50_000);
 
     const jobs = await adapter.searchJobs({
       keywords: ['Suporte TI'],
@@ -111,10 +108,7 @@ describe('Sólides public job source', () => {
 
   it('não inventa vagas quando a página pública muda e deixa de expor links reconhecíveis', async () => {
     const getText = vi.fn().mockResolvedValue('<html><body>sem vagas estruturadas</body></html>');
-    const adapter = new SolidesJobSource(
-      { getText } as unknown as JobSourceHttpClient,
-      50_000,
-    );
+    const adapter = new SolidesJobSource({ getText } as unknown as JobSourceHttpClient, 50_000);
 
     await expect(
       adapter.searchJobs({
