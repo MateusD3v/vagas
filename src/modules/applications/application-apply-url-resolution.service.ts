@@ -6,7 +6,7 @@ import { AuditService } from '../audit/audit.service.js';
 
 const APPLY_URL_RESOLUTION_CACHE_MS = 24 * 60 * 60 * 1000;
 
-type HttpClient = Pick<JobSourceHttpClient, 'getText'>;
+type HttpClient = Pick<JobSourceHttpClient, 'getText' | 'getFinalUrl'>;
 
 function jsonObject(value: Prisma.JsonValue): Prisma.JsonObject {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -30,6 +30,10 @@ function safeHttpUrl(value: string | null | undefined): string | null {
 
 function hostname(value: string): string {
   return new URL(value).hostname.toLowerCase().replace(/^www\./, '');
+}
+
+function isArbeitnowHost(host: string): boolean {
+  return /(^|\.)arbeitnow\.(com|fr|ch|co\.uk)$/.test(host);
 }
 
 function decodeHtmlAttribute(value: string): string {
@@ -114,7 +118,7 @@ export class ApplicationApplyUrlResolutionService {
         status: { in: ['READY', 'REVIEW_REQUIRED'] },
         candidate: { isDemo: false },
         job: {
-          source: { in: ['remoteok', 'remotive'] },
+          source: { in: ['remoteok', 'remotive', 'arbeitnow'] },
           applicationUrl: { not: null },
         },
       },
@@ -171,6 +175,12 @@ export class ApplicationApplyUrlResolutionService {
           continue;
         }
         shouldAttempt = true;
+      } else if (item.job.source === 'arbeitnow' && isArbeitnowHost(hostname(currentUrl))) {
+        if (recentlyChecked(item.job.rawData, currentUrl, now)) {
+          result.skipped += 1;
+          continue;
+        }
+        shouldAttempt = true;
       }
 
       if (!shouldAttempt) {
@@ -181,13 +191,20 @@ export class ApplicationApplyUrlResolutionService {
       result.attempted += 1;
 
       try {
-        if (!resolvedUrl) {
+        if (!resolvedUrl && item.job.source === 'remotive') {
           const html = await this.http.getText(currentUrl, {
             source: 'remotive-apply-url-resolver',
             requestsPerSecond: 1,
             headers: { Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' },
           });
           resolvedUrl = externalApplyUrlFromRemotive(html, currentUrl);
+        } else if (!resolvedUrl && item.job.source === 'arbeitnow') {
+          const applyUrl = currentUrl.replace(/\/+$/, '') + '/apply';
+          const finalUrl = await this.http.getFinalUrl(applyUrl, {
+            source: 'arbeitnow-apply-url-resolver',
+            requestsPerSecond: 1,
+          });
+          resolvedUrl = hostname(finalUrl) === hostname(currentUrl) ? null : finalUrl;
         }
 
         const rawData: Prisma.InputJsonObject = {
