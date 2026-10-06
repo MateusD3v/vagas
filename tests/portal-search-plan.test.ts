@@ -24,7 +24,8 @@ describe('portal search plan', () => {
         item.location === 'Belém',
     );
     const indeed = plan.links.find(
-      (item) => item.portal === 'INDEED' && item.query === 'Help Desk' && item.location === 'Ananindeua',
+      (item) =>
+        item.portal === 'INDEED' && item.query === 'Help Desk' && item.location === 'Ananindeua',
     );
     const glassdoor = plan.links.find(
       (item) =>
