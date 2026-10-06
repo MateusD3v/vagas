@@ -14,6 +14,8 @@ describe('sourceSearchKeywords', () => {
     'Analista de Suporte',
     'Suporte TI',
     'Desenvolvedor Backend',
+    'Analista de TI',
+    'Desenvolvedor Júnior',
     'Estágio Desenvolvimento',
   ];
 
@@ -27,6 +29,8 @@ describe('sourceSearchKeywords', () => {
       'Node.js',
       'Java Developer',
       'Flutter Developer',
+      'IT Analyst',
+      'Junior Developer',
       'Software Engineering Intern',
     ]);
   });
