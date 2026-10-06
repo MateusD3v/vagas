@@ -58,6 +58,35 @@ describe('AtsJobResolverService restricted public portals', () => {
     expect(getText).toHaveBeenCalledOnce();
   });
 
+  it('lê JobPosting público de uma vaga individual do Vagas.com.br', async () => {
+    const getText = vi
+      .fn()
+      .mockResolvedValue(
+        publicJobPage.replace(
+          'https://www.linkedin.com/jobs/view/1234567890',
+          'https://www.vagas.com.br/vagas/v1234567/analista-de-suporte',
+        ),
+      );
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://www.vagas.com.br/vagas/v1234567/analista-de-suporte',
+    );
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'VAGASCOM',
+      flow: 'MANUAL',
+      missingFields: [],
+      data: {
+        title: 'Analista de Suporte',
+        company: 'Empresa Exemplo',
+        location: 'Belém, PA, BR',
+      },
+    });
+    expect(getText).toHaveBeenCalledOnce();
+  });
+
   it('falha com segurança quando o Indeed não expõe JobPosting público', async () => {
     const getText = vi
       .fn()
