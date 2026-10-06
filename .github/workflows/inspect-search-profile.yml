@@ -1,4 +1,4 @@
-name: Inspect Arbeitnow apply redirects
+name: Inspect worker heartbeat
 
 on:
   push:
@@ -13,24 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Resolve public Arbeitnow apply redirects
+      - name: Read worker heartbeat
         shell: bash
+        env:
+          VAGAS_API_URL: ${{ secrets.VAGAS_API_URL }}
+          VAGAS_ADMIN_API_KEY: ${{ secrets.VAGAS_ADMIN_API_KEY }}
         run: |
           set -euo pipefail
-
-          urls=(
-            "https://www.arbeitnow.fr/jobs/companies/shifttechnology/junior-backend-developer-c-net-paris-113660/apply"
-            "https://www.arbeitnow.fr/jobs/companies/escape/junior-full-stack-engineer-ai-security-paris-149930/apply"
-            "https://www.arbeitnow.com/jobs/companies/fastrocket-gmbh/full-stack-softwareentwickler-react-nextjs-oder-angular-nestjs-nodejs-100-remote-regen-7823/apply"
-          )
-
-          for url in "${urls[@]}"; do
-            echo "=== $url ==="
-            curl --show-error --silent --location \
-              --connect-timeout 20 \
-              --max-time 120 \
-              --header 'User-Agent: Mozilla/5.0' \
-              --output /dev/null \
-              --write-out 'status=%{http_code}\neffective=%{url_effective}\nredirects=%{num_redirects}\n' \
-              "$url"
-          done
+          readonly api_url="${VAGAS_API_URL%/}"
+          curl --fail --show-error --silent \
+            --connect-timeout 20 \
+            --max-time 120 \
+            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+            "$api_url/worker/status" \
+            | jq '{status,lastSeenAt,metadata}'
