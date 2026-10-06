@@ -69,6 +69,39 @@ jobs:
                 selectedKeyword: (.metadata.selectedKeyword // null)
               }]'
 
+          echo "Actionable application domains:"
+          curl --fail --show-error --silent \
+            --connect-timeout 20 \
+            --max-time 120 \
+            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+            "$api_url/applications?pageSize=100" \
+            | jq '[
+                .data[]
+                | select(.status == "READY" or .status == "REVIEW_REQUIRED")
+                | {
+                    id,
+                    status,
+                    source: .job.source,
+                    company: .job.company,
+                    title: .job.title,
+                    applicationUrl: .job.applicationUrl,
+                    originalUrl: .job.originalUrl,
+                    platform: .applicationChannel.platform,
+                    flow: .applicationChannel.flow,
+                    host: (
+                      if (.job.applicationUrl // "") == "" then "NO_URL"
+                      else (.job.applicationUrl | capture("^https?://(?<host>[^/]+)").host // "INVALID_URL")
+                      end
+                    )
+                  }
+              ]
+              | {
+                  total: length,
+                  byHost: (group_by(.host) | map({host: .[0].host, count: length})),
+                  byPlatform: (group_by(.platform) | map({platform: .[0].platform, count: length})),
+                  items: .
+                }'
+
           echo "Pipeline stats:"
           curl --fail --show-error --silent \
             --connect-timeout 20 \
