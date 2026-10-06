@@ -110,10 +110,7 @@ export class JobSourceHttpClient {
     this.lastRequestAt.set(source, Date.now());
   }
 
-  private async requestFinalUrl(
-    url: string,
-    options: HttpRequestOptions,
-  ): Promise<string> {
+  private async requestFinalUrl(url: string, options: HttpRequestOptions): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
