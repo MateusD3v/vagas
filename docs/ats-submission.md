@@ -70,6 +70,18 @@ Referências:
 - Jobicy e We Work Remotely não são contornados quando o acesso ao destino exige login; o fluxo permanece manual nesses casos.
 - Essa etapa nunca envia formulário, cria conta, contorna CAPTCHA ou altera `SAFE_MODE`.
 
+## Breezy HR
+
+- Links `*.breezy.hr/p/<vaga>` são enriquecidos pela própria página pública da vaga.
+- O resolvedor lê somente o bloco schema.org `JobPosting` em JSON-LD, extraindo título, empresa, descrição, local, modalidade remota, tipo de contratação e data quando publicados.
+- Nenhuma chave, sessão ou API privada é necessária para essa leitura pública.
+- A API oficial de posições/candidatos do Breezy usa autorização da organização; ela não é usada para submissão automática neste projeto.
+
+Referências:
+
+- https://developer.breezy.hr/reference/overview
+- https://developer.breezy.hr/reference/addcandidate
+
 ## Enriquecimento automático no worker
 
 - Candidaturas `READY` e `REVIEW_REQUIRED` com URL de ATS reconhecida são enriquecidas antes da preparação do kit.
