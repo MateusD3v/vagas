@@ -1,0 +1,67 @@
+name: Gupy MCP Probe
+
+on:
+  pull_request:
+    branches: ['main']
+
+jobs:
+  probe:
+    if: github.head_ref == 'phase-7-gupy-source'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe official Gupy candidate MCP
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const endpoint = 'https://candidates.mcp.api.gupy.io/mcp';
+
+          async function post(body, sessionId) {
+            const headers = {
+              'content-type': 'application/json',
+              'accept': 'application/json, text/event-stream',
+              'mcp-protocol-version': '2025-06-18',
+            };
+            if (sessionId) headers['mcp-session-id'] = sessionId;
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(body),
+            });
+            const text = await response.text();
+            console.log('STATUS', response.status, 'TYPE', response.headers.get('content-type') || '');
+            console.log('SESSION', response.headers.get('mcp-session-id') || '');
+            console.log(text.slice(0, 30000));
+            return { response, text, sessionId: response.headers.get('mcp-session-id') || sessionId };
+          }
+
+          console.log('=== direct tools/list ===');
+          const direct = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+
+          console.log('=== initialize ===');
+          const initialized = await post({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'initialize',
+            params: {
+              protocolVersion: '2025-06-18',
+              capabilities: {},
+              clientInfo: { name: 'vagas-probe', version: '0.1.0' },
+            },
+          });
+
+          const sessionId = initialized.sessionId;
+          console.log('=== initialized notification ===');
+          await post({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }, sessionId);
+
+          console.log('=== tools/list after initialize ===');
+          await post({ jsonrpc: '2.0', id: 3, method: 'tools/list', params: {} }, sessionId);
+
+          console.log('=== search_jobs probe ===');
+          await post({
+            jsonrpc: '2.0',
+            id: 4,
+            method: 'tools/call',
+            params: { name: 'search_jobs', arguments: { term: 'suporte ti', limit: 3 } },
+          }, sessionId);
+          NODE
