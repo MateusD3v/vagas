@@ -83,6 +83,14 @@ const dashboardHtml = `<!doctype html>
   </section>
 
   <section>
+    <h2>Buscas assistidas</h2>
+    <div class="muted">Links gerados a partir do perfil salvo. Abra a busca, escolha a vaga e cole a URL em “Adicionar vaga externa”.</div>
+    <div id="portalSearchPlan" class="action-grid" style="margin-top:12px">
+      <div class="card muted">Salve a Admin Key para gerar as buscas.</div>
+    </div>
+  </section>
+
+  <section>
     <h2>Adicionar vaga externa</h2>
     <div class="card">
       <div class="form-grid">
@@ -273,6 +281,28 @@ const dashboardHtml = `<!doctype html>
     });
   }
 
+  function renderPortalSearchPlan(plan) {
+    const links = Array.isArray(plan?.links) ? plan.links : [];
+    const portals = [
+      { id: 'LINKEDIN', label: 'LinkedIn' },
+      { id: 'INDEED', label: 'Indeed' },
+      { id: 'GLASSDOOR', label: 'Glassdoor' },
+    ];
+    document.getElementById('portalSearchPlan').innerHTML = portals.map(portal => {
+      const portalLinks = links.filter(item => item.portal === portal.id).slice(0, 4);
+      return '<div class="card action-card"><div class="queue-title">' + esc(portal.label) + '</div>' +
+        (portalLinks.length
+          ? '<div class="actions">' + portalLinks.map(item => {
+              const url = safeHttpUrl(item.url);
+              return url
+                ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer"><button type="button">' + esc(item.label) + '</button></a>'
+                : '';
+            }).join('') + '</div>'
+          : '<div class="muted">Nenhuma busca disponível para este portal.</div>') +
+        '</div>';
+    }).join('');
+  }
+
   function applicationMatchesFilter(item, filter) {
     if (filter === 'ACTIONABLE') return ['READY', 'REVIEW_REQUIRED'].includes(item.status);
     if (filter === 'PROGRESS') return ['INTERVIEW', 'OFFER'].includes(item.status);
@@ -373,15 +403,17 @@ const dashboardHtml = `<!doctype html>
     statusEl.textContent = 'Carregando...';
     statusEl.className = 'muted';
     try {
-      const [health, stats, readiness, applications, sources, runs, audit] = await Promise.all([
-        api('/health'),
-        api('/stats'),
-        api('/profile/readiness'),
-        api('/applications?pageSize=25'),
-        api('/job-sources?pageSize=50'),
-        api('/collection-runs?pageSize=10'),
-        api('/audit-logs?pageSize=12'),
-      ]);
+      const [health, stats, readiness, applications, sources, runs, audit, portalSearchPlan] =
+        await Promise.all([
+          api('/health'),
+          api('/stats'),
+          api('/profile/readiness'),
+          api('/applications?pageSize=25'),
+          api('/job-sources?pageSize=50'),
+          api('/collection-runs?pageSize=10'),
+          api('/audit-logs?pageSize=12'),
+          api('/portal-search-plan'),
+        ]);
 
       document.getElementById('cards').innerHTML = [
         card('Worker', health.worker?.status ?? 'n/a', health.worker?.status === 'healthy' ? 'ok' : 'bad'),
@@ -408,6 +440,7 @@ const dashboardHtml = `<!doctype html>
         (recommendations.length ? '<p class="warn"><strong>Recomendado:</strong> ' + recommendations.map(esc).join(' · ') + '</p>' : '');
 
       cachedApplications = Array.isArray(applications.data) ? applications.data : [];
+      renderPortalSearchPlan(portalSearchPlan);
       renderActionQueue();
       renderApplications();
 
