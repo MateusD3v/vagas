@@ -9,6 +9,15 @@ const logger: AppLogger = {
   error: vi.fn(),
 };
 
+type JobUpdateArgs = {
+  where: { id: string };
+  data: { rawData: unknown };
+};
+
+function jobUpdateMock() {
+  return vi.fn<(args: JobUpdateArgs) => Promise<object>>().mockResolvedValue({});
+}
+
 function applicationFixture(
   applicationUrl = 'https://boards.greenhouse.io/acme/jobs/123',
   rawData: Record<string, unknown> = {},
@@ -29,7 +38,7 @@ function applicationFixture(
 
 describe('ApplicationAtsEnrichmentService', () => {
   it('enriquece candidatura ATS e persiste perguntas públicas', async () => {
-    const update = vi.fn().mockResolvedValue({});
+    const update = jobUpdateMock();
     const audit = vi.fn().mockResolvedValue({});
     const db = {
       application: {
@@ -67,24 +76,21 @@ describe('ApplicationAtsEnrichmentService', () => {
       failed: 0,
     });
     expect(resolve).toHaveBeenCalledWith('https://boards.greenhouse.io/acme/jobs/123');
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'job-1' },
-      data: {
-        rawData: expect.objectContaining({
-          atsEnrichment: expect.objectContaining({
-            status: 'SUPPORTED',
-            supported: true,
-            platform: 'GREENHOUSE',
-          }),
-          applicationQuestions: [
-            {
-              label: 'Possui disponibilidade?',
-              required: true,
-              fields: [{ name: 'availability', type: 'input_text' }],
-            },
-          ],
-        }),
+    expect(update).toHaveBeenCalledOnce();
+    const storedRawData = update.mock.calls[0]?.[0].data.rawData;
+    expect(storedRawData).toMatchObject({
+      atsEnrichment: {
+        status: 'SUPPORTED',
+        supported: true,
+        platform: 'GREENHOUSE',
       },
+      applicationQuestions: [
+        {
+          label: 'Possui disponibilidade?',
+          required: true,
+          fields: [{ name: 'availability', type: 'input_text' }],
+        },
+      ],
     });
     expect(audit).toHaveBeenCalledOnce();
   });
@@ -138,7 +144,7 @@ describe('ApplicationAtsEnrichmentService', () => {
   });
 
   it('registra falha transitória sem abortar o lote', async () => {
-    const update = vi.fn().mockResolvedValue({});
+    const update = jobUpdateMock();
     const resolve = vi.fn().mockRejectedValue(new Error('timeout'));
     const warn = vi.fn();
     const db = {
@@ -163,16 +169,13 @@ describe('ApplicationAtsEnrichmentService', () => {
       failed: 1,
     });
     expect(result.failures).toEqual([{ applicationId: 'application-1', message: 'timeout' }]);
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'job-1' },
-      data: {
-        rawData: expect.objectContaining({
-          atsEnrichment: expect.objectContaining({
-            status: 'FAILED',
-            applicationUrl: 'https://boards.greenhouse.io/acme/jobs/123',
-            message: 'timeout',
-          }),
-        }),
+    expect(update).toHaveBeenCalledOnce();
+    const storedRawData = update.mock.calls[0]?.[0].data.rawData;
+    expect(storedRawData).toMatchObject({
+      atsEnrichment: {
+        status: 'FAILED',
+        applicationUrl: 'https://boards.greenhouse.io/acme/jobs/123',
+        message: 'timeout',
       },
     });
     expect(warn).toHaveBeenCalledOnce();
