@@ -13,6 +13,83 @@ const candidate = {
 };
 
 describe('application question readiness', () => {
+  it('mantém resposta salva como pendente quando as opções da nova vaga são diferentes', () => {
+    const result = evaluateApplicationQuestionReadiness(
+      [
+        {
+          label: 'Disponibilidade',
+          required: true,
+          fields: [{ type: 'select', values: [{ label: 'Em 30 dias', value: 1 }] }],
+        },
+      ],
+      candidate,
+      [
+        {
+          questionKey: 'availability',
+          question: 'Disponibilidade',
+          answer: 'Imediata',
+          allowedForAutomaticUse: true,
+        },
+      ],
+    );
+    expect(result[0]).toMatchObject({ status: 'MANUAL_REQUIRED', source: 'MANUAL' });
+    expect(result[0]?.answer).toBeUndefined();
+  });
+
+  it('reutiliza rótulo compatível e não confunde IDs de opções entre formulários', () => {
+    const question = {
+      label: 'Disponibilidade',
+      required: true,
+      fields: [
+        {
+          type: 'select',
+          values: [
+            { label: 'Imediata', value: 0 },
+            { label: 'Em 30 dias', value: '30-days' },
+          ],
+        },
+      ],
+    };
+    const answer = {
+      questionKey: 'availability',
+      question: 'Disponibilidade',
+      answer: 'imediata',
+      allowedForAutomaticUse: true,
+    };
+    expect(evaluateApplicationQuestionReadiness([question], candidate, [answer])[0]).toMatchObject({
+      status: 'SAVED_ANSWER_READY',
+      answer: 'Imediata',
+    });
+    for (const providerId of ['0', '30-days']) {
+      expect(
+        evaluateApplicationQuestionReadiness([question], candidate, [
+          { ...answer, answer: providerId },
+        ])[0]?.status,
+      ).toBe('MANUAL_REQUIRED');
+    }
+  });
+
+  it('verifica opções de cada campo antes de usar valores do perfil', () => {
+    const result = evaluateApplicationQuestionReadiness(
+      [
+        {
+          label: 'Cidade',
+          required: true,
+          fields: [{ name: 'city', type: 'select', values: [{ label: 'Belém', value: 1 }] }],
+        },
+        {
+          label: 'Cidade atual',
+          required: true,
+          fields: [{ name: 'city', type: 'select', values: [{ label: 'ANANINDEUA', value: 2 }] }],
+        },
+      ],
+      candidate,
+      [],
+    );
+    expect(result[0]?.status).toBe('MANUAL_REQUIRED');
+    expect(result[1]).toMatchObject({ status: 'PROFILE_READY', answer: 'ANANINDEUA' });
+  });
+
   it('reconhece campos básicos que já existem no perfil', () => {
     const result = evaluateApplicationQuestionReadiness(
       [

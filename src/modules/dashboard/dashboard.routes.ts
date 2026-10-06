@@ -101,6 +101,8 @@ const dashboardHtml = `<!doctype html>
         <label>Empresa<input id="manualCompany" placeholder="Empresa" /></label>
         <label>URL<input id="manualUrl" type="url" placeholder="Link da vaga" /></label>
         <label>Localização<input id="manualLocation" placeholder="Remoto, Belém, Brasil..." /></label>
+        <label>Contratação<input id="manualEmploymentType" placeholder="Ex.: CLT, estágio, FULL_TIME" /></label>
+        <label>Publicado em<input id="manualPublishedAt" type="date" /></label>
         <label>Modalidade<select id="manualRemoteType"><option value="UNSPECIFIED">Não informada</option><option value="REMOTE">Remota</option><option value="HYBRID">Híbrida</option><option value="ONSITE">Presencial</option></select></label>
       </div>
       <label class="check"><input id="manualFastApply" type="checkbox" /> A vaga indica candidatura rápida</label>
@@ -187,6 +189,8 @@ const dashboardHtml = `<!doctype html>
   const keyInput = document.getElementById('apiKey');
   const statusEl = document.getElementById('status');
   let resolvedApplicationQuestions = [];
+  let resolvedQuestionsUrl = '';
+  let resolveRequestVersion = 0;
   let cachedApplications = [];
   keyInput.value = sessionStorage.getItem('vagas-admin-key') || '';
 
@@ -505,6 +509,14 @@ const dashboardHtml = `<!doctype html>
     }
   }
 
+  document.getElementById('manualUrl').addEventListener('input', () => {
+    resolveRequestVersion += 1;
+    resolvedApplicationQuestions = [];
+    resolvedQuestionsUrl = '';
+    document.getElementById('manualEmploymentType').value = '';
+    document.getElementById('manualPublishedAt').value = '';
+  });
+
   document.getElementById('resolveUrl').addEventListener('click', async () => {
     const button = document.getElementById('resolveUrl');
     const applicationUrl = document.getElementById('manualUrl').value.trim();
@@ -514,6 +526,9 @@ const dashboardHtml = `<!doctype html>
       return;
     }
 
+    const requestVersion = ++resolveRequestVersion;
+    resolvedApplicationQuestions = [];
+    resolvedQuestionsUrl = '';
     try {
       button.setAttribute('disabled', 'true');
       button.textContent = 'Buscando...';
@@ -522,6 +537,9 @@ const dashboardHtml = `<!doctype html>
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ url: applicationUrl }),
       });
+
+      if (requestVersion !== resolveRequestVersion ||
+          document.getElementById('manualUrl').value.trim() !== applicationUrl) return;
 
       resolvedApplicationQuestions = Array.isArray(result.applicationQuestions)
         ? result.applicationQuestions
@@ -533,7 +551,13 @@ const dashboardHtml = `<!doctype html>
         if (result.data.location) document.getElementById('manualLocation').value = result.data.location;
         if (result.data.remoteType) document.getElementById('manualRemoteType').value = result.data.remoteType;
         if (result.data.applicationUrl) document.getElementById('manualUrl').value = result.data.applicationUrl;
+        document.getElementById('manualEmploymentType').value = result.data.employmentType || '';
+        const publishedAt = result.data.publishedAt ? new Date(result.data.publishedAt) : null;
+        document.getElementById('manualPublishedAt').value = publishedAt && Number.isFinite(publishedAt.getTime())
+          ? publishedAt.toISOString().slice(0, 10)
+          : '';
       }
+      resolvedQuestionsUrl = document.getElementById('manualUrl').value.trim();
 
       statusEl.textContent = result.supported
         ? 'Dados carregados de ' + (result.platform || 'ATS') + '.'
@@ -573,8 +597,10 @@ const dashboardHtml = `<!doctype html>
           applicationUrl,
           location: document.getElementById('manualLocation').value.trim() || undefined,
           remoteType: document.getElementById('manualRemoteType').value,
+          employmentType: document.getElementById('manualEmploymentType').value.trim() || undefined,
+          publishedAt: document.getElementById('manualPublishedAt').value || undefined,
           fastApply: document.getElementById('manualFastApply').checked,
-          applicationQuestions: resolvedApplicationQuestions,
+          applicationQuestions: resolvedQuestionsUrl === applicationUrl ? resolvedApplicationQuestions : [],
         }),
       });
       statusEl.textContent = 'Vaga analisada: ' + (result.channel?.label || 'canal externo');
@@ -584,8 +610,12 @@ const dashboardHtml = `<!doctype html>
       document.getElementById('manualUrl').value = '';
       document.getElementById('manualDescription').value = '';
       document.getElementById('manualLocation').value = '';
+      document.getElementById('manualEmploymentType').value = '';
+      document.getElementById('manualPublishedAt').value = '';
       document.getElementById('manualFastApply').checked = false;
       resolvedApplicationQuestions = [];
+      resolvedQuestionsUrl = '';
+      resolveRequestVersion += 1;
       await refresh();
     } catch (error) {
       statusEl.textContent = error instanceof Error ? error.message : 'Falha ao importar vaga';
@@ -702,7 +732,7 @@ const dashboardHtml = `<!doctype html>
           answer => (answer.question || answer.questionKey || 'Pergunta') + ': ' + (answer.answer || ''),
         );
         const answerText = (preparedQuestionText.length ? preparedQuestionText : reusableAnswerText).join(
-          '\n\n',
+          '\\n\\n',
         );
         const content = document.getElementById('kitContent');
         content.innerHTML =

@@ -70,6 +70,18 @@ interface ProfileFieldReadiness {
   value?: string;
 }
 
+function compatibleOptionLabel(
+  field: ApplicationQuestion['fields'][number],
+  answer: string,
+): string | null {
+  if (!field.values?.length) return answer;
+  // Provider IDs belong to one form; only the displayed label is portable.
+  return (
+    field.values.find((option) => normalizeText(option.label) === normalizeText(answer))?.label ??
+    null
+  );
+}
+
 function profileFieldReadiness(
   fieldName: string,
   candidate: QuestionReadinessCandidate,
@@ -133,7 +145,9 @@ function profileQuestionReadiness(
     if (!name) return null;
     const readiness = profileFieldReadiness(name, candidate);
     if (!readiness?.ready) return null;
-    return readiness.value ? { field: name, value: readiness.value } : { field: name };
+    if (!readiness.value) return field.values?.length ? null : { field: name };
+    const value = compatibleOptionLabel(field, readiness.value);
+    return value !== null ? { field: name, value } : null;
   });
 
   if (checked.some((item) => item === null)) return null;
@@ -154,6 +168,9 @@ function findSavedAnswer(
   const label = normalizeText(question.label);
   return answers.find((answer) => {
     if (!answer.allowedForAutomaticUse) return false;
+    if (question.fields.some((field) => compatibleOptionLabel(field, answer.answer) === null)) {
+      return false;
+    }
     const questionText = normalizeText(answer.question);
     const key = normalizeText(answer.questionKey.replace(/[_-]+/g, ' '));
     return questionText === label || key === label;
@@ -192,12 +209,13 @@ export function evaluateApplicationQuestionReadiness(
 
     const saved = findSavedAnswer(question, answers);
     if (saved) {
+      const optionField = question.fields.find((field) => field.values?.length);
       return {
         label: question.label,
         required: question.required,
         status: 'SAVED_ANSWER_READY' as const,
         source: 'SAVED_ANSWER' as const,
-        answer: saved.answer,
+        answer: optionField ? compatibleOptionLabel(optionField, saved.answer)! : saved.answer,
         sensitive: false,
       };
     }
