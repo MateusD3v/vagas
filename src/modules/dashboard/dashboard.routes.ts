@@ -50,7 +50,7 @@ const dashboardHtml = `<!doctype html>
 <body>
 <main>
   <h1>Job Application Agent</h1>
-  <div class="muted">Painel local da Fase 3</div>
+  <div class="muted">Painel web do pipeline de vagas e candidaturas</div>
 
   <div class="bar">
     <input id="apiKey" type="password" autocomplete="off" placeholder="X-Admin-Key" />
@@ -68,6 +68,17 @@ const dashboardHtml = `<!doctype html>
       <button id="exportProfile" type="button">Exportar backup do perfil</button>
       <button id="importProfile" type="button">Importar backup do perfil</button>
       <input id="profileBackupFile" class="hidden" type="file" accept="application/json,.json" />
+    </div>
+  </section>
+
+  <section>
+    <h2>Portais principais</h2>
+    <div class="grid">
+      <div class="card"><div><strong>Gupy</strong></div><div class="ok">Automático</div><div class="muted">Coleta read-only pelo MCP oficial de candidatos.</div></div>
+      <div class="card"><div><strong>Sólides</strong></div><div class="ok">Automático</div><div class="muted">Coleta pública com metadados estruturados das vagas.</div></div>
+      <div class="card"><div><strong>LinkedIn</strong></div><div class="warn">Parceiro oficial</div><div class="muted">Sem API pública de busca para candidato configurada; Easy Apply continua assistido/manual.</div></div>
+      <div class="card"><div><strong>Indeed</strong></div><div class="warn">Parceiro oficial</div><div class="muted">Busca oficial para publishers exige credenciais de parceiro; Indeed Apply continua assistido/manual.</div></div>
+      <div class="card"><div><strong>Glassdoor</strong></div><div class="warn">Manual</div><div class="muted">Canal reconhecido no pipeline, sem scraping ou submissão automática presumida.</div></div>
     </div>
   </section>
 
@@ -207,6 +218,11 @@ const dashboardHtml = `<!doctype html>
       jobicy: 'Jobicy',
       remotive: 'Remotive',
       arbeitnow: 'Arbeitnow',
+      gupy: 'Gupy',
+      solides: 'Sólides',
+      linkedin: 'LinkedIn',
+      indeed: 'Indeed',
+      glassdoor: 'Glassdoor',
       mock: 'Mock',
     };
     return labels[value] || value || '—';

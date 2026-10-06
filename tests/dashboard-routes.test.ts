@@ -18,6 +18,13 @@ describe('dashboard de fontes', () => {
       expect(response.body).toContain('renderActionQueue');
       expect(response.body).toContain('data-fast-kit');
       expect(response.body).toContain('Ver na fonte');
+      expect(response.body).toContain('Portais principais');
+      expect(response.body).toContain('Gupy');
+      expect(response.body).toContain('Sólides');
+      expect(response.body).toContain('LinkedIn');
+      expect(response.body).toContain('Indeed');
+      expect(response.body).toContain('Glassdoor');
+      expect(response.body).toContain('Painel web do pipeline de vagas e candidaturas');
       expect(response.body).toContain('Fontes de vagas');
       expect(response.body).toContain('Executar coleta agora');
       expect(response.body).toContain("api('/job-sources?pageSize=50')");
