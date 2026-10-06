@@ -61,6 +61,14 @@ Referências:
 - https://help.pinpoint.support/en/articles/5878344-how-to-list-pinpoint-jobs-on-any-website
 - https://developers.pinpointhq.com/reference/get-job-postings
 
+## Enriquecimento automático no worker
+
+- Candidaturas `READY` e `REVIEW_REQUIRED` com URL de ATS reconhecida são enriquecidas antes da preparação do kit.
+- O processo usa somente endpoints públicos já suportados pelo resolvedor e nunca executa submissão.
+- O resultado fica registrado no `rawData.atsEnrichment` com plataforma, status e horário da checagem.
+- Perguntas públicas do formulário são gravadas em `rawData.applicationQuestions` quando o ATS as fornece, permitindo que o Kit rápido avalie respostas já presentes no perfil.
+- A mesma URL usa cache de 24 horas para evitar chamadas repetitivas; falhas também entram em cooldown de 24 horas e não abortam o restante do ciclo.
+
 ## Regra do agente
 
 1. **Provider autorizado + credencial válida + política elegível + SAFE_MODE desativado conscientemente**: pode existir submissão automática.
