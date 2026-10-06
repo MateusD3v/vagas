@@ -19,5 +19,6 @@ export interface SubmissionResult {
 export interface SubmissionProvider {
   readonly id: string;
   supports(source: string, applicationUrl: string | null): boolean;
+  readiness?(applicationId: string): Promise<string[]>;
   submit(request: SubmissionRequest): Promise<SubmissionResult>;
 }

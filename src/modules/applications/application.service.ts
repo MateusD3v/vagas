@@ -1,4 +1,5 @@
 import type { ApplicationStatus, MatchDecision, PrismaClient } from '@prisma/client';
+import { lockCandidateSubmissions } from './submission-lock.js';
 import { AppError } from '../../shared/http.js';
 import { AuditService } from '../audit/audit.service.js';
 
@@ -27,6 +28,7 @@ export class ApplicationService {
   async prepare(candidateId: string, jobId: string, decision: MatchDecision, score: number) {
     const existing = await this.db.application.findUnique({
       where: { candidateId_jobId: { candidateId, jobId } },
+      include: { submissionAttempt: { select: { status: true } } },
     });
     const protectedStatuses = new Set<ApplicationStatus>([
       'SUBMITTED',
@@ -36,6 +38,9 @@ export class ApplicationService {
       'ACCEPTED',
       'WITHDRAWN',
     ]);
+
+    // An unacknowledged external send must survive every rematch and restart.
+    if (existing?.submissionAttempt) return existing;
 
     if (decision === 'SKIP') {
       if (!existing) return null;
@@ -100,6 +105,10 @@ export class ApplicationService {
 
     const occurredAt = new Date();
     const updated = await this.db.$transaction(async (tx) => {
+      await lockCandidateSubmissions(tx, application.candidateId);
+      const current = await tx.application.findUnique({ where: { id: applicationId } });
+      if (!current || current.status !== application.status)
+        throw new AppError('O status mudou durante a operação; atualize o painel', 409);
       const result = await tx.application.update({
         where: { id: applicationId },
         data: {

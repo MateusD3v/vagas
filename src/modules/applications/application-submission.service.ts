@@ -1,73 +1,135 @@
+import { lockCandidateSubmissions } from './submission-lock.js';
 import type { PrismaClient } from '@prisma/client';
 import type { SubmissionProviderRegistry } from '../../integrations/submission/submission.registry.js';
 import { AppError } from '../../shared/http.js';
+import { EmailApplicationChannelService } from './email-application-channel.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { ApplicationEligibilityService } from './application-eligibility.service.js';
 
 export class ApplicationSubmissionService {
   private readonly audit: AuditService;
-  private readonly eligibility: ApplicationEligibilityService;
-
   constructor(
     private readonly db: PrismaClient,
     private readonly safeMode: boolean,
     private readonly registry: SubmissionProviderRegistry,
   ) {
     this.audit = new AuditService(db);
-    this.eligibility = new ApplicationEligibilityService(db, safeMode, (source, applicationUrl) =>
-      Boolean(registry.find(source, applicationUrl)),
-    );
   }
 
   async submit(applicationId: string) {
-    const existing = await this.db.application.findUnique({
-      where: { id: applicationId },
-      select: { status: true, submittedAt: true, externalApplicationId: true },
-    });
+    if (this.safeMode) throw new AppError('SAFE_MODE está ativo', 409);
+    const existing = await this.db.application.findUnique({ where: { id: applicationId } });
     if (!existing) throw new AppError('Candidatura não encontrada', 404);
-    if (existing.status === 'SUBMITTED' || existing.submittedAt || existing.externalApplicationId) {
+    if (existing.submittedAt || existing.externalApplicationId || existing.status === 'SUBMITTED')
       throw new AppError('Candidatura já foi submetida; envio duplicado bloqueado', 409);
-    }
 
-    const eligibility = await this.eligibility.evaluate(applicationId);
-    if (!eligibility.automaticSubmissionAllowed) {
-      throw new AppError('Candidatura não elegível para submissão automática', 409, eligibility);
-    }
-
-    const application = await this.db.application.findUnique({
-      where: { id: applicationId },
-      include: { job: true, preparation: true },
+    const { application, providerId } = await this.db.$transaction(async (tx) => {
+      await lockCandidateSubmissions(tx, existing.candidateId);
+      const registry = this.registry;
+      const eligibility = await new ApplicationEligibilityService(
+        tx,
+        this.safeMode,
+        (source, url) => Boolean(registry.find(source, url)),
+        async (id, source, url) => registry.find(source, url)?.readiness?.(id) ?? [],
+      ).evaluate(applicationId);
+      if (!eligibility.automaticSubmissionAllowed)
+        throw new AppError('Candidatura não elegível para submissão automática', 409, eligibility);
+      const application = await tx.application.findUnique({
+        where: { id: applicationId },
+        include: { job: true, preparation: true, candidate: { include: { policy: true } } },
+      });
+      if (!application?.preparation || !application.candidate.policy)
+        throw new AppError('Pacote ou política ausente', 409);
+      if (application.submittedAt || application.externalApplicationId)
+        throw new AppError('Candidatura já enviada', 409);
+      const provider = registry.find(application.job.source, application.job.applicationUrl);
+      if (!provider) throw new AppError('Nenhum provider autorizado suporta esta vaga', 409);
+      const now = new Date();
+      const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const [attempts, manual] = await Promise.all([
+        tx.submissionAttempt.count({
+          where: { candidateId: application.candidateId, reservedAt: { gte: day } },
+        }),
+        tx.application.count({
+          where: {
+            candidateId: application.candidateId,
+            submittedAt: { gte: day },
+            OR: [
+              { submissionAttempt: { is: null } },
+              { submissionAttempt: { reservedAt: { lt: day } } },
+            ],
+          },
+        }),
+      ]);
+      if (attempts + manual >= application.candidate.policy.maximumApplicationsPerDay)
+        throw new AppError('Limite diário de reservas e envios atingido', 409);
+      // Unique applicationId survives errors and restarts. No external call occurs before commit.
+      await tx.submissionAttempt.create({
+        data: {
+          applicationId,
+          candidateId: application.candidateId,
+          provider: provider.id,
+          status: 'PENDING',
+          reservedAt: now,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          event: 'APPLICATION_SUBMISSION_RESERVED',
+          entityType: 'Application',
+          entityId: applicationId,
+          metadata: { provider: provider.id },
+        },
+      });
+      return { application, providerId: provider.id };
     });
-    if (!application) throw new AppError('Candidatura não encontrada', 404);
-    if (!application.preparation) {
-      throw new AppError('Pacote de preparação não encontrado', 409);
+
+    const provider = this.registry.find(application.job.source, application.job.applicationUrl)!;
+    let result;
+    try {
+      result = await provider.submit({
+        applicationId,
+        source: application.job.source,
+        applicationUrl: application.job.applicationUrl,
+        preparation: {
+          payload: application.preparation!.payload,
+          reusableAnswers: application.preparation!.reusableAnswers,
+        },
+      });
+    } catch {
+      await this.db.submissionAttempt
+        .update({ where: { applicationId }, data: { status: 'UNKNOWN', completedAt: new Date() } })
+        .catch(() => undefined);
+      await this.audit
+        .record('APPLICATION_SUBMISSION_UNCONFIRMED', 'Application', applicationId, {
+          provider: providerId,
+        })
+        .catch(() => undefined);
+      throw new AppError(
+        'Envio sem confirmação. Verifique o serviço e a pasta Enviados; repetição automática bloqueada.',
+        502,
+      );
     }
 
-    const provider = this.registry.find(application.job.source, application.job.applicationUrl);
-    if (!provider) {
-      throw new AppError('Nenhum provider autorizado suporta esta vaga', 409);
-    }
-
-    const result = await provider.submit({
-      applicationId,
-      source: application.job.source,
-      applicationUrl: application.job.applicationUrl,
-      preparation: {
-        payload: application.preparation.payload,
-        reusableAnswers: application.preparation.reusableAnswers,
-      },
-    });
-
-    const updated = await this.db.$transaction(async (tx) => {
-      const application = await tx.application.update({
+    // If persistence fails after an acknowledged send, PENDING still blocks duplicates.
+    return this.db.$transaction(async (tx) => {
+      const updated = await tx.application.update({
         where: { id: applicationId },
         data: {
           status: 'SUBMITTED',
-          applicationMethod: `AUTOMATED:${provider.id}`,
+          applicationMethod: `AUTOMATED:${providerId}`,
           externalApplicationId: result.externalApplicationId,
           submittedAt: result.submittedAt,
           nextFollowUpAt: new Date(result.submittedAt.getTime() + 7 * 24 * 60 * 60 * 1000),
           followUpNotifiedAt: null,
+        },
+      });
+      await tx.submissionAttempt.update({
+        where: { applicationId },
+        data: {
+          status: 'SENT',
+          completedAt: new Date(),
+          externalApplicationId: result.externalApplicationId,
         },
       });
       await tx.applicationEvent.create({
@@ -75,19 +137,54 @@ export class ApplicationSubmissionService {
           applicationId,
           fromStatus: 'READY',
           toStatus: 'SUBMITTED',
-          source: `AUTOMATED:${provider.id}`,
+          source: `AUTOMATED:${providerId}`,
           externalApplicationId: result.externalApplicationId,
           occurredAt: result.submittedAt,
         },
       });
-      return application;
+      await tx.auditLog.create({
+        data: {
+          event: 'APPLICATION_SUBMITTED',
+          entityType: 'Application',
+          entityId: applicationId,
+          metadata: {
+            provider: providerId,
+            externalApplicationId: result.externalApplicationId,
+            metadata: result.metadata ?? {},
+          },
+        },
+      });
+      return updated;
     });
+  }
 
-    await this.audit.record('APPLICATION_SUBMITTED', 'Application', applicationId, {
-      provider: provider.id,
-      externalApplicationId: result.externalApplicationId,
-      metadata: result.metadata ?? {},
+  async submitPending(limit = 25) {
+    if (this.safeMode || this.registry.ids().length === 0)
+      return { attempted: 0, submitted: 0, blocked: 0 };
+    if (this.registry.ids().includes('gmail'))
+      await new EmailApplicationChannelService(this.db).discoverPending(limit);
+    const applications = await this.db.application.findMany({
+      where: {
+        status: 'READY',
+        submissionAttempt: { is: null },
+        submittedAt: null,
+        emailTarget: { isNot: null },
+        candidate: { isDemo: false, policy: { autoApplyEnabled: true } },
+      },
+      orderBy: [{ matchScore: 'desc' }, { createdAt: 'asc' }],
+      take: limit,
+      select: { id: true },
     });
-    return updated;
+    let submitted = 0;
+    let blocked = 0;
+    for (const application of applications) {
+      try {
+        await this.submit(application.id);
+        submitted++;
+      } catch {
+        blocked++;
+      }
+    }
+    return { attempted: applications.length, submitted, blocked };
   }
 }

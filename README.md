@@ -1,4 +1,4 @@
-# Job Application Agent - Fase 7: portais principais e candidatura assistida
+# Job Application Agent - Fase 8: envio autorizado por Gmail
 
 Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa, reprocessa, prepara e acompanha candidaturas. A submissão automática só ocorre por provider externo explicitamente autorizado, quando configurado e com `SAFE_MODE=false`; por padrão nenhum provider de envio está habilitado. O sistema não automatiza LinkedIn/Indeed, não usa navegador, CAPTCHA bypass ou evasão anti-bot.
 
@@ -66,7 +66,7 @@ Durante desenvolvimento, use `npm run dev` e `npm run dev:worker`.
 
 ## Coleta manual
 
-Em `production`, todos os endpoints de dados exigem `X-Admin-Key`; apenas `/health`, `/docs` e a casca pública de `/dashboard` permanecem acessíveis sem credencial. Operações administrativas continuam com rate limit de cinco chamadas por minuto.
+Em `production`, todos os endpoints de dados exigem `X-Admin-Key`; apenas `/health`, `/docs`, a casca pública de `/dashboard` e o callback OAuth `/integrations/gmail/callback` permanecem acessíveis sem credencial. Operações administrativas continuam com rate limit de cinco chamadas por minuto.
 
 ```bash
 curl -X POST http://localhost:3000/job-sources/run \
@@ -246,3 +246,34 @@ Use health path `/health`. Não use hostname `postgres` fora do Compose; ele exi
 - Reprocessamento completo existe por `POST /jobs/reprocess` e CLI `npm run reprocess:jobs`, mas requer um perfil real; o seed permanece deliberadamente de demonstração.
 - O currículo personalizado em Markdown, timeline e follow-up pós-candidatura já existem. O worker também tenta enriquecer candidaturas `READY`/`REVIEW_REQUIRED` com dados públicos de ATS suportados antes da preparação, armazenando perguntas públicas quando disponíveis e usando cache de 24 horas por URL. Ao marcar uma candidatura como `SUBMITTED`, o sistema agenda acompanhamento padrão em sete dias; o dashboard permite reagendar/concluir e o worker detecta pendências. A submissão automática possui interface/registry e endpoint, porém nenhum provider externo está habilitado por padrão; `SAFE_MODE=true` continua bloqueando qualquer envio.
 - O dashboard e a proteção por API key já existem. Ainda faltam autenticação multiusuário/OAuth e integrações externas oficiais para sincronizar automaticamente respostas/status de ATS; esses itens dependem de credenciais/autorização do provedor.
+
+## Envio automático por Gmail
+
+O provider Gmail usa a API oficial para enviar o currículo PDF original a um destinatário indicado no anúncio. A conexão Gmail do ChatGPT não entrega credenciais ao servidor: cada instalação autoriza sua própria aplicação OAuth. LinkedIn/Indeed e ATS sem credenciais de escrita da organização continuam assistidos.
+
+A configuração padrão não envia: `SAFE_MODE=true`, `GMAIL_SEND_ENABLED=false` e `AUTO_SUBMIT_APPLICATIONS=false`. O worker cron e o worker contínuo só processam a fila de envios quando autorizados por configuração. A política do candidato também precisa ter `autoApplyEnabled=true`.
+
+1. No Google Cloud, habilite Gmail API, configure o consentimento OAuth e crie um cliente **Web application** com o callback HTTPS da instalação (`/integrations/gmail/callback`). Configure apenas os escopos `gmail.send`, `openid` e `email`. Não é necessário acesso de leitura à caixa postal.
+2. Configure `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REDIRECT_URI` e `GMAIL_TOKEN_ENCRYPTION_KEY` no servidor. A chave de criptografia deve ter 32 bytes aleatórios em hexadecimal, gerados uma vez e mantidos estáveis. Não publique as credenciais nem a chave. Trocar a chave invalida tokens existentes.
+3. No dashboard autenticado, clique **Conectar Gmail** e autorize a conta cujo e-mail corresponde ao perfil real. A conexão usa estado aleatório, hash no banco, expiração de dez minutos, uso único e cookie HttpOnly vinculado ao navegador. O refresh token é criptografado com AES-256-GCM; callbacks e logs não expõem códigos ou tokens.
+4. Carregue seu currículo PDF original, até 2 MB, em **Enviar currículo PDF**. O arquivo é privado e persistido no banco; não entra no backup JSON do perfil.
+5. Depois de revisar a política, configure `SAFE_MODE=false`, `GMAIL_SEND_ENABLED=true`, `AUTO_SUBMIT_APPLICATIONS=true`. Desative qualquer outra automação que envie candidaturas para evitar duplicatas entre sistemas independentes. A deduplicação desta instalação não consulta a pasta Enviados ou sistemas externos.
+
+A rotina detecta instruções simples e explícitas como “Envie seu currículo para recrutador@example.test” nos anúncios das fontes de coleta existentes. Somente um destinatário, URL HTTPS da publicação e ausência de perguntas obrigatórias no portal permitem criar automaticamente o canal. Endereços de contato genéricos, instruções negadas, vários destinatários e anúncios com assunto específico permanecem assistidos. O painel também permite confirmar o endereço, trecho do anúncio, assunto e mensagem manualmente; isso não substitui a verificação da elegibilidade.
+
+Antes de cada envio, o sistema exige candidatura `READY`, perfil real, vaga ativa e `ANALYZED`, matching sem restrições obrigatórias, política elegível, pacote sem pendências, conta conectada e PDF. A reserva usa transação PostgreSQL com lock da linha do candidato e chave única por candidatura, contando reservas do dia e submissões manuais sem contar duas vezes o mesmo envio. O dia do orçamento é UTC. Envios incertos também consomem orçamento; não são repetidos automaticamente. Registros manuais usam o mesmo lock. Reanálise não remove candidaturas com tentativa externa.
+
+O ciclo só marca `SUBMITTED` quando o Gmail retorna um ID de mensagem e a transação final persiste o status, histórico e auditoria. O ID confirma envio da mensagem, não recebimento ou aceite pelo recrutador. Timeout, erro externo ou falha após reserva deixam `UNKNOWN` ou `PENDING`: confira o serviço/pasta Enviados antes de ação manual. Nenhum processo remove ou repete essas reservas automaticamente. Esta versão não oferece reconciliação automática de mensagens.
+
+Endpoints privados adicionais (todos exigem `X-Admin-Key` e limite de taxa):
+
+- `GET /integrations/gmail/status`: configuração, conta, PDF e travas; nunca tokens.
+- `POST /integrations/gmail/authorize`: URL OAuth e cookie; apenas o callback GET é público e valida estado.
+- `DELETE /integrations/gmail`: remove conexão local e autorizações pendentes; para revogar também no Google, remova o acesso nas permissões da conta Google. Não cancela mensagem já em envio.
+- `PUT /integrations/gmail/resume`: `{ "contentBase64": "..." }`, PDF original.
+- `PUT /applications/:id/email-target`: destinatário, assunto, corpo, URL HTTPS, trecho com o endereço e `confirmedEmailChannel=true`.
+- `GET /applications/:id/submission-attempt`: reserva, resultado e ID externo.
+
+Credenciais OAuth podem expirar ou ser revogadas. Em modo de teste do consentimento Google, refresh tokens com escopos Gmail podem expirar após sete dias; conclua a configuração apropriada do consentimento para uso contínuo. A autorização inicial é feita pelo titular da conta, e nenhuma senha é armazenada.
+
+Referências oficiais: [OAuth para servidor web](https://developers.google.com/identity/protocols/oauth2/web-server), [envio de mensagens Gmail](https://developers.google.com/workspace/gmail/api/guides/sending), [users.messages.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send).

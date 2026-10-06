@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { prisma } from '../../database/client.js';
-import { SubmissionProviderRegistry } from '../../integrations/submission/submission.registry.js';
+import { createSubmissionProviders } from '../../integrations/submission/submission.factory.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta, paginationSchema } from '../../shared/http.js';
 import { CandidateAnswerService } from '../profile/candidate-answer.service.js';
@@ -63,12 +63,13 @@ const applicationQuerySchema = paginationSchema.extend({
 });
 
 export function applicationRoutes(app: FastifyInstance): void {
-  const submissionProviders = new SubmissionProviderRegistry();
+  const submissionProviders = createSubmissionProviders(prisma, env);
   const preparation = new ApplicationPreparationService(prisma);
   const eligibility = new ApplicationEligibilityService(
     prisma,
     env.SAFE_MODE,
     (source, applicationUrl) => Boolean(submissionProviders.find(source, applicationUrl)),
+    async (id, source, url) => submissionProviders.find(source, url)?.readiness?.(id) ?? [],
   );
   const applications = new ApplicationService(prisma);
   const candidateAnswers = new CandidateAnswerService(prisma);
@@ -89,6 +90,10 @@ export function applicationRoutes(app: FastifyInstance): void {
           where,
           include: {
             job: true,
+            emailTarget: { select: { recipient: true, confirmedAt: true } },
+            submissionAttempt: {
+              select: { status: true, reservedAt: true, externalApplicationId: true },
+            },
             preparation: {
               select: { id: true, version: true, missingInformation: true, updatedAt: true },
             },
