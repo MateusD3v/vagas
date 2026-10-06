@@ -1,4 +1,4 @@
-name: Inspect Arbeitnow apply links
+name: Inspect Arbeitnow apply redirects
 
 on:
   push:
@@ -13,61 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Inspect public Arbeitnow job pages
+      - name: Resolve public Arbeitnow apply redirects
         shell: bash
         run: |
           set -euo pipefail
 
           urls=(
-            "https://www.arbeitnow.fr/jobs/companies/shifttechnology/junior-backend-developer-c-net-paris-113660"
-            "https://www.arbeitnow.fr/jobs/companies/escape/junior-full-stack-engineer-ai-security-paris-149930"
-            "https://www.arbeitnow.com/jobs/companies/fastrocket-gmbh/full-stack-softwareentwickler-react-nextjs-oder-angular-nestjs-nodejs-100-remote-regen-7823"
+            "https://www.arbeitnow.fr/jobs/companies/shifttechnology/junior-backend-developer-c-net-paris-113660/apply"
+            "https://www.arbeitnow.fr/jobs/companies/escape/junior-full-stack-engineer-ai-security-paris-149930/apply"
+            "https://www.arbeitnow.com/jobs/companies/fastrocket-gmbh/full-stack-softwareentwickler-react-nextjs-oder-angular-nestjs-nodejs-100-remote-regen-7823/apply"
           )
 
           for url in "${urls[@]}"; do
             echo "=== $url ==="
-            curl --fail --show-error --silent --location \
+            curl --show-error --silent --location \
               --connect-timeout 20 \
               --max-time 120 \
               --header 'User-Agent: Mozilla/5.0' \
-              "$url" -o /tmp/arbeitnow.html
-
-            PAGE_URL="$url" python - <<'PY'
-          from pathlib import Path
-          from html import unescape
-          from urllib.parse import urljoin, urlparse
-          import os, re
-
-          html = Path('/tmp/arbeitnow.html').read_text(errors='ignore')
-          page = os.environ['PAGE_URL']
-          page_host = urlparse(page).hostname or ''
-          seen = set()
-          anchors = []
-
-          for match in re.finditer(r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>([\s\S]*?)</a>', html, re.I):
-              href = unescape(match.group(1)).strip()
-              text = re.sub(r'<[^>]+>', ' ', match.group(2))
-              text = re.sub(r'\s+', ' ', unescape(text)).strip()
-              target = urljoin(page, href)
-              parsed = urlparse(target)
-              if parsed.scheme not in ('http', 'https'):
-                  continue
-              host = parsed.hostname or ''
-              key = (target, text)
-              if key in seen:
-                  continue
-              seen.add(key)
-              if host != page_host or re.search(r'apply|bewerb|candidate|career|job', text, re.I):
-                  anchors.append({'text': text[:120], 'url': target, 'host': host})
-
-          print('ANCHORS')
-          for item in anchors[:80]:
-              print(item)
-
-          print('JSON_LD_JOBPOSTING')
-          for block in re.findall(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>([\s\S]*?)</script>', html, re.I):
-              if 'JobPosting' in block:
-                  print(block[:5000])
-                  break
-          PY
+              --output /dev/null \
+              --write-out 'status=%{http_code}\neffective=%{url_effective}\nredirects=%{num_redirects}\n' \
+              "$url"
           done
