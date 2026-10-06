@@ -175,4 +175,96 @@ describe('WorkerCycleService', () => {
     expect(failedUpdate?.data.status).toBe('FAILED');
     expect(failedUpdate?.data.metadata).toMatchObject({ trigger: 'failure', error: 'boom' });
   });
+
+  it('recupera lock legado de uma instância anterior após a janela de reinício', async () => {
+    const now = new Date('2026-10-06T22:10:00.000Z');
+    const lastSeenAt = new Date('2026-10-06T22:05:00.000Z');
+    const findUnique = vi.fn().mockResolvedValue({
+      workerName: 'job-collection-worker',
+      status: 'RUNNING',
+      lastSeenAt,
+      metadata: { mode: 'cron', stage: 'resume' },
+    });
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const db = {
+      workerHeartbeat: { findUnique, updateMany },
+    } as unknown as PrismaClient;
+
+    const recovered = await new WorkerCycleService(
+      db,
+      env,
+      logger,
+      dependencies(),
+      'new-owner',
+    ).recoverInterruptedCycle(new Date('2026-10-06T22:08:00.000Z'), now);
+
+    expect(recovered).toBe(true);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        workerName: 'job-collection-worker',
+        status: 'RUNNING',
+        lastSeenAt,
+      },
+      data: {
+        status: 'FAILED',
+        lastSeenAt: now,
+        metadata: {
+          mode: 'recovery',
+          reason: 'PROCESS_RESTART',
+          ownerId: 'new-owner',
+        },
+      },
+    });
+  });
+
+  it('não recupera lock pertencente à própria instância', async () => {
+    const lastSeenAt = new Date('2026-10-06T22:05:00.000Z');
+    const updateMany = vi.fn();
+    const db = {
+      workerHeartbeat: {
+        findUnique: vi.fn().mockResolvedValue({
+          workerName: 'job-collection-worker',
+          status: 'RUNNING',
+          lastSeenAt,
+          metadata: { ownerId: 'same-owner' },
+        }),
+        updateMany,
+      },
+    } as unknown as PrismaClient;
+
+    const recovered = await new WorkerCycleService(
+      db,
+      env,
+      logger,
+      dependencies(),
+      'same-owner',
+    ).recoverInterruptedCycle(
+      new Date('2026-10-06T22:08:00.000Z'),
+      new Date('2026-10-06T22:10:00.000Z'),
+    );
+
+    expect(recovered).toBe(false);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('não recupera nenhum lock durante o primeiro minuto da nova instância', async () => {
+    const findUnique = vi.fn();
+    const db = {
+      workerHeartbeat: { findUnique, updateMany: vi.fn() },
+    } as unknown as PrismaClient;
+
+    const recovered = await new WorkerCycleService(
+      db,
+      env,
+      logger,
+      dependencies(),
+      'new-owner',
+    ).recoverInterruptedCycle(
+      new Date('2026-10-06T22:09:30.000Z'),
+      new Date('2026-10-06T22:10:00.000Z'),
+    );
+
+    expect(recovered).toBe(false);
+    expect(findUnique).not.toHaveBeenCalled();
+  });
 });
