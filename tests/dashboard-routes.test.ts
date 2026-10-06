@@ -17,6 +17,7 @@ describe('dashboard de fontes', () => {
       expect(response.body).toContain('id="applicationFilter"');
       expect(response.body).toContain('renderActionQueue');
       expect(response.body).toContain('data-fast-kit');
+      expect(response.body).toContain('Ver na fonte');
       expect(response.body).toContain('Fontes de vagas');
       expect(response.body).toContain('Executar coleta agora');
       expect(response.body).toContain("api('/job-sources?pageSize=50')");
