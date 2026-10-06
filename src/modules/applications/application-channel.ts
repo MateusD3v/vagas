@@ -11,6 +11,9 @@ export type ApplicationPlatform =
   | 'PINPOINT'
   | 'BREEZY'
   | 'WORKDAY'
+  | 'GUPY'
+  | 'SOLIDES'
+  | 'GLASSDOOR'
   | 'OTHER';
 
 export type ApplicationFlow = 'FAST_APPLY' | 'ATS' | 'MANUAL';
@@ -62,6 +65,34 @@ export function classifyApplicationChannel(
       flow: fastApplyHint ? 'FAST_APPLY' : 'MANUAL',
       label: fastApplyHint ? 'Indeed Apply' : 'Indeed',
     };
+  }
+
+  if (
+    host === 'gupy.io' ||
+    host.endsWith('.gupy.io') ||
+    normalizedSource === 'gupy' ||
+    normalizedSource.includes('gupy')
+  ) {
+    return { platform: 'GUPY', flow: 'ATS', label: 'Gupy' };
+  }
+
+  if (
+    host === 'vagas.solides.com.br' ||
+    host.endsWith('.vagas.solides.com.br') ||
+    normalizedSource === 'solides' ||
+    normalizedSource.includes('solides')
+  ) {
+    return { platform: 'SOLIDES', flow: 'ATS', label: 'Sólides' };
+  }
+
+  if (
+    host === 'glassdoor.com' ||
+    host.endsWith('.glassdoor.com') ||
+    host === 'glassdoor.com.br' ||
+    host.endsWith('.glassdoor.com.br') ||
+    normalizedSource.includes('glassdoor')
+  ) {
+    return { platform: 'GLASSDOOR', flow: 'MANUAL', label: 'Glassdoor' };
   }
 
   if (host.includes('greenhouse.io') || host.includes('greenhouse.com')) {

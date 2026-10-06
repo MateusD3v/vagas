@@ -27,6 +27,26 @@ describe('application channel', () => {
     ).toMatchObject({ platform: 'INDEED', flow: 'FAST_APPLY' });
   });
 
+  it('classifica portais principais como canais próprios', () => {
+    expect(
+      classifyApplicationChannel('https://empresa.gupy.io/job/eyJqb2JJZCI6MTIzfQ==', 'gupy'),
+    ).toEqual({ platform: 'GUPY', flow: 'ATS', label: 'Gupy' });
+
+    expect(
+      classifyApplicationChannel(
+        'https://vagas.solides.com.br/vaga/123/analista-de-suporte',
+        'solides',
+      ),
+    ).toEqual({ platform: 'SOLIDES', flow: 'ATS', label: 'Sólides' });
+
+    expect(
+      classifyApplicationChannel(
+        'https://www.glassdoor.com.br/job-listing/analista-de-suporte-example-JV.htm',
+        'manual',
+      ),
+    ).toEqual({ platform: 'GLASSDOOR', flow: 'MANUAL', label: 'Glassdoor' });
+  });
+
   it('reconhece ATS conhecidos pela URL sem presumir submissão automática', () => {
     expect(
       classifyApplicationChannel('https://boards.greenhouse.io/acme/jobs/1', 'manual'),
