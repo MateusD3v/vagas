@@ -5,6 +5,7 @@ import { prisma } from '../../database/client.js';
 import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta } from '../../shared/http.js';
 import { createCollectionService } from './collection.factory.js';
+import { buildPortalSearchPlan } from './portal-search-plan.js';
 import {
   collectionRunsQuerySchema,
   searchProfileUpdateSchema,
@@ -124,6 +125,26 @@ export function sourceRoutes(app: FastifyInstance): void {
       });
       if (!run) throw new AppError('Execução não encontrada', 404);
       return run;
+    },
+  );
+
+  app.get(
+    '/portal-search-plan',
+    {
+      ...adminOptions,
+      schema: {
+        tags: ['Sources'],
+        summary: 'Gera buscas assistidas para portais sem API pública configurada',
+        security: [{ adminKey: [] }],
+      },
+    },
+    async () => {
+      const profile = await prisma.jobSearchProfile.findFirst();
+      if (!profile) throw new AppError('Perfil de busca não configurado', 404);
+      return buildPortalSearchPlan({
+        keywords: profile.keywords,
+        locations: profile.locations,
+      });
     },
   );
 
