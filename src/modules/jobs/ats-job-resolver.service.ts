@@ -413,12 +413,12 @@ function extractJsonLdValues(html: string): unknown[] {
     try {
       const parsed: unknown = JSON.parse(match[1] ?? '');
       if (Array.isArray(parsed)) {
-        values.push(...parsed);
+        values.push(...(parsed as unknown[]));
         continue;
       }
       if (parsed && typeof parsed === 'object') {
         const graph = (parsed as { '@graph'?: unknown })['@graph'];
-        if (Array.isArray(graph)) values.push(...graph);
+        if (Array.isArray(graph)) values.push(...(graph as unknown[]));
         values.push(parsed);
       }
     } catch {
