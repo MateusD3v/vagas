@@ -111,6 +111,30 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Segurança: o MCP de candidatos não edita currículo nem envia candidatura; `SAFE_MODE=true` continua inalterado.
 - Controle interno: `GUPY_ENABLED` permite desativação explícita.
 
+## Portais principais com acesso restrito — TRACKED
+
+### LinkedIn
+
+- Estado: canal reconhecido no pipeline; coleta automática não habilitada.
+- Motivo: as APIs oficiais de Talent Solutions são integrações aprovadas para parceiros/ATS e não expõem uma API pública geral de busca de vagas para um agente candidato.
+- Job Posting API oficial: <https://learn.microsoft.com/en-us/linkedin/talent/job-postings/api/sync-job-postings>.
+- O projeto não substitui acesso de parceiro por scraping, endpoint interno ou automação de CAPTCHA.
+- Vagas importadas por URL continuam classificadas como LinkedIn; `fastApply=true` identifica apenas o fluxo assistido de Easy Apply.
+
+### Indeed
+
+- Estado: canal reconhecido no pipeline; coleta automática não habilitada sem credenciais de parceiro.
+- A documentação oficial oferece o Publisher JavaScript Plugin para busca de vagas em sites publishers, mas exige aprovação e IDs fornecidos pela Indeed.
+- Publisher Plugin oficial: <https://docs.indeed.com/indeed-plus/publisher-js-plugin>.
+- Job Sync/Indeed Apply são integrações de parceiros/ATS para publicar vagas e receber candidaturas, não uma credencial pública genérica para este agente.
+- O projeto não usa scraping para contornar a exigência de parceria. `fastApply=true` identifica somente o fluxo assistido de Indeed Apply.
+
+### Glassdoor
+
+- Estado: canal reconhecido como `MANUAL`.
+- Não há credencial oficial de busca configurada no projeto. Enquanto isso, URLs do Glassdoor podem ser importadas manualmente e classificadas corretamente.
+- O projeto não implementa scraping ou submissão automática presumida para substituir uma integração oficial.
+
 ## Mock Job Source — DEVELOPMENT
 
 - Tipo: mock local.
