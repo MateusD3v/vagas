@@ -96,6 +96,10 @@ const envSchema = z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
+    SOLIDES_ENABLED: z
+      .string()
+      .default('true')
+      .transform((value) => value === 'true'),
     RAW_DATA_MAX_BYTES: z.coerce.number().int().positive().max(250_000).default(50_000),
   })
   .superRefine((value, context) => {
