@@ -79,6 +79,9 @@ const dashboardHtml = `<!doctype html>
       <div class="card"><div><strong>LinkedIn</strong></div><div class="warn">Parceiro oficial</div><div class="muted">Sem API pública de busca para candidato configurada; Easy Apply continua assistido/manual.</div></div>
       <div class="card"><div><strong>Indeed</strong></div><div class="warn">Parceiro oficial</div><div class="muted">Busca oficial para publishers exige credenciais de parceiro; Indeed Apply continua assistido/manual.</div></div>
       <div class="card"><div><strong>Glassdoor</strong></div><div class="warn">Manual</div><div class="muted">Canal reconhecido no pipeline, sem scraping ou submissão automática presumida.</div></div>
+      <div class="card"><div><strong>Vagas.com.br</strong></div><div class="warn">Assistido</div><div class="muted">Busca pública por cargo/localização e importação da vaga escolhida.</div></div>
+      <div class="card"><div><strong>InfoJobs</strong></div><div class="warn">Assistido</div><div class="muted">Busca pública; a candidatura pode exigir conta no portal.</div></div>
+      <div class="card"><div><strong>Catho</strong></div><div class="warn">Assistido</div><div class="muted">Busca pública; candidatura e alguns detalhes podem exigir cadastro.</div></div>
     </div>
   </section>
 
@@ -231,6 +234,9 @@ const dashboardHtml = `<!doctype html>
       linkedin: 'LinkedIn',
       indeed: 'Indeed',
       glassdoor: 'Glassdoor',
+      vagascom: 'Vagas.com.br',
+      infojobs: 'InfoJobs',
+      catho: 'Catho',
       mock: 'Mock',
     };
     return labels[value] || value || '—';
@@ -287,6 +293,9 @@ const dashboardHtml = `<!doctype html>
       { id: 'LINKEDIN', label: 'LinkedIn' },
       { id: 'INDEED', label: 'Indeed' },
       { id: 'GLASSDOOR', label: 'Glassdoor' },
+      { id: 'VAGASCOM', label: 'Vagas.com.br' },
+      { id: 'INFOJOBS', label: 'InfoJobs' },
+      { id: 'CATHO', label: 'Catho' },
     ];
     document.getElementById('portalSearchPlan').innerHTML = portals.map(portal => {
       const portalLinks = links.filter(item => item.portal === portal.id).slice(0, 4);
