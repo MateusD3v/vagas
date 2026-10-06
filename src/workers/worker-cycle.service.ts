@@ -4,6 +4,7 @@ import { createJobSourceRegistry } from '../integrations/job-sources/registry.fa
 import { JobSourceHttpClient } from '../integrations/job-sources/shared/http-client.js';
 import { createNotificationProviders } from '../integrations/notifications/notification.factory.js';
 import type { NotificationProvider } from '../integrations/notifications/notification.interface.js';
+import { ApplicationApplyUrlResolutionService } from '../modules/applications/application-apply-url-resolution.service.js';
 import { ApplicationAtsEnrichmentService } from '../modules/applications/application-ats-enrichment.service.js';
 import { ApplicationFollowUpService } from '../modules/applications/application-follow-up.service.js';
 import { ApplicationPreparationService } from '../modules/applications/application-preparation.service.js';
@@ -18,6 +19,9 @@ export interface WorkerCycleResult {
   collectionRuns: number;
   resumed: number;
   availability: Awaited<ReturnType<JobAvailabilitySyncService['run']>> | null;
+  applyUrlResolution: Awaited<
+    ReturnType<ApplicationApplyUrlResolutionService['resolvePending']>
+  > | null;
   atsEnrichment: Awaited<ReturnType<ApplicationAtsEnrichmentService['enrichPending']>> | null;
   preparation: Awaited<ReturnType<ApplicationPreparationService['preparePending']>> | null;
   followUps: Awaited<ReturnType<ApplicationFollowUpService['scanDue']>> | null;
@@ -27,6 +31,7 @@ export interface WorkerCycleResult {
 export interface WorkerCycleDependencies {
   collection: Pick<ReturnType<typeof createCollectionService>, 'runEnabled' | 'resumePending'>;
   availabilitySync: Pick<JobAvailabilitySyncService, 'run'>;
+  applyUrlResolution: Pick<ApplicationApplyUrlResolutionService, 'resolvePending'>;
   atsEnrichment: Pick<ApplicationAtsEnrichmentService, 'enrichPending'>;
   applicationPreparation: Pick<ApplicationPreparationService, 'preparePending'>;
   followUps: Pick<ApplicationFollowUpService, 'scanDue'>;
@@ -37,6 +42,7 @@ export interface WorkerCycleDependencies {
 export class WorkerCycleService {
   private readonly collection: WorkerCycleDependencies['collection'];
   private readonly availabilitySync: WorkerCycleDependencies['availabilitySync'];
+  private readonly applyUrlResolution: WorkerCycleDependencies['applyUrlResolution'];
   private readonly atsEnrichment: WorkerCycleDependencies['atsEnrichment'];
   private readonly applicationPreparation: WorkerCycleDependencies['applicationPreparation'];
   private readonly followUps: WorkerCycleDependencies['followUps'];
@@ -52,6 +58,7 @@ export class WorkerCycleService {
     if (dependencies) {
       this.collection = dependencies.collection;
       this.availabilitySync = dependencies.availabilitySync;
+      this.applyUrlResolution = dependencies.applyUrlResolution;
       this.atsEnrichment = dependencies.atsEnrichment;
       this.applicationPreparation = dependencies.applicationPreparation;
       this.followUps = dependencies.followUps;
@@ -63,13 +70,13 @@ export class WorkerCycleService {
     const registry = createJobSourceRegistry(config);
     this.collection = createCollectionService(db, config, logger, registry);
     this.availabilitySync = new JobAvailabilitySyncService(db, registry, logger);
-    const atsResolver = new AtsJobResolverService(
-      new JobSourceHttpClient({
-        timeoutMs: config.JOB_SOURCE_TIMEOUT_MS,
-        maxRetries: config.JOB_SOURCE_MAX_RETRIES,
-        userAgent: config.JOB_SOURCE_USER_AGENT,
-      }),
-    );
+    const sharedHttp = new JobSourceHttpClient({
+      timeoutMs: config.JOB_SOURCE_TIMEOUT_MS,
+      maxRetries: config.JOB_SOURCE_MAX_RETRIES,
+      userAgent: config.JOB_SOURCE_USER_AGENT,
+    });
+    const atsResolver = new AtsJobResolverService(sharedHttp);
+    this.applyUrlResolution = new ApplicationApplyUrlResolutionService(db, sharedHttp, logger);
     this.atsEnrichment = new ApplicationAtsEnrichmentService(db, atsResolver, logger);
     this.applicationPreparation = new ApplicationPreparationService(db);
     this.followUps = new ApplicationFollowUpService(db);
@@ -136,6 +143,7 @@ export class WorkerCycleService {
         collectionRuns: 0,
         resumed: 0,
         availability: null,
+        applyUrlResolution: null,
         atsEnrichment: null,
         preparation: null,
         followUps: null,
@@ -153,6 +161,13 @@ export class WorkerCycleService {
       await this.heartbeat('RUNNING', trigger, { stage: 'resume', resumed });
       const availability = await this.availabilitySync.run(this.config.JOB_STATUS_SYNC_BATCH_SIZE);
       await this.heartbeat('RUNNING', trigger, { stage: 'availability', availability });
+      const applyUrlResolution = await this.applyUrlResolution.resolvePending(
+        this.config.APPLICATION_PREPARATION_BATCH_SIZE,
+      );
+      await this.heartbeat('RUNNING', trigger, {
+        stage: 'apply-url-resolution',
+        applyUrlResolution,
+      });
       const atsEnrichment = await this.atsEnrichment.enrichPending(
         this.config.APPLICATION_PREPARATION_BATCH_SIZE,
       );
@@ -182,6 +197,7 @@ export class WorkerCycleService {
         collectionRuns: collectionRuns.length,
         resumed,
         availability,
+        applyUrlResolution,
         atsEnrichment,
         preparation,
         followUps,
@@ -193,6 +209,7 @@ export class WorkerCycleService {
         collectionRuns: collectionRuns.length,
         resumed,
         availability,
+        applyUrlResolution,
         atsEnrichment,
         preparation,
         followUps,
