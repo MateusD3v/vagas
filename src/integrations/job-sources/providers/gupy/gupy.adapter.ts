@@ -299,10 +299,11 @@ export class GupyJobSource implements JobSourceAdapter {
     );
 
     const jobs = parseToolResult(response);
-    const filtered = query?.publishedAfter
+    const publishedAfter = query?.publishedAfter;
+    const filtered = publishedAfter
       ? jobs.filter((job) => {
           const published = parseDate(job.publishedDate);
-          return !published || published >= query.publishedAfter!;
+          return !published || published >= publishedAfter;
         })
       : jobs;
     return filtered.slice(0, limit);
