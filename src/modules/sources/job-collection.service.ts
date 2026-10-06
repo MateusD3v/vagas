@@ -129,7 +129,10 @@ export class JobCollectionService {
         : {}),
     };
     const rotatesKeyword =
-      source.slug === 'remotive' || source.slug === 'jobicy' || source.slug === 'himalayas';
+      source.slug === 'remotive' ||
+      source.slug === 'jobicy' ||
+      source.slug === 'himalayas' ||
+      source.slug === 'gupy';
     const sourceKeywords = sourceSearchKeywords(source.slug, query.keywords);
     const selectedKeyword =
       rotatesKeyword && sourceKeywords.length
