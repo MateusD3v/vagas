@@ -29,6 +29,8 @@ services:
         value: 'true'
       - key: SOLIDES_ENABLED
         value: 'true'
+      - key: GUPY_ENABLED
+        value: 'true'
       - key: WORKER_MODE
         value: cron
       - key: WORKER_HEALTH_TTL_SECONDS
