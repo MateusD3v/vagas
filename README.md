@@ -13,7 +13,7 @@ src/
   integrations/
     job-sources/
       mock/                     fonte determinística
-      providers/                Remotive, Arbeitnow, Jobicy, Himalayas, Remote OK e We Work Remotely
+      providers/                Remotive, Arbeitnow, Jobicy, Himalayas, Remote OK, We Work Remotely e Sólides
       shared/                   HTTP, normalização e erros
       job-source.registry.ts
     llm/                        mock/OpenAI e validação
@@ -182,6 +182,10 @@ Após `SOURCE_FAILURE_THRESHOLD`, a fonte entra em cooldown por `SOURCE_COOLDOWN
 | `REMOTIVE_ENABLED`                         | `true`        | Adapter Remotive                                   |
 | `ARBEITNOW_ENABLED`                        | `true`        | Adapter Arbeitnow                                  |
 | `JOBICY_ENABLED`                           | `true`        | Adapter Jobicy                                     |
+| `HIMALAYAS_ENABLED`                        | `true`        | Adapter Himalayas                                  |
+| `REMOTEOK_ENABLED`                         | `true`        | Adapter Remote OK                                  |
+| `WEWORKREMOTELY_ENABLED`                   | `true`        | Adapter We Work Remotely                           |
+| `SOLIDES_ENABLED`                          | `true`        | Adapter público Sólides                            |
 | `SAFE_MODE`                                | `true`        | Proíbe futuras escritas externas                   |
 
 A lista completa está em `.env.example`. Nenhum segredo é salvo em `JobSource.configuration` ou logs.
@@ -223,6 +227,7 @@ Use health path `/health`. Não use hostname `postgres` fora do Compose; ele exi
 - Remotive, Jobicy e Himalayas alternam uma keyword por execução, em vez de disparar várias chamadas no mesmo ciclo; aliases comuns de cargos em português são convertidos para equivalentes em inglês e deduplicados apenas nessas fontes globais, sem alterar o perfil salvo.
 - Remote OK faz uma única leitura do feed por ciclo e aplica as keywords localmente. Quando o feed fornece um `apply_url` externo, ele é usado como URL de candidatura e a página da Remote OK permanece em `originalUrl`; o dashboard exibe `Ver na fonte` para preservar atribuição e link de volta.
 - We Work Remotely usa o RSS público oficial, também com uma leitura por ciclo, filtro local e atribuição/link de volta visíveis no dashboard.
+- Sólides usa somente páginas públicas de busca e os metadados estruturados `JobPosting` publicados nas páginas das vagas; não autentica candidato nem envia candidatura. A descoberta é limitada por localização e a leitura de detalhes é limitada a 12 vagas por ciclo.
 - O limite diário possui reserva atômica compartilhada, mas cada processo ainda limita apenas sua própria concorrência por execução; dimensione múltiplos workers com cautela para não sobrecarregar as fontes.
 - Jobicy usa confirmação explícita de `active/closed/unknown`; Remotive e Arbeitnow continuam usando ausência temporal (`lastSeenAt`) como evidência de `STALE`/`CLOSED`.
 - Notificações externas suportam webhook genérico, mas ainda não existem providers específicos de e-mail/Slack/Discord.
