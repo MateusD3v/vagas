@@ -17,11 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:generate
-      - name: Preview portal search test Prettier diff
-        run: |
-          npx prettier --write tests/portal-search-plan.test.ts
-          git diff -- tests/portal-search-plan.test.ts
-          git diff --exit-code -- tests/portal-search-plan.test.ts
+      - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
