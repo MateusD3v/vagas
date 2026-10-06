@@ -57,7 +57,7 @@ export class WorkerCycleService {
     private readonly config: Environment,
     private readonly logger: AppLogger,
     dependencies?: WorkerCycleDependencies,
-    private readonly ownerId = randomUUID(),
+    private readonly ownerId: string = randomUUID(),
   ) {
     if (dependencies) {
       this.collection = dependencies.collection;
