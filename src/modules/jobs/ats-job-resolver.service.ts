@@ -478,6 +478,7 @@ function breezyApplicantLocations(
     .filter((name): name is string => Boolean(name))
     .join(', ');
 }
+
 function genericJobPosting(values: unknown[]): z.infer<typeof genericJobPostingSchema> | undefined {
   for (const value of values) {
     const parsed = genericJobPostingSchema.safeParse(value);
