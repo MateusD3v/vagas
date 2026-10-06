@@ -15,13 +15,13 @@ interface AtsEnrichmentState {
 
 function jsonObject(value: Prisma.JsonValue): Prisma.JsonObject {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  return value as Prisma.JsonObject;
+  return value;
 }
 
 function readEnrichmentState(rawData: Prisma.JsonValue): AtsEnrichmentState | null {
   const value = jsonObject(rawData).atsEnrichment;
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const record = value as Prisma.JsonObject;
+  const record = value;
   return {
     applicationUrl: typeof record.applicationUrl === 'string' ? record.applicationUrl : undefined,
     checkedAt: typeof record.checkedAt === 'string' ? record.checkedAt : undefined,
@@ -37,7 +37,7 @@ function shouldRefresh(rawData: Prisma.JsonValue, applicationUrl: string, now: D
 }
 
 function inputJsonObject(value: Prisma.JsonValue): Prisma.InputJsonObject {
-  return jsonObject(value) as Prisma.InputJsonObject;
+  return jsonObject(value);
 }
 
 function resolvedMetadata(
