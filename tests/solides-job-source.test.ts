@@ -15,7 +15,7 @@ describe('Sólides public job source', () => {
       "@type": "JobPosting",
       "identifier": {"@type": "PropertyValue", "name": "Sólides", "value": "739158"},
       "title": "Assistente de Suporte TI",
-      "description": "<p>Atendimento de suporte, Windows, redes, Git e APIs. Contratação CLT.</p>",
+      "description": "<p>Atendimento de suporte, Windows, redes, Git e REST API. Contratação CLT.</p>",
       "datePosted": "2026-10-06",
       "employmentType": "FULL_TIME",
       "hiringOrganization": {"@type": "Organization", "name": "Empresa Belém"},
