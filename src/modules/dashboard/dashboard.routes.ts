@@ -36,7 +36,7 @@ const dashboardHtml = `<!doctype html>
     .ok { color:#7ee787; }
     .warn { color:#f2cc60; }
     .bad { color:#ff7b72; }
-    .hidden { display:none; }
+    .hidden, .modal-backdrop.hidden { display:none; }
     .modal-backdrop { position:fixed; inset:0; background:rgba(3,7,18,.78); display:flex; align-items:center; justify-content:center; padding:20px; z-index:20; }
     .modal { width:min(760px,100%); max-height:85vh; overflow:auto; background:#11182b; border:1px solid #29324a; border-radius:16px; padding:18px; }
     .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
