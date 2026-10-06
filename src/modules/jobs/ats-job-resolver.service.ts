@@ -489,9 +489,7 @@ function genericJobPosting(values: unknown[]): z.infer<typeof genericJobPostingS
   return undefined;
 }
 
-function jobPostingLocation(
-  posting: z.infer<typeof genericJobPostingSchema>,
-): string | undefined {
+function jobPostingLocation(posting: z.infer<typeof genericJobPostingSchema>): string | undefined {
   const requirements = breezyApplicantLocations(posting.applicantLocationRequirements);
   const locations = posting.jobLocation
     ? (Array.isArray(posting.jobLocation) ? posting.jobLocation : [posting.jobLocation])
@@ -502,9 +500,7 @@ function jobPostingLocation(
   return requirements || locations || undefined;
 }
 
-function normalizedEmploymentType(
-  value: string | string[] | null | undefined,
-): string | undefined {
+function normalizedEmploymentType(value: string | string[] | null | undefined): string | undefined {
   if (Array.isArray(value)) return value.filter(Boolean).join(' / ') || undefined;
   return value?.trim() || undefined;
 }
