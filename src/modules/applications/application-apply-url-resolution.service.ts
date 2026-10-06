@@ -48,7 +48,9 @@ function externalApplyUrlFromRemotive(html: string, pageUrl: string): string | n
 
   while ((match = anchorPattern.exec(html))) {
     const href = decodeHtmlAttribute(match[1] ?? '');
-    const label = stripHtml(match[2] ?? '').trim().toLowerCase();
+    const label = stripHtml(match[2] ?? '')
+      .trim()
+      .toLowerCase();
     if (!label.includes('apply for this position')) continue;
 
     try {
