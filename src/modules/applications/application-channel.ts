@@ -14,6 +14,9 @@ export type ApplicationPlatform =
   | 'GUPY'
   | 'SOLIDES'
   | 'GLASSDOOR'
+  | 'VAGASCOM'
+  | 'INFOJOBS'
+  | 'CATHO'
   | 'OTHER';
 
 export type ApplicationFlow = 'FAST_APPLY' | 'ATS' | 'MANUAL';
@@ -93,6 +96,30 @@ export function classifyApplicationChannel(
     normalizedSource.includes('glassdoor')
   ) {
     return { platform: 'GLASSDOOR', flow: 'MANUAL', label: 'Glassdoor' };
+  }
+
+  if (
+    host === 'vagas.com.br' ||
+    host.endsWith('.vagas.com.br') ||
+    normalizedSource.includes('vagas.com')
+  ) {
+    return { platform: 'VAGASCOM', flow: 'MANUAL', label: 'Vagas.com.br' };
+  }
+
+  if (
+    host === 'infojobs.com.br' ||
+    host.endsWith('.infojobs.com.br') ||
+    normalizedSource.includes('infojobs')
+  ) {
+    return { platform: 'INFOJOBS', flow: 'MANUAL', label: 'InfoJobs' };
+  }
+
+  if (
+    host === 'catho.com.br' ||
+    host.endsWith('.catho.com.br') ||
+    normalizedSource.includes('catho')
+  ) {
+    return { platform: 'CATHO', flow: 'MANUAL', label: 'Catho' };
   }
 
   if (host.includes('greenhouse.io') || host.includes('greenhouse.com')) {

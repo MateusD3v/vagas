@@ -114,11 +114,11 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 ## Buscas assistidas em portais restritos
 
 - Endpoint interno: `GET /portal-search-plan`, protegido por `X-Admin-Key`.
-- Gera links de busca do LinkedIn, Indeed e Glassdoor a partir de até quatro keywords e duas localizações do `JobSearchProfile`.
+- Gera links de busca do LinkedIn, Indeed, Glassdoor, Vagas.com.br, InfoJobs e Catho a partir de até quatro keywords e duas localizações do `JobSearchProfile`.
 - Localizações genéricas como `Remoto` não substituem cidades quando Belém/Ananindeua já existem no perfil.
 - O endpoint não consulta, raspa nem autentica nos portais; ele apenas monta URLs de pesquisa de usuário.
 - Depois de abrir uma vaga, o dashboard reutiliza o fluxo existente **Adicionar vaga externa** para resolver dados públicos de ATS suportados, executar matching e preparar a candidatura.
-- Em URLs individuais de LinkedIn, Indeed e Glassdoor, o resolvedor pode fazer uma única leitura da página pública e aproveitar `JobPosting` JSON-LD quando publicado. Não há varredura de resultados, login, retry agressivo, CAPTCHA bypass ou tentativa de contornar HTTP 401/403.
+- Em URLs individuais de LinkedIn, Indeed, Glassdoor, Vagas.com.br, InfoJobs e Catho, o resolvedor pode fazer uma única leitura da página pública e aproveitar `JobPosting` JSON-LD quando publicado. Não há varredura de resultados, login, retry agressivo, CAPTCHA bypass ou tentativa de contornar HTTP 401/403.
 - O plano não marca nenhuma vaga como encontrada nem cria candidatura antes de uma URL real ser importada.
 
 ## Portais principais com acesso restrito — TRACKED
@@ -144,6 +144,27 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Estado: canal reconhecido como `MANUAL`.
 - Não há credencial oficial de busca configurada no projeto. Enquanto isso, URLs do Glassdoor podem ser importadas manualmente e classificadas corretamente.
 - O projeto não implementa scraping ou submissão automática presumida para substituir uma integração oficial.
+
+### Vagas.com.br
+
+- Estado: canal assistido; não existe adapter de coleta automática no projeto.
+- Páginas públicas de busca por cargo/localização podem ser abertas diretamente pelo plano de buscas.
+- URLs individuais podem ser importadas e o resolvedor aproveita apenas `JobPosting` público quando disponível.
+- Nenhuma conta, candidatura ou navegação autenticada é automatizada.
+
+### InfoJobs
+
+- Estado: canal assistido; busca pública por termo/localização, sem coleta em lote.
+- Subdomínios de empresas como `*.pandape.infojobs.com.br` são reconhecidos como InfoJobs.
+- A candidatura pode exigir conta no portal; o projeto não tenta contornar login nem CAPTCHA.
+- URLs individuais usam somente metadados públicos estruturados quando existirem.
+
+### Catho
+
+- Estado: canal assistido; páginas públicas de busca e de algumas vagas podem ser abertas sem sessão.
+- Cadastro pode ser exigido para candidatura ou informações adicionais.
+- O projeto não automatiza autenticação nem submissão na Catho.
+- URLs individuais usam somente conteúdo público estruturado; bloqueio/login mantém o fluxo manual.
 
 ## Mock Job Source — DEVELOPMENT
 

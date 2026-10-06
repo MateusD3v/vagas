@@ -28,6 +28,9 @@ describe('dashboard de fontes', () => {
       expect(response.body).toContain('LinkedIn');
       expect(response.body).toContain('Indeed');
       expect(response.body).toContain('Glassdoor');
+      expect(response.body).toContain('Vagas.com.br');
+      expect(response.body).toContain('InfoJobs');
+      expect(response.body).toContain('Catho');
       expect(response.body).toContain('Painel web do pipeline de vagas e candidaturas');
       expect(response.body).toContain('Fontes de vagas');
       expect(response.body).toContain('Executar coleta agora');

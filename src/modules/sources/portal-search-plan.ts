@@ -1,4 +1,5 @@
-export type AssistedPortal = 'LINKEDIN' | 'INDEED' | 'GLASSDOOR';
+export type AssistedPortal =
+  'LINKEDIN' | 'INDEED' | 'GLASSDOOR' | 'VAGASCOM' | 'INFOJOBS' | 'CATHO';
 
 export interface PortalSearchProfileInput {
   keywords: string[];
@@ -44,6 +45,34 @@ function encode(value: string): string {
   return encodeURIComponent(value);
 }
 
+function slugify(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function infoJobsTerm(value: string): string {
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '+')
+    .replace(/^\++|\++$/g, '');
+  return encodeURIComponent(normalized);
+}
+
+function infoJobsLocation(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = slugify(value);
+  if (normalized === 'belem') return 'belem%2C-pa';
+  if (normalized === 'ananindeua') return 'ananindeua%2C-pa';
+  return undefined;
+}
+
 function linkedinUrl(query: string, location?: string): string {
   const params = new URLSearchParams({ keywords: query });
   if (location) params.set('location', location);
@@ -61,6 +90,35 @@ function glassdoorUrl(query: string, location?: string): string {
   return `https://www.glassdoor.com.br/Vaga/index.htm?sc.keyword=${encode(
     `${query}${locationTerm}`,
   )}`;
+}
+
+function vagasComUrl(query: string, location?: string): string {
+  const querySlug = slugify(query);
+  const locationSlug = location ? slugify(location) : '';
+  return locationSlug
+    ? `https://www.vagas.com.br/vagas-de-${querySlug}-em-${locationSlug}`
+    : `https://www.vagas.com.br/vagas-de-${querySlug}`;
+}
+
+function infoJobsUrl(query: string, location?: string): string {
+  const term = infoJobsTerm(query);
+  const locationPart = infoJobsLocation(location);
+  return locationPart
+    ? `https://www.infojobs.com.br/vagas-de-emprego-${term}-em-${locationPart}.aspx`
+    : `https://www.infojobs.com.br/vagas-de-emprego-${term}.aspx`;
+}
+
+function cathoUrl(query: string, location?: string): string {
+  const querySlug = slugify(query);
+  const locationSlug = location ? slugify(location) : '';
+  const locationPart = locationSlug
+    ? locationSlug === 'belem' || locationSlug === 'ananindeua'
+      ? `${locationSlug}-pa`
+      : locationSlug
+    : '';
+  return locationPart
+    ? `https://www.catho.com.br/vagas/${querySlug}/${locationPart}/`
+    : `https://www.catho.com.br/vagas/${querySlug}/`;
 }
 
 export function buildPortalSearchPlan(
@@ -95,6 +153,27 @@ export function buildPortalSearchPlan(
         query,
         ...(location ? { location } : {}),
         url: glassdoorUrl(query, location),
+      });
+      links.push({
+        portal: 'VAGASCOM',
+        label: location ? `${query} · ${location}` : query,
+        query,
+        ...(location ? { location } : {}),
+        url: vagasComUrl(query, location),
+      });
+      links.push({
+        portal: 'INFOJOBS',
+        label: location ? `${query} · ${location}` : query,
+        query,
+        ...(location ? { location } : {}),
+        url: infoJobsUrl(query, location),
+      });
+      links.push({
+        portal: 'CATHO',
+        label: location ? `${query} · ${location}` : query,
+        query,
+        ...(location ? { location } : {}),
+        url: cathoUrl(query, location),
       });
     }
   }
