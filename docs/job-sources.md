@@ -118,6 +118,7 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Localizações genéricas como `Remoto` não substituem cidades quando Belém/Ananindeua já existem no perfil.
 - O endpoint não consulta, raspa nem autentica nos portais; ele apenas monta URLs de pesquisa de usuário.
 - Depois de abrir uma vaga, o dashboard reutiliza o fluxo existente **Adicionar vaga externa** para resolver dados públicos de ATS suportados, executar matching e preparar a candidatura.
+- Em URLs individuais de LinkedIn, Indeed e Glassdoor, o resolvedor pode fazer uma única leitura da página pública e aproveitar `JobPosting` JSON-LD quando publicado. Não há varredura de resultados, login, retry agressivo, CAPTCHA bypass ou tentativa de contornar HTTP 401/403.
 - O plano não marca nenhuma vaga como encontrada nem cria candidatura antes de uma URL real ser importada.
 
 ## Portais principais com acesso restrito — TRACKED
