@@ -280,6 +280,53 @@ const pinpointFeedSchema = z.object({
   data: z.array(pinpointPostingSchema),
 });
 
+const breezyCountrySchema = z.union([
+  z.string().min(1),
+  z.object({ name: z.string().min(1) }).passthrough(),
+]);
+
+const breezyPostalAddressSchema = z
+  .object({
+    addressCountry: breezyCountrySchema.nullish(),
+    addressRegion: z.string().nullish(),
+    addressLocality: z.string().nullish(),
+  })
+  .passthrough();
+
+const breezyPlaceSchema = z
+  .object({
+    address: breezyPostalAddressSchema.nullish(),
+  })
+  .passthrough();
+
+const breezyLocationRequirementSchema = z
+  .object({
+    name: z.string().nullish(),
+  })
+  .passthrough();
+
+const breezyJobPostingSchema = z
+  .object({
+    '@type': z.literal('JobPosting'),
+    title: z.string().min(1),
+    description: z.string().default(''),
+    datePosted: z.string().nullish(),
+    employmentType: z.union([z.string(), z.array(z.string())]).nullish(),
+    hiringOrganization: z
+      .object({
+        name: z.string().min(1),
+      })
+      .passthrough()
+      .nullish(),
+    jobLocation: z.union([breezyPlaceSchema, z.array(breezyPlaceSchema)]).nullish(),
+    applicantLocationRequirements: z
+      .union([breezyLocationRequirementSchema, z.array(breezyLocationRequirementSchema)])
+      .nullish(),
+    jobLocationType: z.string().nullish(),
+    url: z.string().url().nullish(),
+  })
+  .passthrough();
+
 export interface ResolvedJobUrl {
   supported: boolean;
   platform: string;
@@ -353,6 +400,64 @@ function extractXmlBlocks(xml: string, tag: string): string[] {
   const pattern = '<' + tag + '(?:\\s[^>]*)?>[\\s\\S]*?<\\/' + tag + '>';
   return xml.match(new RegExp(pattern, 'gi')) ?? [];
 }
+
+function extractJsonLdValues(html: string): unknown[] {
+  const pattern =
+    /<script\\b[^>]*type=["']application\\/ld\\+json["'][^>]*>([\\s\\S]*?)<\\/script>/gi;
+  const values: unknown[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(html))) {
+    try {
+      const parsed: unknown = JSON.parse(match[1] ?? '');
+      if (Array.isArray(parsed)) {
+        values.push(...parsed);
+        continue;
+      }
+      if (parsed && typeof parsed === 'object') {
+        const graph = (parsed as { '@graph'?: unknown }).['@graph'];
+        if (Array.isArray(graph)) values.push(...graph);
+        values.push(parsed);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return values;
+}
+
+function breezyCountryName(value: z.infer<typeof breezyCountrySchema> | null | undefined): string {
+  if (!value) return '';
+  return typeof value === 'string' ? value : value.name;
+}
+
+function breezyPlaceName(value: z.infer<typeof breezyPlaceSchema> | undefined): string {
+  const address = value?.address;
+  if (!address) return '';
+  return [
+    address.addressLocality,
+    address.addressRegion,
+    breezyCountryName(address.addressCountry),
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(', ');
+}
+
+function breezyApplicantLocations(
+  value:
+    | z.infer<typeof breezyLocationRequirementSchema>
+    | Array<z.infer<typeof breezyLocationRequirementSchema>>
+    | null
+    | undefined,
+): string {
+  if (!value) return '';
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .map((item) => item.name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .join(', ');
+}
 export class AtsJobResolverService {
   constructor(private readonly http: JobSourceHttpClient) {}
 
@@ -388,6 +493,9 @@ export class AtsJobResolverService {
     }
     if (host.endsWith('.pinpointhq.com')) {
       return this.resolvePinpoint(url, channel.flow);
+    }
+    if (host.endsWith('.breezy.hr')) {
+      return this.resolveBreezy(url, channel.flow);
     }
     if (host.includes('linkedin.com') || host.includes('indeed.com')) {
       return {
@@ -899,6 +1007,81 @@ export class AtsJobResolverService {
       },
       missingFields: ['company', ...(description ? [] : ['description'])],
       message: 'Dados públicos da vaga Pinpoint carregados; confirme a empresa antes de importar.',
+    };
+  }
+
+  private async resolveBreezy(
+    url: URL,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    const html = await this.http.getText(url.toString(), {
+      source: 'breezy-resolver',
+      requestsPerSecond: 1,
+      headers: { Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' },
+    });
+
+    const posting = extractJsonLdValues(html)
+      .map((value) => breezyJobPostingSchema.safeParse(value))
+      .find((result) => result.success)?.data;
+
+    if (!posting) {
+      return {
+        supported: false,
+        platform: 'BREEZY',
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message: 'A página pública Breezy não publicou um JobPosting estruturado reconhecível.',
+      };
+    }
+
+    const description = stripHtml(posting.description).trim();
+    const company = posting.hiringOrganization?.name;
+    const places = posting.jobLocation
+      ? Array.isArray(posting.jobLocation)
+        ? posting.jobLocation
+        : [posting.jobLocation]
+      : [];
+    const physicalLocation = places.map(breezyPlaceName).filter(Boolean).join(' / ');
+    const applicantLocation = breezyApplicantLocations(posting.applicantLocationRequirements);
+    const telecommute = posting.jobLocationType?.toUpperCase() === 'TELECOMMUTE';
+    const location = telecommute
+      ? applicantLocation || physicalLocation
+      : physicalLocation || applicantLocation;
+    const employmentType = Array.isArray(posting.employmentType)
+      ? posting.employmentType.join(' / ')
+      : posting.employmentType ?? undefined;
+    const publishedAt =
+      posting.datePosted && !Number.isNaN(Date.parse(posting.datePosted))
+        ? new Date(posting.datePosted).toISOString()
+        : undefined;
+    const parts = url.pathname.split('/').filter(Boolean);
+    const postingIndex = parts.findIndex((part) => part === 'p');
+    const externalId = postingIndex >= 0 ? parts[postingIndex + 1] : undefined;
+
+    return {
+      supported: true,
+      platform: 'BREEZY',
+      flow: 'ATS',
+      data: {
+        externalId,
+        title: posting.title,
+        company,
+        description: description || posting.title,
+        location: location || undefined,
+        remoteType: telecommute
+          ? 'REMOTE'
+          : remoteTypeFromText(`${posting.jobLocationType ?? ''} ${location}`),
+        employmentType,
+        applicationUrl: canonicalPublicUrl(url.toString()),
+        publishedAt,
+      },
+      missingFields: [
+        ...(company ? [] : ['company']),
+        ...(description ? [] : ['description']),
+      ],
+      message: company
+        ? undefined
+        : 'Dados públicos da vaga Breezy carregados; confirme a empresa antes de importar.',
     };
   }
 
