@@ -84,6 +84,20 @@ const sourceDefinitions = [
       recommendedPolling: 'few-times-per-day',
     },
   },
+  {
+    name: 'Sólides Vagas',
+    slug: 'solides',
+    type: 'ATS' as const,
+    baseUrl: 'https://vagas.solides.com.br/vagas/todas',
+    configuration: {
+      authentication: 'none',
+      publicPagesOnly: true,
+      structuredData: 'JobPosting',
+      filtering: 'local-keywords',
+      maxDetailsPerRun: 12,
+      recommendedPolling: 'few-times-per-day',
+    },
+  },
 ];
 
 async function seedSources() {
