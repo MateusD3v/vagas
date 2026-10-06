@@ -139,10 +139,7 @@ export class WorkerCycleService {
     });
   }
 
-  async recoverInterruptedCycle(
-    processStartedAt: Date,
-    now = new Date(),
-  ): Promise<boolean> {
+  async recoverInterruptedCycle(processStartedAt: Date, now = new Date()): Promise<boolean> {
     if (now.getTime() - processStartedAt.getTime() < WORKER_RESTART_RECOVERY_GRACE_MS) {
       return false;
     }
