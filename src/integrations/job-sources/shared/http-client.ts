@@ -57,6 +57,24 @@ export class JobSourceHttpClient {
     return this.textRequestWithRetry(url, options, 'GET');
   }
 
+  async getFinalUrl(url: string, options: HttpRequestOptions): Promise<string> {
+    let lastError: JobSourceError | null = null;
+    for (let attempt = 0; attempt <= this.config.maxRetries; attempt += 1) {
+      if (attempt > 0 && lastError) {
+        const delay = lastError.retryAfterMs ?? 1000 * 3 ** (attempt - 1);
+        await this.sleep(delay);
+      }
+      try {
+        await this.enforceRateLimit(options.source, options.requestsPerSecond ?? 1);
+        return await this.requestFinalUrl(url, options);
+      } catch (error) {
+        lastError = normalizeSourceError(error);
+        if (!lastError.retryable || attempt === this.config.maxRetries) throw lastError;
+      }
+    }
+    throw lastError ?? new JobSourceError('Falha inesperada na fonte', 'UNKNOWN', false);
+  }
+
   async postText(url: string, body: unknown, options: HttpRequestOptions): Promise<string> {
     return this.textRequestWithRetry(url, options, 'POST', JSON.stringify(body));
   }
@@ -90,6 +108,34 @@ export class JobSourceHttpClient {
     const wait = interval - (Date.now() - previous);
     if (wait > 0) await this.sleep(wait);
     this.lastRequestAt.set(source, Date.now());
+  }
+
+  private async requestFinalUrl(url: string, options: HttpRequestOptions): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    try {
+      const response = await this.fetchImplementation(url, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+          'User-Agent': this.config.userAgent,
+          ...options.headers,
+        },
+      });
+      this.assertSuccessfulResponse(response);
+      const finalUrl = response.url || url;
+      await response.body?.cancel().catch(() => undefined);
+      return finalUrl;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new JobSourceError('Tempo limite da fonte excedido', 'TIMEOUT', true);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async requestText(

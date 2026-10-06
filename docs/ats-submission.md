@@ -66,6 +66,7 @@ Referências:
 - Antes do enriquecimento ATS, o worker tenta substituir páginas intermediárias por um destino direto somente quando isso pode ser comprovado por dados públicos.
 - Para Remote OK, vagas antigas podem reutilizar o `rawData.applyUrl` que já veio do feed oficial; a página da Remote OK permanece em `originalUrl`.
 - Para Remotive, a página pública da vaga é lida e apenas um link externo rotulado como candidatura é promovido para `applicationUrl`; falhas e ausência de link entram em cache por 24 horas.
+- Para Arbeitnow, o worker acessa somente o endpoint público `.../apply` da vaga e segue redirects HTTP normais até o URL final; o link original do Arbeitnow permanece em `originalUrl`. Destinos Greenhouse/Ashby seguem para enriquecimento ATS; outros destinos externos permanecem assistidos.
 - Breezy HR passa a ser reconhecido como ATS quando um link direto `*.breezy.hr` é encontrado, mas nenhuma API autenticada da organização é usada.
 - Jobicy e We Work Remotely não são contornados quando o acesso ao destino exige login; o fluxo permanece manual nesses casos.
 - Essa etapa nunca envia formulário, cria conta, contorna CAPTCHA ou altera `SAFE_MODE`.

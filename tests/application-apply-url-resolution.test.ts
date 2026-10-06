@@ -23,7 +23,7 @@ function jobUpdateMock() {
 }
 
 function fixture(
-  source: 'remoteok' | 'remotive',
+  source: 'remoteok' | 'remotive' | 'arbeitnow',
   applicationUrl: string,
   rawData: Record<string, unknown> = {},
 ) {
@@ -58,10 +58,11 @@ describe('ApplicationApplyUrlResolutionService', () => {
       auditLog: { create: audit },
     } as unknown as PrismaClient;
     const getText = vi.fn();
+    const getFinalUrl = vi.fn();
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
-      { getText },
+      { getText, getFinalUrl },
       logger,
     ).resolvePending(5);
 
@@ -99,10 +100,11 @@ describe('ApplicationApplyUrlResolutionService', () => {
       .mockResolvedValue(
         '<html><a href="https://unio-digital.breezy.hr/p/abc-role">Apply for this position</a></html>',
       );
+    const getFinalUrl = vi.fn();
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
-      { getText },
+      { getText, getFinalUrl },
       logger,
     ).resolvePending(5);
 
@@ -135,10 +137,11 @@ describe('ApplicationApplyUrlResolutionService', () => {
     const getText = vi
       .fn()
       .mockResolvedValue('<a href="/remote-jobs/example">Apply for this position</a>');
+    const getFinalUrl = vi.fn();
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
-      { getText },
+      { getText, getFinalUrl },
       logger,
     ).resolvePending(5);
 
@@ -153,9 +156,119 @@ describe('ApplicationApplyUrlResolutionService', () => {
     });
   });
 
+  it('resolve o endpoint /apply público do Arbeitnow para Greenhouse', async () => {
+    const update = jobUpdateMock();
+    const audit = vi.fn().mockResolvedValue({});
+    const sourceUrl =
+      'https://www.arbeitnow.fr/jobs/companies/shifttechnology/junior-backend-developer-c-net-paris-113660';
+    const db = {
+      application: {
+        findMany: vi.fn().mockResolvedValue([fixture('arbeitnow', sourceUrl)]),
+      },
+      job: { update },
+      auditLog: { create: audit },
+    } as unknown as PrismaClient;
+    const getText = vi.fn();
+    const getFinalUrl = vi
+      .fn()
+      .mockResolvedValue(
+        'https://job-boards.greenhouse.io/shifttechnology/jobs/8010298003?utm_source=arbeitnow.fr',
+      );
+
+    const result = await new ApplicationApplyUrlResolutionService(
+      db,
+      { getText, getFinalUrl },
+      logger,
+    ).resolvePending(5);
+
+    expect(result).toMatchObject({ attempted: 1, resolved: 1, failed: 0 });
+    expect(getText).not.toHaveBeenCalled();
+    expect(getFinalUrl).toHaveBeenCalledWith(sourceUrl + '/apply', {
+      source: 'arbeitnow-apply-url-resolver',
+      requestsPerSecond: 1,
+    });
+    expect(update.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        applicationUrl:
+          'https://job-boards.greenhouse.io/shifttechnology/jobs/8010298003?utm_source=arbeitnow.fr',
+        originalUrl: sourceUrl,
+      },
+    });
+    expect(audit).toHaveBeenCalledOnce();
+  });
+
+  it('resolve o endpoint /apply público do Arbeitnow para Ashby', async () => {
+    const update = jobUpdateMock();
+    const sourceUrl =
+      'https://www.arbeitnow.fr/jobs/companies/escape/junior-full-stack-engineer-ai-security-paris-149930';
+    const db = {
+      application: {
+        findMany: vi.fn().mockResolvedValue([fixture('arbeitnow', sourceUrl)]),
+      },
+      job: { update },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    } as unknown as PrismaClient;
+    const getText = vi.fn();
+    const getFinalUrl = vi
+      .fn()
+      .mockResolvedValue(
+        'https://jobs.ashbyhq.com/escape/8a939b02-1fd2-4c57-9564-4f691d9fbbce/application',
+      );
+
+    const result = await new ApplicationApplyUrlResolutionService(
+      db,
+      { getText, getFinalUrl },
+      logger,
+    ).resolvePending(5);
+
+    expect(result).toMatchObject({ attempted: 1, resolved: 1, failed: 0 });
+    expect(update.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        applicationUrl:
+          'https://jobs.ashbyhq.com/escape/8a939b02-1fd2-4c57-9564-4f691d9fbbce/application',
+        originalUrl: sourceUrl,
+      },
+    });
+  });
+
+  it('mantém JOIN como link externo resolvido mesmo sem enriquecimento ATS', async () => {
+    const update = jobUpdateMock();
+    const sourceUrl =
+      'https://www.arbeitnow.com/jobs/companies/fastrocket-gmbh/full-stack-softwareentwickler-react-nextjs-oder-angular-nestjs-nodejs-100-remote-regen-7823';
+    const db = {
+      application: {
+        findMany: vi.fn().mockResolvedValue([fixture('arbeitnow', sourceUrl)]),
+      },
+      job: { update },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    } as unknown as PrismaClient;
+    const getText = vi.fn();
+    const getFinalUrl = vi
+      .fn()
+      .mockResolvedValue(
+        'https://join.com/companies/fastrocket/16794138-full-stack-softwareentwickler',
+      );
+
+    const result = await new ApplicationApplyUrlResolutionService(
+      db,
+      { getText, getFinalUrl },
+      logger,
+    ).resolvePending(5);
+
+    expect(result).toMatchObject({ attempted: 1, resolved: 1, failed: 0 });
+    expect(update.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        applicationUrl:
+          'https://join.com/companies/fastrocket/16794138-full-stack-softwareentwickler',
+        originalUrl: sourceUrl,
+      },
+    });
+  });
+
   it('usa cache recente após tentativa sem resolução', async () => {
     const update = jobUpdateMock();
     const getText = vi.fn();
+    const getFinalUrl = vi.fn();
     const sourceUrl = 'https://remotive.com/remote-jobs/information-technology/example-1';
     const db = {
       application: {
@@ -175,7 +288,7 @@ describe('ApplicationApplyUrlResolutionService', () => {
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
-      { getText },
+      { getText, getFinalUrl },
       logger,
     ).resolvePending(5);
 

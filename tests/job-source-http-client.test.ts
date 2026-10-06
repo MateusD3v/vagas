@@ -104,6 +104,32 @@ describe('JobSourceHttpClient', () => {
     });
   });
 
+  it('retorna a URL final após redirects públicos', async () => {
+    const response = new Response('', { status: 200 });
+    Object.defineProperty(response, 'url', {
+      value: 'https://boards.greenhouse.io/acme/jobs/123',
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+    const client = new JobSourceHttpClient(
+      { timeoutMs: 1000, maxRetries: 0, userAgent: 'test-agent' },
+      fetchMock,
+      vi.fn(async () => Promise.resolve()),
+    );
+
+    await expect(
+      client.getFinalUrl('https://example.test/apply', {
+        source: 'redirect-test',
+      }),
+    ).resolves.toBe('https://boards.greenhouse.io/acme/jobs/123');
+
+    const request = fetchMock.mock.calls[0]?.[1];
+    expect(request?.method).toBe('GET');
+    expect(request?.redirect).toBe('follow');
+    expect(request?.headers).toMatchObject({
+      'User-Agent': 'test-agent',
+    });
+  });
+
   it('envia POST de texto com JSON, headers e rate limit compartilhado', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response('event: message\ndata: {"ok":true}\n\n', {
