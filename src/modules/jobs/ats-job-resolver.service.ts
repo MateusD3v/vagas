@@ -437,11 +437,7 @@ function breezyCountryName(value: z.infer<typeof breezyCountrySchema> | null | u
 function breezyPlaceName(value: z.infer<typeof breezyPlaceSchema> | undefined): string {
   const address = value?.address;
   if (!address) return '';
-  return [
-    address.addressLocality,
-    address.addressRegion,
-    breezyCountryName(address.addressCountry),
-  ]
+  return [address.addressLocality, address.addressRegion, breezyCountryName(address.addressCountry)]
     .filter((part): part is string => Boolean(part))
     .join(', ');
 }
@@ -1051,7 +1047,7 @@ export class AtsJobResolverService {
       : physicalLocation || applicantLocation;
     const employmentType = Array.isArray(posting.employmentType)
       ? posting.employmentType.join(' / ')
-      : posting.employmentType ?? undefined;
+      : (posting.employmentType ?? undefined);
     const publishedAt =
       posting.datePosted && !Number.isNaN(Date.parse(posting.datePosted))
         ? new Date(posting.datePosted).toISOString()
@@ -1077,10 +1073,7 @@ export class AtsJobResolverService {
         applicationUrl: canonicalPublicUrl(url.toString()),
         publishedAt,
       },
-      missingFields: [
-        ...(company ? [] : ['company']),
-        ...(description ? [] : ['description']),
-      ],
+      missingFields: [...(company ? [] : ['company']), ...(description ? [] : ['description'])],
       message: company
         ? undefined
         : 'Dados públicos da vaga Breezy carregados; confirme a empresa antes de importar.',
