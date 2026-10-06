@@ -47,7 +47,10 @@ describe('application channel', () => {
     ).toEqual({ platform: 'GLASSDOOR', flow: 'MANUAL', label: 'Glassdoor' });
 
     expect(
-      classifyApplicationChannel('https://www.vagas.com.br/vagas/v1234567/analista-de-suporte', 'manual'),
+      classifyApplicationChannel(
+        'https://www.vagas.com.br/vagas/v1234567/analista-de-suporte',
+        'manual',
+      ),
     ).toEqual({ platform: 'VAGASCOM', flow: 'MANUAL', label: 'Vagas.com.br' });
 
     expect(
