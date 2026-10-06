@@ -20,10 +20,7 @@ const addressSchema = z
     addressLocality: z.string().nullish(),
     addressRegion: z.string().nullish(),
     addressCountry: z
-      .union([
-        z.string(),
-        z.object({ name: z.string().nullish() }).passthrough(),
-      ])
+      .union([z.string(), z.object({ name: z.string().nullish() }).passthrough()])
       .nullish(),
   })
   .passthrough();
@@ -195,12 +192,14 @@ function identifierValue(
   }
   const match = new URL(url).pathname.match(/\/vaga\/(\d+)/i);
   if (match?.[1]) return match[1];
-  throw new JobSourceError('Vaga da Sólides sem identificador utilizável', 'INVALID_RESPONSE', false);
+  throw new JobSourceError(
+    'Vaga da Sólides sem identificador utilizável',
+    'INVALID_RESPONSE',
+    false,
+  );
 }
 
-function countryName(
-  country: z.infer<typeof addressSchema>['addressCountry'],
-): string | undefined {
+function countryName(country: z.infer<typeof addressSchema>['addressCountry']): string | undefined {
   if (typeof country === 'string') return country.trim() || undefined;
   return country?.name?.trim() || undefined;
 }
@@ -216,9 +215,7 @@ function inferRemoteType(
   posting: z.infer<typeof jobPostingSchema>,
   description: string,
 ): RemoteType {
-  const text = normalizeText(
-    `${posting.jobLocationType ?? ''} ${posting.title} ${description}`,
-  );
+  const text = normalizeText(`${posting.jobLocationType ?? ''} ${posting.title} ${description}`);
   if (/\b(telecommute|remote|remoto|home office|home-office)\b/.test(text)) return 'REMOTE';
   if (/\b(hybrid|hibrido|hibrida)\b/.test(text)) return 'HYBRID';
   if (firstAddress(posting)) return 'ONSITE';
