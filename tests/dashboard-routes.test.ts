@@ -19,6 +19,10 @@ describe('dashboard de fontes', () => {
       expect(response.body).toContain('data-fast-kit');
       expect(response.body).toContain('Ver na fonte');
       expect(response.body).toContain('Portais principais');
+      expect(response.body).toContain('Buscas assistidas');
+      expect(response.body).toContain('id="portalSearchPlan"');
+      expect(response.body).toContain('renderPortalSearchPlan');
+      expect(response.body).toContain("api('/portal-search-plan')");
       expect(response.body).toContain('Gupy');
       expect(response.body).toContain('Sólides');
       expect(response.body).toContain('LinkedIn');
