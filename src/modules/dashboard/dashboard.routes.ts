@@ -268,11 +268,15 @@ const dashboardHtml = `<!doctype html>
   function applicationActions(item, compact = false) {
     const preparation = item.preparation;
     const applicationUrl = safeHttpUrl(item.job?.applicationUrl);
+    const sourceUrl = safeHttpUrl(item.job?.originalUrl);
     const channel = item.applicationChannel || { label: 'Externa', flow: 'MANUAL' };
     const openLabel = channel.flow === 'FAST_APPLY' ? 'Abrir candidatura rápida' : 'Abrir vaga';
     const actions = [
       applicationUrl
         ? '<a href="' + esc(applicationUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">' + esc(openLabel) + '</button></a>'
+        : '',
+      sourceUrl && sourceUrl !== applicationUrl
+        ? '<a href="' + esc(sourceUrl) + '" target="_blank" rel="noopener noreferrer"><button type="button">Ver na fonte</button></a>'
         : '',
       preparation
         ? '<button type="button" data-download-resume="' + esc(item.id) + '">Currículo</button>'

@@ -221,7 +221,7 @@ Use health path `/health`. Não use hostname `postgres` fora do Compose; ele exi
 - Um perfil operacional, embora as relações já sejam por candidato.
 - Arbeitnow pagina de forma limitada (até cinco páginas por execução) para manter coleta conservadora.
 - Remotive, Jobicy e Himalayas alternam uma keyword por execução, em vez de disparar várias chamadas no mesmo ciclo; aliases comuns de cargos em português são convertidos para equivalentes em inglês e deduplicados apenas nessas fontes globais, sem alterar o perfil salvo.
-- Remote OK faz uma única leitura do feed por ciclo e aplica as keywords localmente, preservando a atribuição e o link de volta exigidos pela fonte.
+- Remote OK faz uma única leitura do feed por ciclo e aplica as keywords localmente. Quando o feed fornece um `apply_url` externo, ele é usado como URL de candidatura e a página da Remote OK permanece em `originalUrl`; o dashboard exibe `Ver na fonte` para preservar atribuição e link de volta.
 - We Work Remotely usa o RSS público oficial, também com uma leitura por ciclo, filtro local e atribuição/link de volta visíveis no dashboard.
 - O limite diário possui reserva atômica compartilhada, mas cada processo ainda limita apenas sua própria concorrência por execução; dimensione múltiplos workers com cautela para não sobrecarregar as fontes.
 - Jobicy usa confirmação explícita de `active/closed/unknown`; Remotive e Arbeitnow continuam usando ausência temporal (`lastSeenAt`) como evidência de `STALE`/`CLOSED`.

@@ -417,7 +417,7 @@ describe('Remote OK adapter', () => {
     location: 'Worldwide',
     salary_min: 45000,
     salary_max: 65000,
-    apply_url: 'https://remoteok.com/remote-jobs/remoteok-123',
+    apply_url: 'https://boards.greenhouse.io/example/jobs/123',
     original: true,
     logo: '',
     url: 'https://remoteok.com/remote-jobs/remoteok-123',
@@ -436,7 +436,7 @@ describe('Remote OK adapter', () => {
     expect(job.salaryMin).toBe(45000);
     expect(job.salaryMax).toBe(65000);
     expect(job.salaryCurrency).toBeUndefined();
-    expect(job.applicationUrl).toBe('https://remoteok.com/remote-jobs/remoteok-123');
+    expect(job.applicationUrl).toBe('https://boards.greenhouse.io/example/jobs/123');
     expect(job.originalUrl).toBe('https://remoteok.com/remote-jobs/remoteok-123');
     expect(job.rawData.attribution).toBe('Remote OK');
     expect(job.skills.map((skill) => skill.skill)).toEqual(
