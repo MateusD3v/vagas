@@ -64,9 +64,8 @@ describe('Gupy candidate MCP source', () => {
 
     expect(result).toHaveLength(1);
     expect(postText).toHaveBeenCalledOnce();
-    const [url, body, options] = postText.mock.calls[0] ?? [];
-    expect(url).toBe('https://candidates.mcp.api.gupy.io/mcp');
-    expect(body).toMatchObject({
+    expect(postText.mock.calls[0]?.[0]).toBe('https://candidates.mcp.api.gupy.io/mcp');
+    expect(postText.mock.calls[0]?.[1]).toMatchObject({
       jsonrpc: '2.0',
       method: 'tools/call',
       params: {
@@ -83,7 +82,7 @@ describe('Gupy candidate MCP source', () => {
         },
       },
     });
-    expect(options).toMatchObject({
+    expect(postText.mock.calls[0]?.[2]).toMatchObject({
       source: 'gupy',
       headers: {
         Accept: 'application/json, text/event-stream',
