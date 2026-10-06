@@ -71,6 +71,33 @@ const dashboardHtml = `<!doctype html>
     </div>
   </section>
 
+  <section id="gmailSection">
+    <h2>Candidaturas por Gmail</h2>
+    <div class="card">
+      <p id="gmailStatus" class="muted">Salve a chave para consultar a conexão.</p>
+      <div class="bar">
+        <button id="connectGmail" type="button">Conectar Gmail</button>
+        <button id="uploadResume" type="button">Enviar currículo PDF</button>
+        <button id="disconnectGmail" type="button">Desconectar Gmail</button>
+        <input id="resumePdf" class="hidden" type="file" accept="application/pdf,.pdf" />
+      </div>
+      <details>
+        <summary>Confirmar uma vaga que recebe currículo por e-mail</summary>
+        <p class="muted">Use o endereço e as instruções publicados no anúncio. Vagas que exigem candidatura no portal continuam no fluxo assistido.</p>
+        <form id="emailTargetForm" class="form-grid">
+          <label>Vaga<select id="emailApplication" required><option value="">Atualize o painel primeiro</option></select></label>
+          <label>E-mail do anúncio<input id="emailRecipient" type="email" required /></label>
+          <label>Link do anúncio<input id="emailEvidenceUrl" type="url" required /></label>
+          <label>Assunto exigido pelo anúncio<input id="emailSubject" maxlength="200" required /></label>
+          <label>Trecho que indica candidatura por e-mail<textarea id="emailEvidenceQuote" required maxlength="4000"></textarea></label>
+          <label>Mensagem da candidatura<textarea id="emailBody" required maxlength="8000"></textarea></label>
+          <label class="check"><input id="emailChannelConfirmed" type="checkbox" required />Confirmo que o anúncio aceita candidaturas neste e-mail e autorizo esta mensagem.</label>
+          <button type="submit">Salvar para envio automático</button>
+        </form>
+      </details>
+    </div>
+  </section>
+
   <section>
     <h2>Portais principais</h2>
     <div class="grid">
@@ -416,7 +443,7 @@ const dashboardHtml = `<!doctype html>
     statusEl.textContent = 'Carregando...';
     statusEl.className = 'muted';
     try {
-      const [health, stats, readiness, applications, sources, runs, audit, portalSearchPlan] =
+      const [health, stats, readiness, applications, sources, runs, audit, portalSearchPlan, gmail] =
         await Promise.all([
           api('/health'),
           api('/stats'),
@@ -426,6 +453,7 @@ const dashboardHtml = `<!doctype html>
           api('/collection-runs?pageSize=10'),
           api('/audit-logs?pageSize=12'),
           api('/portal-search-plan').catch(() => ({ links: [] })),
+          api('/integrations/gmail/status').catch(() => null),
         ]);
 
       document.getElementById('cards').innerHTML = [
@@ -453,6 +481,13 @@ const dashboardHtml = `<!doctype html>
         (recommendations.length ? '<p class="warn"><strong>Recomendado:</strong> ' + recommendations.map(esc).join(' · ') + '</p>' : '');
 
       cachedApplications = Array.isArray(applications.data) ? applications.data : [];
+      document.getElementById('gmailStatus').textContent = !gmail ? 'Não foi possível consultar a conexão Gmail.' : !gmail.configured
+        ? 'A configuração OAuth do Gmail ainda precisa ser concluída no servidor.'
+        : (gmail.connected ? 'Conta conectada: ' + gmail.account.accountEmail : 'Conecte a conta Gmail usada no perfil.') +
+          (gmail.resumeReady ? ' Currículo PDF carregado.' : ' Envie o currículo PDF.') +
+          (gmail.safeMode || !gmail.sendEnabled || !gmail.automaticEnabled ? ' Envio automático ainda desabilitado no servidor.' : ' Envio automático habilitado para vagas elegíveis com canal de e-mail confirmado.');
+      document.getElementById('emailApplication').innerHTML = '<option value="">Selecione a vaga</option>' +
+        cachedApplications.filter(item => !item.submittedAt && !item.submissionAttempt).map(item => '<option value="' + esc(item.id) + '">' + esc(item.job.title + ' · ' + item.job.company) + '</option>').join('');
       renderPortalSearchPlan(portalSearchPlan);
       renderActionQueue();
       renderApplications();
@@ -874,6 +909,57 @@ const dashboardHtml = `<!doctype html>
       statusEl.className = 'bad';
       target.removeAttribute('disabled');
     }
+  });
+
+  document.getElementById('connectGmail').addEventListener('click', async () => {
+    try {
+      const result = await api('/integrations/gmail/authorize', { method: 'POST' });
+      const url = new URL(result.url);
+      if (url.origin !== 'https://accounts.google.com') throw new Error('Endereço de autorização inválido');
+      window.location.assign(url.toString());
+    } catch (error) { statusEl.textContent = error.message; statusEl.className = 'bad'; }
+  });
+  document.getElementById('disconnectGmail').addEventListener('click', async () => {
+    try { await api('/integrations/gmail', { method: 'DELETE' }); await refresh(); }
+    catch (error) { statusEl.textContent = error.message; statusEl.className = 'bad'; }
+  });
+  document.getElementById('uploadResume').addEventListener('click', () => document.getElementById('resumePdf').click());
+  document.getElementById('resumePdf').addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error('O PDF deve ter no máximo 2 MB');
+      const contentBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = () => reject(new Error('Não foi possível ler o PDF'));
+        reader.readAsDataURL(file);
+      });
+      await api('/integrations/gmail/resume', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contentBase64 }) });
+      await refresh();
+      statusEl.textContent = 'Currículo PDF carregado.';
+    } catch (error) { statusEl.textContent = error.message; statusEl.className = 'bad'; }
+    finally { event.target.value = ''; }
+  });
+  document.getElementById('emailTargetForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = event.target.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      await api('/applications/' + encodeURIComponent(document.getElementById('emailApplication').value) + '/email-target', {
+        method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+          recipient: document.getElementById('emailRecipient').value.trim(),
+          subject: document.getElementById('emailSubject').value.trim(), body: document.getElementById('emailBody').value.trim(),
+          evidenceUrl: document.getElementById('emailEvidenceUrl').value.trim(),
+          evidenceQuote: document.getElementById('emailEvidenceQuote').value.trim(),
+          confirmedEmailChannel: document.getElementById('emailChannelConfirmed').checked,
+        }),
+      });
+      await refresh();
+      statusEl.textContent = 'Canal e mensagem salvos. A rotina enviará quando todas as condições estiverem prontas.';
+      statusEl.className = 'ok';
+    } catch (error) { statusEl.textContent = error.message; statusEl.className = 'bad'; }
+    finally { button.disabled = false; }
   });
 
   document.getElementById('exportProfile').addEventListener('click', async () => {

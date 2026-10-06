@@ -2,6 +2,8 @@ import pino from 'pino';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
 import { createJobSourceRegistry } from './integrations/job-sources/registry.factory.js';
+import { createSubmissionProviders } from './integrations/submission/submission.factory.js';
+import { ApplicationSubmissionService } from './modules/applications/application-submission.service.js';
 import { ApplicationPreparationService } from './modules/applications/application-preparation.service.js';
 import { JobAvailabilitySyncService } from './modules/maintenance/job-availability-sync.service.js';
 import { RetentionService } from './modules/maintenance/retention.service.js';
@@ -13,6 +15,12 @@ const sourceRegistry = createJobSourceRegistry(env);
 const collection = createCollectionService(prisma, env, logger, sourceRegistry);
 const availabilitySync = new JobAvailabilitySyncService(prisma, sourceRegistry, logger);
 const applicationPreparation = new ApplicationPreparationService(prisma);
+const applicationSubmission = new ApplicationSubmissionService(
+  prisma,
+  env.SAFE_MODE,
+  createSubmissionProviders(prisma, env),
+);
+let applicationCycleRunning = false;
 const retention = new RetentionService(
   prisma,
   env.COLLECTION_RUN_RETENTION_DAYS,
@@ -51,14 +59,25 @@ async function runMaintenance(): Promise<void> {
 }
 
 async function runApplicationPreparation(): Promise<void> {
-  const result = await applicationPreparation.preparePending(
-    env.APPLICATION_PREPARATION_BATCH_SIZE,
-  );
-  if (result.attempted || result.failed) {
-    logger.info(
-      { applicationPreparation: result },
-      'Preparação automática de candidaturas concluída',
-    );
+  if (applicationCycleRunning || stopping) return;
+  applicationCycleRunning = true;
+  try {
+    if (env.AUTO_PREPARE_APPLICATIONS) {
+      const result = await applicationPreparation.preparePending(
+        env.APPLICATION_PREPARATION_BATCH_SIZE,
+      );
+      if (result.attempted || result.failed)
+        logger.info({ applicationPreparation: result }, 'Preparação automática concluída');
+    }
+    if (env.AUTO_SUBMIT_APPLICATIONS && !env.SAFE_MODE) {
+      const submissions = await applicationSubmission.submitPending(
+        env.APPLICATION_PREPARATION_BATCH_SIZE,
+      );
+      if (submissions.attempted)
+        logger.info({ submissions }, 'Envio automático por canal autorizado concluído');
+    }
+  } finally {
+    applicationCycleRunning = false;
   }
 }
 
@@ -83,7 +102,7 @@ const maintenanceTimer = setInterval(
 );
 
 let applicationPreparationTimer: ReturnType<typeof setInterval> | null = null;
-if (env.AUTO_PREPARE_APPLICATIONS) {
+if (env.AUTO_PREPARE_APPLICATIONS || env.AUTO_SUBMIT_APPLICATIONS) {
   void runApplicationPreparation().catch((error: unknown) =>
     logger.error({ err: error }, 'Preparação automática de candidaturas falhou'),
   );

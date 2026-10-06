@@ -176,3 +176,33 @@ describe('WorkerCycleService', () => {
     expect(failedUpdate?.data.metadata).toMatchObject({ trigger: 'failure', error: 'boom' });
   });
 });
+
+it('envia após preparação somente quando a automação foi habilitada e SAFE_MODE está desligado', async () => {
+  const db = {
+    workerHeartbeat: {
+      upsert: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      update: vi.fn(),
+    },
+    application: { updateMany: vi.fn() },
+  } as unknown as PrismaClient;
+  const deps = dependencies();
+  deps.applicationSubmission = {
+    submitPending: vi.fn().mockResolvedValue({ attempted: 1, submitted: 1, blocked: 0 }),
+  };
+  const config = {
+    ...env,
+    AUTO_PREPARE_APPLICATIONS: true,
+    AUTO_SUBMIT_APPLICATIONS: true,
+    SAFE_MODE: false,
+  };
+  const result = await new WorkerCycleService(db, config, logger, deps).run('submission');
+  expect(result.submissions?.submitted).toBe(1);
+  expect(deps.applicationSubmission.submitPending).toHaveBeenCalledOnce();
+  expect(
+    vi.mocked(deps.applicationPreparation.preparePending).mock.invocationCallOrder[0],
+  ).toBeLessThan(vi.mocked(deps.applicationSubmission.submitPending).mock.invocationCallOrder[0]!);
+  vi.mocked(deps.applicationSubmission.submitPending).mockClear();
+  await new WorkerCycleService(db, { ...config, SAFE_MODE: true }, logger, deps).run('safe');
+  expect(deps.applicationSubmission.submitPending).not.toHaveBeenCalled();
+});

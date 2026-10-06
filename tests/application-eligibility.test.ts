@@ -32,6 +32,9 @@ function eligibleApplication() {
     },
     job: {
       id: 'job-1',
+      isActive: true,
+      status: 'ANALYZED',
+      matches: [{ candidateId: 'candidate-1', decision: 'APPLY', hardConstraints: [] as string[] }],
       source: 'remotive',
       title: 'Backend Junior',
       company: 'Tech Co',
@@ -96,4 +99,32 @@ describe('ApplicationEligibilityService', () => {
     expect(result.reasons.join(' | ')).toContain('Pacote possui informações pendentes');
     expect(result.reasons.join(' | ')).toContain('Limite diário atingido');
   });
+});
+
+describe('restrições obrigatórias de envio', () => {
+  it.each(['inactive', 'unanalysed', 'hardConstraint', 'noMatch', 'demo'] as const)(
+    'bloqueia %s mesmo com score alto e provider',
+    async (scenario) => {
+      const application = {
+        ...eligibleApplication(),
+        candidate: { ...eligibleApplication().candidate, isDemo: scenario === 'demo' },
+      };
+      if (scenario === 'inactive') application.job.isActive = false;
+      if (scenario === 'unanalysed') application.job.status = 'PENDING_ANALYSIS';
+      if (scenario === 'hardConstraint')
+        application.job.matches[0]!.hardConstraints = ['Formação obrigatória não atendida'];
+      if (scenario === 'noMatch') application.job.matches = [];
+      const db = {
+        application: {
+          findUnique: vi.fn().mockResolvedValue(application),
+          count: vi.fn().mockResolvedValue(0),
+        },
+      } as unknown as PrismaClient;
+      const result = await new ApplicationEligibilityService(db, false, () => true).evaluate(
+        'app-1',
+      );
+      expect(result.automaticSubmissionAllowed).toBe(false);
+      expect(result.reasons.length).toBeGreaterThan(0);
+    },
+  );
 });

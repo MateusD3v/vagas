@@ -5,6 +5,8 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
+import { gmailRoutes } from './modules/integrations/gmail.routes.js';
+import { gmailCallbackPath } from './integrations/gmail/gmail-connection.service.js';
 import { env } from './config/env.js';
 import { prisma } from './database/client.js';
 import { applicationRoutes } from './modules/applications/application.routes.js';
@@ -22,7 +24,22 @@ import { AppError } from './shared/http.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: { level: env.LOG_LEVEL },
+    logger: {
+      level: env.LOG_LEVEL,
+      serializers: {
+        req: (request) => ({
+          method: request.method,
+          url: request.url?.split('?')[0],
+          remoteAddress: request.ip,
+        }),
+      },
+      redact: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'req.headers.x-admin-key',
+        'res.headers.set-cookie',
+      ],
+    },
   });
 
   await app.register(cors, { origin: false });
@@ -60,6 +77,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     const publicPath =
       path === '/health' ||
       path === '/dashboard' ||
+      path === gmailCallbackPath ||
       path.startsWith('/docs') ||
       path.startsWith('/documentation');
     if (!publicPath) await requireAdmin(request, reply);
@@ -107,6 +125,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(jobRoutes);
   await app.register(matchRoutes);
   await app.register(applicationRoutes);
+  await app.register(gmailRoutes);
   await app.register(workerCycleRoutes);
   await app.register(auditRoutes);
   await app.register(statsRoutes);

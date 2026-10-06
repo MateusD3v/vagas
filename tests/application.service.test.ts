@@ -14,6 +14,7 @@ describe('preparação de candidatura', () => {
     const create = vi.fn();
     const update = vi.fn().mockResolvedValue({ ...existing, matchScore: 90 });
     const db = {
+      $queryRaw: vi.fn(),
       application: {
         findUnique: vi.fn().mockResolvedValue(existing),
         create,
@@ -31,6 +32,7 @@ describe('preparação de candidatura', () => {
     const existing = { id: 'application-1', status: 'READY' };
     const remove = vi.fn().mockResolvedValue(existing);
     const db = {
+      $queryRaw: vi.fn(),
       application: {
         findUnique: vi.fn().mockResolvedValue(existing),
         delete: remove,
@@ -48,6 +50,7 @@ describe('preparação de candidatura', () => {
     const existing = { id: 'application-accepted', status: 'ACCEPTED' };
     const remove = vi.fn();
     const db = {
+      $queryRaw: vi.fn(),
       application: {
         findUnique: vi.fn().mockResolvedValue(existing),
         delete: remove,
@@ -64,6 +67,7 @@ describe('preparação de candidatura', () => {
     const existing = { id: 'application-1', status: 'SUBMITTED' };
     const remove = vi.fn();
     const db = {
+      $queryRaw: vi.fn(),
       application: {
         findUnique: vi.fn().mockResolvedValue(existing),
         delete: remove,
@@ -92,6 +96,7 @@ describe('acompanhamento de candidatura', () => {
     const audit = vi.fn().mockResolvedValue({ id: 'audit-1' });
     const eventCreate = vi.fn().mockResolvedValue({ id: 'event-1' });
     const db = {
+      $queryRaw: vi.fn(),
       application: {
         findUnique: vi.fn().mockResolvedValue(existing),
         update,
@@ -159,6 +164,7 @@ describe('acompanhamento de candidatura', () => {
       .mockImplementation(({ data }) => Promise.resolve({ ...existing, ...data }));
     const eventCreate = vi.fn().mockResolvedValue({ id: 'event-1' });
     const db = {
+      $queryRaw: vi.fn(),
       application: { findUnique: vi.fn().mockResolvedValue(existing), update },
       applicationEvent: { create: eventCreate },
       auditLog: { create: vi.fn() },
@@ -184,6 +190,7 @@ describe('acompanhamento de candidatura', () => {
 
   it('bloqueia salto inválido de READY direto para OFFER', async () => {
     const db = {
+      $queryRaw: vi.fn(),
       application: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'application-1',
@@ -201,4 +208,29 @@ describe('acompanhamento de candidatura', () => {
       new ApplicationService(db).updateStatus('application-1', { status: 'OFFER' }),
     ).rejects.toMatchObject({ statusCode: 409 });
   });
+});
+
+it('preserva tentativa desconhecida ao reanalisar a vaga como SKIP', async () => {
+  const existing = {
+    id: 'application-1',
+    status: 'READY',
+    submissionAttempt: { status: 'UNKNOWN' },
+  };
+  const db = {
+    application: {
+      findUnique: vi.fn().mockResolvedValue(existing),
+      delete: vi.fn(),
+      update: vi.fn(),
+    },
+  };
+  expect(
+    await new ApplicationService(db as unknown as PrismaClient).prepare(
+      'candidate-1',
+      'job-1',
+      'SKIP',
+      20,
+    ),
+  ).toBe(existing);
+  expect(db.application.delete).not.toHaveBeenCalled();
+  expect(db.application.update).not.toHaveBeenCalled();
 });

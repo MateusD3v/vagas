@@ -1,6 +1,6 @@
 # Submissão por ATS
 
-Estado pesquisado em 2026-10-05. O registry de submissão só deve habilitar um provider quando existir credencial oficialmente autorizada para aquela integração. `SAFE_MODE=true` continua sendo a trava operacional adicional.
+Estado pesquisado em 2026-10-06. O registry de submissão só deve habilitar um provider quando existir credencial oficialmente autorizada para aquela integração. `SAFE_MODE=true` continua sendo a trava operacional adicional.
 
 ## Greenhouse
 
@@ -97,3 +97,14 @@ Referências:
 2. **ATS reconhecido sem credencial da organização**: preparar currículo, respostas, perguntas exigidas e abrir o formulário oficial.
 3. **LinkedIn Easy Apply / Indeed Apply**: fluxo FAST APPLY assistido, sem bot de navegador.
 4. CAPTCHA, anti-bot, limites e controles de acesso nunca são contornados.
+
+## Gmail: canal autorizado de candidatura por e-mail
+
+O provider `gmail` usa OAuth do próprio candidato e `users.messages.send`, com escopo `gmail.send` e identidade `openid email`. Não usa credenciais do empregador e não envia formulário ATS. O anúncio deve indicar explicitamente candidatura por e-mail; detalhes de configuração, reconhecimento de instruções, PDF, reservas e limitações estão no [README](../README.md#envio-automático-por-gmail).
+
+O envio permanece bloqueado por padrão e depende de três flags do servidor, política elegível e conexão correspondente ao perfil. Portal que exige formulário continua assistido; endereço genérico de contato não habilita candidatura por e-mail. Gmail conectado no ChatGPT é independente da conexão OAuth desta instalação no Render.
+
+Referências:
+
+- https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send
+- https://developers.google.com/identity/protocols/oauth2/web-server

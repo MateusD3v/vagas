@@ -7,6 +7,8 @@ import type { NotificationProvider } from '../integrations/notifications/notific
 import { ApplicationApplyUrlResolutionService } from '../modules/applications/application-apply-url-resolution.service.js';
 import { ApplicationAtsEnrichmentService } from '../modules/applications/application-ats-enrichment.service.js';
 import { ApplicationFollowUpService } from '../modules/applications/application-follow-up.service.js';
+import { createSubmissionProviders } from '../integrations/submission/submission.factory.js';
+import { ApplicationSubmissionService } from '../modules/applications/application-submission.service.js';
 import { ApplicationPreparationService } from '../modules/applications/application-preparation.service.js';
 import { AtsJobResolverService } from '../modules/jobs/ats-job-resolver.service.js';
 import { JobAvailabilitySyncService } from '../modules/maintenance/job-availability-sync.service.js';
@@ -24,6 +26,7 @@ export interface WorkerCycleResult {
   > | null;
   atsEnrichment: Awaited<ReturnType<ApplicationAtsEnrichmentService['enrichPending']>> | null;
   preparation: Awaited<ReturnType<ApplicationPreparationService['preparePending']>> | null;
+  submissions: Awaited<ReturnType<ApplicationSubmissionService['submitPending']>> | null;
   followUps: Awaited<ReturnType<ApplicationFollowUpService['scanDue']>> | null;
   maintenance: Awaited<ReturnType<RetentionService['run']>> | null;
 }
@@ -34,6 +37,7 @@ export interface WorkerCycleDependencies {
   applyUrlResolution: Pick<ApplicationApplyUrlResolutionService, 'resolvePending'>;
   atsEnrichment: Pick<ApplicationAtsEnrichmentService, 'enrichPending'>;
   applicationPreparation: Pick<ApplicationPreparationService, 'preparePending'>;
+  applicationSubmission?: Pick<ApplicationSubmissionService, 'submitPending'>;
   followUps: Pick<ApplicationFollowUpService, 'scanDue'>;
   notifications?: Pick<NotificationProvider, 'notifyFollowUpsDue'>[];
   retention: Pick<RetentionService, 'run'>;
@@ -45,6 +49,7 @@ export class WorkerCycleService {
   private readonly applyUrlResolution: WorkerCycleDependencies['applyUrlResolution'];
   private readonly atsEnrichment: WorkerCycleDependencies['atsEnrichment'];
   private readonly applicationPreparation: WorkerCycleDependencies['applicationPreparation'];
+  private readonly applicationSubmission: Pick<ApplicationSubmissionService, 'submitPending'>;
   private readonly followUps: WorkerCycleDependencies['followUps'];
   private readonly notifications: Pick<NotificationProvider, 'notifyFollowUpsDue'>[];
   private readonly retention: WorkerCycleDependencies['retention'];
@@ -55,6 +60,9 @@ export class WorkerCycleService {
     private readonly logger: AppLogger,
     dependencies?: WorkerCycleDependencies,
   ) {
+    this.applicationSubmission =
+      dependencies?.applicationSubmission ??
+      new ApplicationSubmissionService(db, config.SAFE_MODE, createSubmissionProviders(db, config));
     if (dependencies) {
       this.collection = dependencies.collection;
       this.availabilitySync = dependencies.availabilitySync;
@@ -146,6 +154,7 @@ export class WorkerCycleService {
         applyUrlResolution: null,
         atsEnrichment: null,
         preparation: null,
+        submissions: null,
         followUps: null,
         maintenance: null,
       };
@@ -178,6 +187,13 @@ export class WorkerCycleService {
           )
         : null;
       await this.heartbeat('RUNNING', trigger, { stage: 'preparation', preparation });
+      const submissions =
+        this.config.AUTO_SUBMIT_APPLICATIONS && !this.config.SAFE_MODE
+          ? await this.applicationSubmission.submitPending(
+              this.config.APPLICATION_PREPARATION_BATCH_SIZE,
+            )
+          : null;
+      await this.heartbeat('RUNNING', trigger, { stage: 'submissions', submissions });
       const followUps = await this.followUps.scanDue();
       if (followUps.due > 0 && this.notifications.length > 0) {
         await Promise.all(
@@ -200,6 +216,7 @@ export class WorkerCycleService {
         applyUrlResolution,
         atsEnrichment,
         preparation,
+        submissions,
         followUps,
         maintenance,
       });
@@ -212,6 +229,7 @@ export class WorkerCycleService {
         applyUrlResolution,
         atsEnrichment,
         preparation,
+        submissions,
         followUps,
         maintenance,
       };

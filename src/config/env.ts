@@ -72,6 +72,27 @@ const envSchema = z
       .string()
       .default('true')
       .transform((value) => value === 'true'),
+    GMAIL_CLIENT_ID: z.string().optional(),
+    GMAIL_CLIENT_SECRET: z.string().optional(),
+    GMAIL_REDIRECT_URI: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().url().optional(),
+    ),
+    GMAIL_TOKEN_ENCRYPTION_KEY: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z
+        .string()
+        .regex(/^[a-fA-F0-9]{64}$/)
+        .optional(),
+    ),
+    GMAIL_SEND_ENABLED: z
+      .string()
+      .default('false')
+      .transform((value) => value === 'true'),
+    AUTO_SUBMIT_APPLICATIONS: z
+      .string()
+      .default('false')
+      .transform((value) => value === 'true'),
     REMOTIVE_ENABLED: z
       .string()
       .default('true')

@@ -109,6 +109,9 @@ model CandidateProfile {
   applications   Application[]
   searchProfile  JobSearchProfile?
   collectionRuns CollectionRun[]
+  gmailConnection GmailConnection?
+  gmailAuthorizations GmailAuthorization[]
+  resumeDocument CandidateResume?
 }
 
 model CandidateSkill {
@@ -415,6 +418,8 @@ model Application {
   job                   Job                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   preparation           ApplicationPreparation?
   events                ApplicationEvent[]
+  emailTarget           EmailApplicationTarget?
+  submissionAttempt     SubmissionAttempt?
 
   @@unique([candidateId, jobId])
   @@index([status])
@@ -460,4 +465,57 @@ model AuditLog {
 
   @@index([event, createdAt])
   @@index([entityType, entityId])
+}
+
+// Refresh tokens are encrypted with a deployment-owned AES-256-GCM key.
+model GmailConnection {
+  candidateId           String           @id
+  accountEmail          String
+  encryptedRefreshToken String
+  connectedAt           DateTime         @default(now())
+  candidate             CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model GmailAuthorization {
+  stateHash   String           @id
+  candidateId String
+  expiresAt   DateTime
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model CandidateResume {
+  candidateId String           @id
+  content     Bytes
+  sha256      String
+  updatedAt   DateTime         @updatedAt
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+// A published resume-by-email instruction or authenticated confirmation enables the channel.
+model EmailApplicationTarget {
+  applicationId      String      @id
+  recipient          String
+  subject            String
+  body               String
+  evidenceUrl        String
+  evidenceQuote      String
+  confirmationSource String      @default("ADMIN")
+  confirmedAt        DateTime    @default(now())
+  application        Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+// Never automatically remove or retry attempts: an unacknowledged send may have succeeded.
+model SubmissionAttempt {
+  applicationId         String      @id
+  candidateId           String
+  provider              String
+  status                String      @default("PENDING")
+  reservedAt            DateTime    @default(now())
+  completedAt           DateTime?
+  externalApplicationId String?
+  application           Application @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@index([candidateId, reservedAt])
 }

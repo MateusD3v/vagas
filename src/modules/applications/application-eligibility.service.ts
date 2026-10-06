@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, Prisma } from '@prisma/client';
 import { AppError } from '../../shared/http.js';
 import { includesText } from '../../shared/text.js';
 
@@ -18,20 +18,26 @@ function utcStartOfDay(now: Date): Date {
 
 export class ApplicationEligibilityService {
   constructor(
-    private readonly db: PrismaClient,
+    private readonly db: PrismaClient | Prisma.TransactionClient,
     private readonly safeMode: boolean,
     private readonly hasSubmissionProvider: (
       source: string,
       applicationUrl: string | null,
     ) => boolean = () => false,
+    private readonly providerReadiness?: (
+      applicationId: string,
+      source: string,
+      url: string | null,
+    ) => Promise<string[]>,
   ) {}
 
   async evaluate(applicationId: string, now = new Date()): Promise<ApplicationEligibility> {
     const application = await this.db.application.findUnique({
       where: { id: applicationId },
       include: {
-        job: true,
+        job: { include: { matches: true } },
         preparation: true,
+        submissionAttempt: true,
         candidate: { include: { policy: true } },
       },
     });
@@ -40,6 +46,20 @@ export class ApplicationEligibilityService {
     const policy = application.candidate.policy;
     const reasons: string[] = [];
     const automationBlockers: string[] = [];
+
+    if (application.candidate.isDemo)
+      reasons.push('Perfil de demonstração não pode enviar candidaturas');
+    if (!application.job.isActive || application.job.status !== 'ANALYZED')
+      reasons.push('Vaga inativa ou sem confirmação recente de disponibilidade');
+    const match = application.job.matches.find(
+      (item) => item.candidateId === application.candidateId,
+    );
+    if (!match || match.decision === 'SKIP' || match.hardConstraints.length)
+      reasons.push('Matching ausente ou com restrições obrigatórias');
+    if (application.submissionAttempt)
+      automationBlockers.push(
+        'Já existe uma tentativa reservada; verifique o resultado antes de qualquer nova ação',
+      );
 
     if (application.status !== 'READY') {
       reasons.push(`Candidatura não está READY: ${application.status}`);
@@ -97,6 +117,14 @@ export class ApplicationEligibilityService {
     }
 
     const policyEligible = reasons.length === 0;
+    if (this.providerReadiness)
+      automationBlockers.push(
+        ...(await this.providerReadiness(
+          applicationId,
+          application.job.source,
+          application.job.applicationUrl,
+        )),
+      );
     if (this.safeMode) automationBlockers.push('SAFE_MODE está ativo');
     if (!this.hasSubmissionProvider(application.job.source, application.job.applicationUrl)) {
       automationBlockers.push('Nenhum provider de submissão externa autorizado foi configurado');

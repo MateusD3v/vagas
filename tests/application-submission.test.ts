@@ -19,6 +19,9 @@ function applicationFixture() {
     notes: null,
     job: {
       id: 'job-1',
+      isActive: true,
+      status: 'ANALYZED',
+      matches: [{ candidateId: 'candidate-1', decision: 'APPLY', hardConstraints: [] as string[] }],
       source: 'authorized-ats',
       title: 'Backend Jr',
       company: 'Tech Co',
@@ -133,17 +136,11 @@ describe('ApplicationSubmissionService', () => {
       },
       applicationEvent: { create: applicationEvent },
       auditLog: { create: audit },
+      submissionAttempt: { count: vi.fn().mockResolvedValue(0), create: vi.fn(), update: vi.fn() },
+      $queryRaw: vi.fn().mockResolvedValue([{ id: 'candidate-1' }]),
       $transaction: vi
         .fn()
-        .mockImplementation(
-          (
-            callback: (tx: {
-              application: { update: typeof update };
-              applicationEvent: { create: typeof applicationEvent };
-            }) => Promise<unknown>,
-          ) =>
-            callback({ application: { update }, applicationEvent: { create: applicationEvent } }),
-        ),
+        .mockImplementation((callback: (tx: object) => Promise<unknown>) => callback(db)),
     } as unknown as PrismaClient;
     const service = new ApplicationSubmissionService(
       db,
@@ -167,6 +164,164 @@ describe('ApplicationSubmissionService', () => {
         externalApplicationId: 'external-123',
       }) as object,
     });
-    expect(audit).toHaveBeenCalledOnce();
+    expect(audit).toHaveBeenCalledTimes(2);
+  });
+});
+
+function transactionalFixture(maximum = 5) {
+  const first = applicationFixture();
+  first.candidate.policy.maximumApplicationsPerDay = maximum;
+  const apps = new Map([
+    ['app-1', first],
+    ['app-2', { ...first, id: 'app-2', jobId: 'job-2' }],
+  ]);
+  const attempts = new Map<string, { status: string }>();
+  let tail = Promise.resolve();
+  const audit = vi.fn().mockResolvedValue({});
+  const db = {
+    application: {
+      findUnique: vi.fn(({ where }: { where: { id: string } }) => {
+        const app = apps.get(where.id);
+        return Promise.resolve(
+          app ? { ...app, submissionAttempt: attempts.get(where.id) ?? null } : null,
+        );
+      }),
+      count: vi.fn().mockResolvedValue(0),
+      update: vi.fn(({ where, data }: { where: { id: string }; data: object }) => {
+        const app = { ...apps.get(where.id)!, ...data };
+        apps.set(where.id, app);
+        return Promise.resolve(app);
+      }),
+    },
+    submissionAttempt: {
+      count: vi.fn(() => Promise.resolve(attempts.size)),
+      create: vi.fn(({ data }: { data: { applicationId: string; status: string } }) => {
+        if (attempts.has(data.applicationId)) throw new Error('Unique violation');
+        attempts.set(data.applicationId, { status: data.status });
+        return Promise.resolve({});
+      }),
+      update: vi.fn(
+        ({ where, data }: { where: { applicationId: string }; data: { status: string } }) => {
+          attempts.set(where.applicationId, data);
+          return Promise.resolve({});
+        },
+      ),
+    },
+    applicationEvent: { create: vi.fn().mockResolvedValue({}) },
+    auditLog: { create: audit },
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 'candidate-1' }]),
+    $transaction: vi.fn(async (callback: (tx: object) => Promise<unknown>) => {
+      // This fixture models serialized reservations; the production implementation uses a PostgreSQL row lock.
+      const previous = tail;
+      let release!: () => void;
+      tail = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await previous;
+      try {
+        return await callback(db);
+      } finally {
+        release();
+      }
+    }),
+  };
+  return { db, attempts };
+}
+
+describe('durable submission reservations', () => {
+  it('bloqueia duplicatas concorrentes enquanto a primeira chamada externa está pendente', async () => {
+    const { db, attempts } = transactionalFixture();
+    const submitProvider = provider();
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    submitProvider.submit.mockImplementationOnce(async () => {
+      await hold;
+      return { externalApplicationId: 'message-1', submittedAt: new Date() };
+    });
+    const service = new ApplicationSubmissionService(
+      db as unknown as PrismaClient,
+      false,
+      new SubmissionProviderRegistry([submitProvider.provider]),
+    );
+    const first = service.submit('app-1');
+    await vi.waitFor(() => expect(submitProvider.submit).toHaveBeenCalledOnce());
+    expect(attempts.get('app-1')?.status).toBe('PENDING');
+    await expect(service.submit('app-1')).rejects.toMatchObject({ statusCode: 409 });
+    expect(submitProvider.submit).toHaveBeenCalledOnce();
+    release();
+    await first;
+    expect(attempts.get('app-1')?.status).toBe('SENT');
+  });
+  it('conta reservas pendentes no limite diário, inclusive para vagas diferentes', async () => {
+    const { db } = transactionalFixture(1);
+    const submitProvider = provider();
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    submitProvider.submit.mockImplementationOnce(async () => {
+      await hold;
+      return { externalApplicationId: 'message-1', submittedAt: new Date() };
+    });
+    const service = new ApplicationSubmissionService(
+      db as unknown as PrismaClient,
+      false,
+      new SubmissionProviderRegistry([submitProvider.provider]),
+    );
+    const first = service.submit('app-1');
+    await vi.waitFor(() => expect(submitProvider.submit).toHaveBeenCalledOnce());
+    await expect(service.submit('app-2')).rejects.toThrow('Limite diário de reservas');
+    expect(db.submissionAttempt.create).toHaveBeenCalledOnce();
+    release();
+    await first;
+  });
+  it('persiste resultado desconhecido e impede repetição após timeout ou reinício', async () => {
+    const { db, attempts } = transactionalFixture();
+    const submitProvider = provider();
+    submitProvider.submit.mockRejectedValueOnce(
+      new Error('private upstream credential and timeout'),
+    );
+    const registry = new SubmissionProviderRegistry([submitProvider.provider]);
+    await expect(
+      new ApplicationSubmissionService(db as unknown as PrismaClient, false, registry).submit(
+        'app-1',
+      ),
+    ).rejects.toThrow('Envio sem confirmação');
+    expect(attempts.get('app-1')?.status).toBe('UNKNOWN');
+    await expect(
+      new ApplicationSubmissionService(db as unknown as PrismaClient, false, registry).submit(
+        'app-1',
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(submitProvider.submit).toHaveBeenCalledOnce();
+    expect(JSON.stringify(db.auditLog.create.mock.calls)).not.toContain('private upstream');
+  });
+  it('não realiza chamada externa se a reserva não puder ser gravada', async () => {
+    const { db } = transactionalFixture();
+    db.submissionAttempt.create.mockRejectedValueOnce(new Error('database unavailable'));
+    const submitProvider = provider();
+    const service = new ApplicationSubmissionService(
+      db as unknown as PrismaClient,
+      false,
+      new SubmissionProviderRegistry([submitProvider.provider]),
+    );
+    await expect(service.submit('app-1')).rejects.toThrow('database unavailable');
+    expect(submitProvider.submit).not.toHaveBeenCalled();
+  });
+  it('mantém reserva quando o banco falha depois de o serviço confirmar envio', async () => {
+    const { db, attempts } = transactionalFixture();
+    db.application.update.mockRejectedValueOnce(new Error('database unavailable'));
+    const submitProvider = provider();
+    const service = new ApplicationSubmissionService(
+      db as unknown as PrismaClient,
+      false,
+      new SubmissionProviderRegistry([submitProvider.provider]),
+    );
+    await expect(service.submit('app-1')).rejects.toThrow('database unavailable');
+    expect(attempts.get('app-1')?.status).toBe('PENDING');
+    await expect(service.submit('app-1')).rejects.toMatchObject({ statusCode: 409 });
+    expect(submitProvider.submit).toHaveBeenCalledOnce();
   });
 });
