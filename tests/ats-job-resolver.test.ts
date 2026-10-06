@@ -707,3 +707,115 @@ describe('AtsJobResolverService Pinpoint', () => {
     });
   });
 });
+
+
+describe('AtsJobResolverService Breezy', () => {
+  const publicPage = `<!doctype html>
+<html>
+  <head>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org/",
+        "@type": "JobPosting",
+        "url": "https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer?source=GoogleJobs",
+        "title": "Tier III Service Desk Engineer",
+        "description": "<p>Suporte avançado de TI.</p><p>Atendimento a usuários e projetos.</p>",
+        "datePosted": "2026-07-07",
+        "employmentType": "FULL_TIME",
+        "hiringOrganization": {
+          "@type": "Organization",
+          "name": "Unio Digital"
+        },
+        "jobLocation": {
+          "@type": "Place",
+          "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "US",
+            "addressRegion": "AZ",
+            "addressLocality": "Tucson"
+          }
+        },
+        "applicantLocationRequirements": {
+          "@type": "Country",
+          "name": "US"
+        },
+        "jobLocationType": "TELECOMMUTE"
+      }
+    </script>
+  </head>
+</html>`;
+
+  it('carrega JobPosting público da página Breezy', async () => {
+    const getText = vi.fn().mockResolvedValue(publicPage);
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer',
+    );
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'BREEZY',
+      flow: 'ATS',
+      missingFields: [],
+      data: {
+        externalId: 'e03e9b1c94de-tier-iii-service-desk-engineer',
+        title: 'Tier III Service Desk Engineer',
+        company: 'Unio Digital',
+        description: 'Suporte avançado de TI. Atendimento a usuários e projetos.',
+        location: 'US',
+        remoteType: 'REMOTE',
+        employmentType: 'FULL_TIME',
+        applicationUrl:
+          'https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer',
+        publishedAt: '2026-07-07T00:00:00.000Z',
+      },
+    });
+    expect(String(getText.mock.calls[0]?.[0])).toBe(
+      'https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer',
+    );
+  });
+
+  it('usa local físico quando a vaga não é telecommute', async () => {
+    const getText = vi.fn().mockResolvedValue(
+      publicPage
+        .replace('"jobLocationType": "TELECOMMUTE"', '"jobLocationType": "ONSITE"')
+        .replace(
+          '"applicantLocationRequirements": {\n          "@type": "Country",\n          "name": "US"\n        },',
+          '',
+        ),
+    );
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer',
+    );
+
+    expect(result).toMatchObject({
+      supported: true,
+      platform: 'BREEZY',
+      data: {
+        location: 'Tucson, AZ, US',
+        remoteType: 'ONSITE',
+      },
+    });
+  });
+
+  it('não inventa dados quando a página não publica JobPosting estruturado', async () => {
+    const getText = vi.fn().mockResolvedValue(
+      '<html><head><script type="application/ld+json">{"@type":"WebSite"}</script></head></html>',
+    );
+    const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
+
+    const result = await service.resolve(
+      'https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer',
+    );
+
+    expect(result).toMatchObject({
+      supported: false,
+      platform: 'BREEZY',
+      missingFields: ['title', 'company', 'description'],
+    });
+    expect(getText).toHaveBeenCalledOnce();
+  });
+});
