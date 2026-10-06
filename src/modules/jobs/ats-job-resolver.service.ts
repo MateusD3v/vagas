@@ -403,7 +403,7 @@ function extractXmlBlocks(xml: string, tag: string): string[] {
 
 function extractJsonLdValues(html: string): unknown[] {
   const pattern = new RegExp(
-    "<script\\b[^>]*type=[\"']application/ld\\+json[\"'][^>]*>([\\s\\S]*?)</script>",
+    '<script\\b[^>]*type=["\']application/ld\\+json["\'][^>]*>([\\s\\S]*?)</script>',
     'gi',
   );
   const values: unknown[] = [];
