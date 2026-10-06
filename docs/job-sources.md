@@ -85,7 +85,7 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 ## Sólides — ACTIVE
 
 - Tipo: portal/ATS com páginas públicas de busca e páginas públicas de vaga.
-- Páginas usadas: `GET https://vagas.solides.com.br/vagas/<localização>` e as URLs `/vaga/<id>/<slug>` descobertas nelas.
+- Páginas usadas: `GET https://vagas.solides.com.br/vagas/todas/<localização>` e as URLs `/vaga/<id>/<slug>` descobertas nelas.
 - Autenticação: não requerida para a coleta. O adapter não usa login de candidato, não envia currículo e não executa candidatura.
 - Descoberta: usa até três localizações do perfil por ciclo; Belém e Ananindeua são resolvidas para as rotas públicas `belem-pa` e `ananindeua-pa`, e busca remota usa `home-office`.
 - Detalhes: lê somente o `JobPosting` JSON-LD publicado na página pública da vaga. Empresa, cargo, descrição, localização, modalidade, contratação, publicação e salário são usados apenas quando publicados.
