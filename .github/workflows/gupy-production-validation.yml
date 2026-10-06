@@ -1,0 +1,59 @@
+name: Gupy production validation
+
+on:
+  push:
+    branches: ['phase-7-gupy-production-validation']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gupy-production-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger one protected worker cycle
+        shell: bash
+        env:
+          VAGAS_API_URL: ${{ secrets.VAGAS_API_URL }}
+          VAGAS_ADMIN_API_KEY: ${{ secrets.VAGAS_ADMIN_API_KEY }}
+        run: |
+          set -euo pipefail
+          readonly expected_api_url="https://vagas-api-z5wn.onrender.com"
+          readonly api_url="${VAGAS_API_URL%/}"
+          test "$api_url" = "$expected_api_url"
+
+          baseline="$(
+            curl --fail --show-error --silent               --retry 4               --retry-all-errors               --retry-delay 15               --connect-timeout 20               --max-time 180               --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY"               "$api_url/worker/status"
+          )"
+          before="$(jq -r '.lastSeenAt // ""' <<<"$baseline")"
+
+          response="$(mktemp)"
+          trap 'rm -f "$response"' EXIT
+          code="$(
+            curl --show-error --silent               --connect-timeout 15               --max-time 120               --output "$response"               --write-out '%{http_code}'               --request POST               --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY"               --header "Content-Type: application/json"               --data '{}'               "$api_url/worker/run-once"
+          )"
+          test "$code" = "202"
+          test "$(jq -r '.scheduled // false' "$response")" = "true"
+
+          sleep 20
+          for attempt in $(seq 1 30); do
+            if status="$(
+              curl --fail --show-error --silent                 --connect-timeout 15                 --max-time 45                 --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY"                 "$api_url/worker/status"
+            )"; then
+              worker_status="$(jq -r '.status // ""' <<<"$status")"
+              after="$(jq -r '.lastSeenAt // ""' <<<"$status")"
+              if [[ -n "$after" && "$after" != "$before" ]]; then
+                echo "worker_status=$worker_status"
+                echo "last_seen=$after"
+                test "$worker_status" != "FAILED"
+                [[ "$worker_status" == "IDLE" ]] && exit 0
+              fi
+            fi
+            sleep 20
+          done
+          exit 1
