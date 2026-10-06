@@ -61,6 +61,15 @@ Referências:
 - https://help.pinpoint.support/en/articles/5878344-how-to-list-pinpoint-jobs-on-any-website
 - https://developers.pinpointhq.com/reference/get-job-postings
 
+## Resolução de links intermediários
+
+- Antes do enriquecimento ATS, o worker tenta substituir páginas intermediárias por um destino direto somente quando isso pode ser comprovado por dados públicos.
+- Para Remote OK, vagas antigas podem reutilizar o `rawData.applyUrl` que já veio do feed oficial; a página da Remote OK permanece em `originalUrl`.
+- Para Remotive, a página pública da vaga é lida e apenas um link externo rotulado como candidatura é promovido para `applicationUrl`; falhas e ausência de link entram em cache por 24 horas.
+- Breezy HR passa a ser reconhecido como ATS quando um link direto `*.breezy.hr` é encontrado, mas nenhuma API autenticada da organização é usada.
+- Jobicy e We Work Remotely não são contornados quando o acesso ao destino exige login; o fluxo permanece manual nesses casos.
+- Essa etapa nunca envia formulário, cria conta, contorna CAPTCHA ou altera `SAFE_MODE`.
+
 ## Enriquecimento automático no worker
 
 - Candidaturas `READY` e `REVIEW_REQUIRED` com URL de ATS reconhecida são enriquecidas antes da preparação do kit.

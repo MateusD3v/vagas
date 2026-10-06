@@ -9,6 +9,7 @@ export type ApplicationPlatform =
   | 'WORKABLE'
   | 'PERSONIO'
   | 'PINPOINT'
+  | 'BREEZY'
   | 'WORKDAY'
   | 'OTHER';
 
@@ -86,6 +87,9 @@ export function classifyApplicationChannel(
   }
   if (host.endsWith('.pinpointhq.com')) {
     return { platform: 'PINPOINT', flow: 'ATS', label: 'Pinpoint' };
+  }
+  if (host.endsWith('.breezy.hr')) {
+    return { platform: 'BREEZY', flow: 'ATS', label: 'Breezy HR' };
   }
   if (host.includes('myworkdayjobs.com') || host.includes('workday.com')) {
     return { platform: 'WORKDAY', flow: 'ATS', label: 'Workday' };
