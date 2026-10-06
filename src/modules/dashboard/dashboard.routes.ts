@@ -412,7 +412,7 @@ const dashboardHtml = `<!doctype html>
           api('/job-sources?pageSize=50'),
           api('/collection-runs?pageSize=10'),
           api('/audit-logs?pageSize=12'),
-          api('/portal-search-plan'),
+          api('/portal-search-plan').catch(() => ({ links: [] })),
         ]);
 
       document.getElementById('cards').innerHTML = [
