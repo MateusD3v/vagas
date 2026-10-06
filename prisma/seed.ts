@@ -87,7 +87,7 @@ const sourceDefinitions = [
   {
     name: 'Sólides Vagas',
     slug: 'solides',
-    type: 'SCRAPER' as const,
+    type: 'ATS' as const,
     baseUrl: 'https://vagas.solides.com.br/vagas/todas',
     configuration: {
       authentication: 'none',
