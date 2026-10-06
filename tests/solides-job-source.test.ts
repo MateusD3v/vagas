@@ -34,7 +34,7 @@ describe('Sólides public job source', () => {
 
   it('descobre a página pública de Belém, lê JobPosting e filtra por keyword', async () => {
     const getText = vi.fn().mockImplementation(async (url: string) => {
-      if (url === 'https://vagas.solides.com.br/vagas/belem-pa') return searchHtml;
+      if (url === 'https://vagas.solides.com.br/vagas/todas/belem-pa') return searchHtml;
       if (url === 'https://vagas.solides.com.br/vaga/739158/assistente-de-suporte-ti') {
         return detailHtml;
       }
@@ -55,7 +55,7 @@ describe('Sólides public job source', () => {
 
     expect(jobs).toHaveLength(1);
     expect(getText).toHaveBeenCalledTimes(2);
-    expect(getText.mock.calls[0]?.[0]).toBe('https://vagas.solides.com.br/vagas/belem-pa');
+    expect(getText.mock.calls[0]?.[0]).toBe('https://vagas.solides.com.br/vagas/todas/belem-pa');
 
     const job = adapter.normalizeJob(jobs[0]);
     expect(job).toMatchObject({
@@ -127,7 +127,7 @@ describe('Sólides public job source', () => {
     ).rejects.toMatchObject({ errorType: 'INVALID_RESPONSE' });
 
     expect(getText.mock.calls[0]?.[0]).toBe(
-      'https://vagas.solides.com.br/vagas/ananindeua-pa',
+      'https://vagas.solides.com.br/vagas/todas/ananindeua-pa',
     );
   });
 });
