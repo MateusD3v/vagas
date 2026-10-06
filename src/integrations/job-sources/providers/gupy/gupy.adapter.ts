@@ -163,11 +163,7 @@ function requestedCities(locations: string[]): string | undefined {
 
 function requestedState(locations: string[]): string | undefined {
   const normalized = locations.map(normalizeLocation);
-  if (
-    normalized.some((item) =>
-      ['para', 'pa', 'belem', 'ananindeua'].includes(item),
-    )
-  ) {
+  if (normalized.some((item) => ['para', 'pa', 'belem', 'ananindeua'].includes(item))) {
     return 'Pará';
   }
   return undefined;
@@ -312,8 +308,7 @@ export class GupyJobSource implements JobSourceAdapter {
   normalizeJob(input: unknown): NormalizedJob {
     const raw = gupyJobSchema.parse(input);
     const description = stripHtml(raw.description);
-    const salaryAvailable =
-      raw.salary?.status === 'disclosed' || raw.salary?.status === 'range';
+    const salaryAvailable = raw.salary?.status === 'disclosed' || raw.salary?.status === 'range';
 
     return {
       source: this.sourceName,
