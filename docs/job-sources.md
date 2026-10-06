@@ -111,6 +111,15 @@ Os adapters deste projeto fazem somente requisições `GET` a APIs públicas. El
 - Segurança: o MCP de candidatos não edita currículo nem envia candidatura; `SAFE_MODE=true` continua inalterado.
 - Controle interno: `GUPY_ENABLED` permite desativação explícita.
 
+## Buscas assistidas em portais restritos
+
+- Endpoint interno: `GET /portal-search-plan`, protegido por `X-Admin-Key`.
+- Gera links de busca do LinkedIn, Indeed e Glassdoor a partir de até quatro keywords e duas localizações do `JobSearchProfile`.
+- Localizações genéricas como `Remoto` não substituem cidades quando Belém/Ananindeua já existem no perfil.
+- O endpoint não consulta, raspa nem autentica nos portais; ele apenas monta URLs de pesquisa de usuário.
+- Depois de abrir uma vaga, o dashboard reutiliza o fluxo existente **Adicionar vaga externa** para resolver dados públicos de ATS suportados, executar matching e preparar a candidatura.
+- O plano não marca nenhuma vaga como encontrada nem cria candidatura antes de uma URL real ser importada.
+
 ## Portais principais com acesso restrito — TRACKED
 
 ### LinkedIn
