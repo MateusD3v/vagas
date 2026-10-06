@@ -13,20 +13,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read non-sensitive search settings
+      - name: Read non-sensitive production state
         shell: bash
         env:
           VAGAS_API_URL: ${{ secrets.VAGAS_API_URL }}
           VAGAS_ADMIN_API_KEY: ${{ secrets.VAGAS_ADMIN_API_KEY }}
         run: |
           set -euo pipefail
+
           readonly expected_api_url="https://vagas-api-z5wn.onrender.com"
           readonly api_url="${VAGAS_API_URL%/}"
           if [[ "$api_url" != "$expected_api_url" ]]; then
             echo "Unexpected production URL."
             exit 1
           fi
-          curl --fail --show-error --silent             --connect-timeout 20             --max-time 120             --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY"             "$api_url/job-search-profile"             | jq '{
+
+          echo "Search profile:"
+          curl --fail --show-error --silent \
+            --connect-timeout 20 \
+            --max-time 120 \
+            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+            "$api_url/job-search-profile" \
+            | jq '{
                 enabled,
                 keywords,
                 excludedKeywords,
@@ -36,4 +44,47 @@ jobs:
                 seniorityLevels,
                 maxJobsPerRun,
                 publishedWithinHours
+              }'
+
+          echo "Latest collection runs:"
+          curl --fail --show-error --silent \
+            --connect-timeout 20 \
+            --max-time 120 \
+            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+            "$api_url/collection-runs?pageSize=20" \
+            | jq '[.data[] | {
+                source: .source.slug,
+                status,
+                startedAt,
+                jobsFetched,
+                jobsInserted,
+                jobsDuplicated,
+                jobsRejected,
+                jobsAnalyzed,
+                applyCount,
+                reviewCount,
+                skipCount,
+                applicationsReady,
+                errorCount,
+                selectedKeyword: (.metadata.selectedKeyword // null)
+              }]'
+
+          echo "Pipeline stats:"
+          curl --fail --show-error --silent \
+            --connect-timeout 20 \
+            --max-time 120 \
+            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
+            "$api_url/stats" \
+            | jq '{
+                jobsDiscovered,
+                jobsAnalyzed,
+                apply,
+                review,
+                skip,
+                applicationsReady,
+                applicationsSubmitted,
+                interviews,
+                offers,
+                accepted,
+                followUpsDue
               }'
