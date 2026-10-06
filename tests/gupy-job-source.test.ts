@@ -51,10 +51,7 @@ describe('Gupy candidate MCP source', () => {
 
   it('consulta o MCP oficial com termo e filtros do perfil em português', async () => {
     const postText = vi.fn().mockResolvedValue(mcpResponse([sample]));
-    const adapter = new GupyJobSource(
-      { postText } as unknown as JobSourceHttpClient,
-      50_000,
-    );
+    const adapter = new GupyJobSource({ postText } as unknown as JobSourceHttpClient, 50_000);
 
     const result = await adapter.searchJobs({
       keywords: ['Analista de Suporte'],
@@ -159,10 +156,7 @@ describe('Gupy candidate MCP source', () => {
         },
       ]),
     );
-    const adapter = new GupyJobSource(
-      { postText } as unknown as JobSourceHttpClient,
-      50_000,
-    );
+    const adapter = new GupyJobSource({ postText } as unknown as JobSourceHttpClient, 50_000);
 
     const result = await adapter.searchJobs({
       keywords: ['Suporte'],
@@ -178,10 +172,7 @@ describe('Gupy candidate MCP source', () => {
 
   it('falha de forma explícita se o envelope MCP mudar', async () => {
     const postText = vi.fn().mockResolvedValue('event: message\ndata: {"unexpected":true}\n\n');
-    const adapter = new GupyJobSource(
-      { postText } as unknown as JobSourceHttpClient,
-      50_000,
-    );
+    const adapter = new GupyJobSource({ postText } as unknown as JobSourceHttpClient, 50_000);
 
     await expect(
       adapter.searchJobs({
