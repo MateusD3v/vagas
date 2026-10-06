@@ -6,6 +6,7 @@ import { WorkerCycleService } from '../../workers/worker-cycle.service.js';
 
 export function workerCycleRoutes(app: FastifyInstance): void {
   const cycle = new WorkerCycleService(prisma, env, app.log);
+  const processStartedAt = new Date(Date.now() - Math.floor(process.uptime() * 1000));
 
   app.post(
     '/worker/run-once',
@@ -19,6 +20,7 @@ export function workerCycleRoutes(app: FastifyInstance): void {
       },
     },
     async (_request, reply) => {
+      await cycle.recoverInterruptedCycle(processStartedAt);
       const run = cycle.run('api');
       const outcome = await Promise.race([
         run.then((result) => ({ started: result.started })),
