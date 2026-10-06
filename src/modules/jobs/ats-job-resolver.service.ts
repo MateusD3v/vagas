@@ -415,7 +415,7 @@ function extractJsonLdValues(html: string): unknown[] {
         continue;
       }
       if (parsed && typeof parsed === 'object') {
-        const graph = (parsed as { '@graph'?: unknown }).['@graph'];
+        const graph = (parsed as { '@graph'?: unknown })['@graph'];
         if (Array.isArray(graph)) values.push(...graph);
         values.push(parsed);
       }
