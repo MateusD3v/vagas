@@ -61,7 +61,9 @@ describe('AtsJobResolverService restricted public portals', () => {
   it('falha com segurança quando o Indeed não expõe JobPosting público', async () => {
     const getText = vi
       .fn()
-      .mockResolvedValue('<html><head><script type="application/ld+json">{"@type":"WebSite"}</script></head></html>');
+      .mockResolvedValue(
+        '<html><head><script type="application/ld+json">{"@type":"WebSite"}</script></head></html>',
+      );
     const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
 
     const result = await service.resolve('https://br.indeed.com/viewjob?jk=abc123');
