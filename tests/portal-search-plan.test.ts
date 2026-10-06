@@ -17,28 +17,25 @@ describe('portal search plan', () => {
     expect(plan.links.filter((item) => item.portal === 'INDEED')).toHaveLength(4);
     expect(plan.links.filter((item) => item.portal === 'GLASSDOOR')).toHaveLength(4);
 
-    expect(plan.links).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          portal: 'LINKEDIN',
-          query: 'Analista de Suporte',
-          location: 'Belém',
-          url: expect.stringContaining('linkedin.com/jobs/search/'),
-        }),
-        expect.objectContaining({
-          portal: 'INDEED',
-          query: 'Help Desk',
-          location: 'Ananindeua',
-          url: expect.stringContaining('br.indeed.com/jobs?'),
-        }),
-        expect.objectContaining({
-          portal: 'GLASSDOOR',
-          query: 'Analista de Suporte',
-          location: 'Belém',
-          url: expect.stringContaining('glassdoor.com.br/Vaga/index.htm'),
-        }),
-      ]),
+    const linkedin = plan.links.find(
+      (item) =>
+        item.portal === 'LINKEDIN' &&
+        item.query === 'Analista de Suporte' &&
+        item.location === 'Belém',
     );
+    const indeed = plan.links.find(
+      (item) => item.portal === 'INDEED' && item.query === 'Help Desk' && item.location === 'Ananindeua',
+    );
+    const glassdoor = plan.links.find(
+      (item) =>
+        item.portal === 'GLASSDOOR' &&
+        item.query === 'Analista de Suporte' &&
+        item.location === 'Belém',
+    );
+
+    expect(linkedin?.url).toContain('linkedin.com/jobs/search/');
+    expect(indeed?.url).toContain('br.indeed.com/jobs?');
+    expect(glassdoor?.url).toContain('glassdoor.com.br/Vaga/index.htm');
   });
 
   it('limita o plano e ignora remoto como localização textual quando há cidades', () => {
