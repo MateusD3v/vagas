@@ -29,6 +29,16 @@ function dependencies(): WorkerCycleDependencies {
         failures: 0,
       }),
     },
+    applyUrlResolution: {
+      resolvePending: vi.fn().mockResolvedValue({
+        attempted: 2,
+        resolved: 1,
+        unchanged: 1,
+        skipped: 0,
+        failed: 0,
+        failures: [],
+      }),
+    },
     atsEnrichment: {
       enrichPending: vi.fn().mockResolvedValue({
         attempted: 2,
@@ -90,6 +100,9 @@ describe('WorkerCycleService', () => {
     expect(result.collectionRuns).toBe(1);
     expect(result.resumed).toBe(2);
     expect(deps.collection.runEnabled).toHaveBeenCalledOnce();
+    expect(deps.applyUrlResolution.resolvePending).toHaveBeenCalledWith(
+      env.APPLICATION_PREPARATION_BATCH_SIZE,
+    );
     expect(deps.atsEnrichment.enrichPending).toHaveBeenCalledWith(
       env.APPLICATION_PREPARATION_BATCH_SIZE,
     );
@@ -101,6 +114,10 @@ describe('WorkerCycleService', () => {
     expect(markFollowUpsNotified).toHaveBeenCalledWith({
       where: { id: { in: ['application-1'] } },
       data: { followUpNotifiedAt: expect.any(Date) as Date },
+    });
+    expect(result.applyUrlResolution).toMatchObject({
+      attempted: 2,
+      resolved: 1,
     });
     expect(result.atsEnrichment).toMatchObject({
       attempted: 2,
@@ -129,6 +146,7 @@ describe('WorkerCycleService', () => {
     expect(result.started).toBe(false);
     expect(deps.collection.runEnabled).not.toHaveBeenCalled();
     expect(deps.collection.resumePending).not.toHaveBeenCalled();
+    expect(deps.applyUrlResolution.resolvePending).not.toHaveBeenCalled();
     expect(deps.atsEnrichment.enrichPending).not.toHaveBeenCalled();
   });
 
