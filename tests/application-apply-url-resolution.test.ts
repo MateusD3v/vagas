@@ -100,6 +100,7 @@ describe('ApplicationApplyUrlResolutionService', () => {
       .mockResolvedValue(
         '<html><a href="https://unio-digital.breezy.hr/p/abc-role">Apply for this position</a></html>',
       );
+    const getFinalUrl = vi.fn();
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
@@ -136,6 +137,7 @@ describe('ApplicationApplyUrlResolutionService', () => {
     const getText = vi
       .fn()
       .mockResolvedValue('<a href="/remote-jobs/example">Apply for this position</a>');
+    const getFinalUrl = vi.fn();
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
