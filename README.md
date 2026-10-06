@@ -99,6 +99,7 @@ Compatibilidade da Fase 1 preservada:
 Fase 2:
 
 - `GET /job-sources`, `GET /job-sources/:id`
+- `GET /portal-search-plan` para gerar buscas assistidas em LinkedIn, Indeed e Glassdoor a partir do perfil salvo
 - `POST /job-sources/run`, `POST /job-sources/:id/run`
 - `GET /collection-runs`, `GET /collection-runs/:id`
 - `GET /job-search-profile`, `PUT /job-search-profile`
@@ -231,6 +232,7 @@ Use health path `/health`. Não use hostname `postgres` fora do Compose; ele exi
 - Sólides usa somente páginas públicas de busca e os metadados estruturados `JobPosting` publicados nas páginas das vagas; não autentica candidato nem envia candidatura. A descoberta é limitada por localização e a leitura de detalhes é limitada a 12 vagas por ciclo.
 - Gupy usa o MCP oficial público para candidatos (`candidates.mcp.api.gupy.io/mcp`) e a tool read-only `search_jobs`. Uma keyword em português é rotacionada por ciclo; cidade, estado, modalidade e tipo de vaga são enviados como filtros quando disponíveis. Nenhum login, currículo privado ou candidatura é acessado pelo MCP.
 - O dashboard exibe uma seção **Portais principais** para distinguir Gupy/Sólides automáticos de LinkedIn/Indeed dependentes de parceria oficial e Glassdoor manual.
+- Para portais sem API pública configurada, **Buscas assistidas** gera links de pesquisa a partir das keywords e localizações do `JobSearchProfile`; ao escolher uma vaga, a URL pode ser importada no próprio dashboard. Para LinkedIn, Indeed e Glassdoor, `Buscar dados do link` tenta ler somente aquela página pública e usar `JobPosting` JSON-LD quando disponível, sem login, paginação ou contorno de bloqueios; se a página não expuser os dados, o preenchimento continua manual.
 - LinkedIn e Indeed já possuem classificação própria de candidatura rápida quando `fastApply=true`; Glassdoor agora também possui canal próprio no pipeline, mas permanece manual. APIs oficiais restritas/credenciadas não são substituídas por scraping.
 - O limite diário possui reserva atômica compartilhada, mas cada processo ainda limita apenas sua própria concorrência por execução; dimensione múltiplos workers com cautela para não sobrecarregar as fontes.
 - Jobicy usa confirmação explícita de `active/closed/unknown`; Remotive e Arbeitnow continuam usando ausência temporal (`lastSeenAt`) como evidência de `STALE`/`CLOSED`.
