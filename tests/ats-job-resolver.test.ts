@@ -708,7 +708,6 @@ describe('AtsJobResolverService Pinpoint', () => {
   });
 });
 
-
 describe('AtsJobResolverService Breezy', () => {
   const publicPage = `<!doctype html>
 <html>
@@ -777,14 +776,16 @@ describe('AtsJobResolverService Breezy', () => {
   });
 
   it('usa local físico quando a vaga não é telecommute', async () => {
-    const getText = vi.fn().mockResolvedValue(
-      publicPage
-        .replace('"jobLocationType": "TELECOMMUTE"', '"jobLocationType": "ONSITE"')
-        .replace(
-          '"applicantLocationRequirements": {\n          "@type": "Country",\n          "name": "US"\n        },',
-          '',
-        ),
-    );
+    const getText = vi
+      .fn()
+      .mockResolvedValue(
+        publicPage
+          .replace('"jobLocationType": "TELECOMMUTE"', '"jobLocationType": "ONSITE"')
+          .replace(
+            '"applicantLocationRequirements": {\n          "@type": "Country",\n          "name": "US"\n        },',
+            '',
+          ),
+      );
     const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
 
     const result = await service.resolve(
@@ -802,9 +803,11 @@ describe('AtsJobResolverService Breezy', () => {
   });
 
   it('não inventa dados quando a página não publica JobPosting estruturado', async () => {
-    const getText = vi.fn().mockResolvedValue(
-      '<html><head><script type="application/ld+json">{"@type":"WebSite"}</script></head></html>',
-    );
+    const getText = vi
+      .fn()
+      .mockResolvedValue(
+        '<html><head><script type="application/ld+json">{"@type":"WebSite"}</script></head></html>',
+      );
     const service = new AtsJobResolverService({ getText } as unknown as JobSourceHttpClient);
 
     const result = await service.resolve(
