@@ -1,4 +1,4 @@
-name: Inspect search profile
+name: Inspect Breezy public page
 
 on:
   push:
@@ -13,111 +13,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read non-sensitive production state
+      - name: Inspect public Breezy job markup
         shell: bash
-        env:
-          VAGAS_API_URL: ${{ secrets.VAGAS_API_URL }}
-          VAGAS_ADMIN_API_KEY: ${{ secrets.VAGAS_ADMIN_API_KEY }}
         run: |
           set -euo pipefail
-
-          readonly expected_api_url="https://vagas-api-z5wn.onrender.com"
-          readonly api_url="${VAGAS_API_URL%/}"
-          if [[ "$api_url" != "$expected_api_url" ]]; then
-            echo "Unexpected production URL."
-            exit 1
-          fi
-
-          echo "Search profile:"
-          curl --fail --show-error --silent \
-            --connect-timeout 20 \
-            --max-time 120 \
-            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
-            "$api_url/job-search-profile" \
-            | jq '{
-                enabled,
-                keywords,
-                excludedKeywords,
-                locations,
-                remoteTypes,
-                employmentTypes,
-                seniorityLevels,
-                maxJobsPerRun,
-                publishedWithinHours
-              }'
-
-          echo "Latest collection runs:"
-          curl --fail --show-error --silent \
-            --connect-timeout 20 \
-            --max-time 120 \
-            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
-            "$api_url/collection-runs?pageSize=20" \
-            | jq '[.data[] | {
-                source: .source.slug,
-                status,
-                startedAt,
-                jobsFetched,
-                jobsInserted,
-                jobsDuplicated,
-                jobsRejected,
-                jobsAnalyzed,
-                applyCount,
-                reviewCount,
-                skipCount,
-                applicationsReady,
-                errorCount,
-                selectedKeyword: (.metadata.selectedKeyword // null)
-              }]'
-
-          echo "Actionable application domains:"
-          curl --fail --show-error --silent \
-            --connect-timeout 20 \
-            --max-time 120 \
-            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
-            "$api_url/applications?pageSize=100" \
-            | jq '[
-                .data[]
-                | select(.status == "READY" or .status == "REVIEW_REQUIRED")
-                | {
-                    id,
-                    status,
-                    source: .job.source,
-                    company: .job.company,
-                    title: .job.title,
-                    applicationUrl: .job.applicationUrl,
-                    originalUrl: .job.originalUrl,
-                    platform: .applicationChannel.platform,
-                    flow: .applicationChannel.flow,
-                    host: (
-                      if (.job.applicationUrl // "") == "" then "NO_URL"
-                      else (.job.applicationUrl | capture("^https?://(?<host>[^/]+)").host // "INVALID_URL")
-                      end
-                    )
-                  }
-              ]
-              | {
-                  total: length,
-                  byHost: (group_by(.host) | map({host: .[0].host, count: length})),
-                  byPlatform: (group_by(.platform) | map({platform: .[0].platform, count: length})),
-                  items: .
-                }'
-
-          echo "Pipeline stats:"
-          curl --fail --show-error --silent \
-            --connect-timeout 20 \
-            --max-time 120 \
-            --header "X-Admin-Key: $VAGAS_ADMIN_API_KEY" \
-            "$api_url/stats" \
-            | jq '{
-                jobsDiscovered,
-                jobsAnalyzed,
-                apply,
-                review,
-                skip,
-                applicationsReady,
-                applicationsSubmitted,
-                interviews,
-                offers,
-                accepted,
-                followUpsDue
-              }'
+          url='https://unio-digital.breezy.hr/p/e03e9b1c94de-tier-iii-service-desk-engineer'
+          curl --fail --show-error --silent --location \
+            --connect-timeout 20 --max-time 120 \
+            --header 'User-Agent: Mozilla/5.0' \
+            "$url" -o /tmp/breezy.html
+          echo "SIZE $(wc -c < /tmp/breezy.html)"
+          echo "TITLE"
+          grep -oEi '<title>[^<]+' /tmp/breezy.html | head -1 || true
+          echo "META"
+          grep -oEi '<meta[^>]+(og:title|og:description|description)[^>]*>' /tmp/breezy.html | head -12 || true
+          echo "JSONLD"
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('/tmp/breezy.html').read_text(errors='ignore')
+          for m in re.finditer(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html, re.I|re.S):
+              print(m.group(1)[:4000])
+          PY
+          echo "FORM MARKERS"
+          grep -oEi '(application_form|apply for this position|apply now|questionnaire|position_id|company_id)[^<]{0,160}' /tmp/breezy.html | head -30 || true
