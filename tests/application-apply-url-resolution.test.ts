@@ -48,13 +48,13 @@ describe('ApplicationApplyUrlResolutionService', () => {
     const audit = vi.fn().mockResolvedValue({});
     const db = {
       application: {
-        findMany: vi.fn().mockResolvedValue([
-          fixture(
-            'remoteok',
-            'https://remoteok.com/remote-jobs/example',
-            { applyUrl: 'https://boards.greenhouse.io/acme/jobs/123' },
-          ),
-        ]),
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            fixture('remoteok', 'https://remoteok.com/remote-jobs/example', {
+              applyUrl: 'https://boards.greenhouse.io/acme/jobs/123',
+            }),
+          ]),
       },
       job: { update },
       auditLog: { create: audit },
@@ -84,19 +84,23 @@ describe('ApplicationApplyUrlResolutionService', () => {
     const update = jobUpdateMock();
     const db = {
       application: {
-        findMany: vi.fn().mockResolvedValue([
-          fixture(
-            'remotive',
-            'https://remotive.com/remote-jobs/information-technology/example-1',
-          ),
-        ]),
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            fixture(
+              'remotive',
+              'https://remotive.com/remote-jobs/information-technology/example-1',
+            ),
+          ]),
       },
       job: { update },
       auditLog: { create: vi.fn().mockResolvedValue({}) },
     } as unknown as PrismaClient;
-    const getText = vi.fn().mockResolvedValue(
-      '<html><a href="https://unio-digital.breezy.hr/p/abc-role">Apply for this position</a></html>',
-    );
+    const getText = vi
+      .fn()
+      .mockResolvedValue(
+        '<html><a href="https://unio-digital.breezy.hr/p/abc-role">Apply for this position</a></html>',
+      );
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
@@ -128,9 +132,9 @@ describe('ApplicationApplyUrlResolutionService', () => {
       job: { update },
       auditLog: { create: vi.fn() },
     } as unknown as PrismaClient;
-    const getText = vi.fn().mockResolvedValue(
-      '<a href="/remote-jobs/example">Apply for this position</a>',
-    );
+    const getText = vi
+      .fn()
+      .mockResolvedValue('<a href="/remote-jobs/example">Apply for this position</a>');
 
     const result = await new ApplicationApplyUrlResolutionService(
       db,
