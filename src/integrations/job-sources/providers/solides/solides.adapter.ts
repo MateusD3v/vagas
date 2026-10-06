@@ -94,7 +94,7 @@ function slugify(value: string): string {
 function searchPageForLocation(location: string): string {
   const normalized = normalizeText(location);
   if (/\b(remoto|remote|home office|home-office)\b/.test(normalized)) {
-    return 'https://vagas.solides.com.br/vagas/home-office';
+    return 'https://vagas.solides.com.br/vagas/todas/home-office';
   }
 
   const knownLocations: Record<string, string> = {
@@ -102,7 +102,9 @@ function searchPageForLocation(location: string): string {
     ananindeua: 'ananindeua-pa',
   };
   const slug = knownLocations[normalized] ?? slugify(location);
-  return `https://vagas.solides.com.br/vagas/${slug || 'todas'}`;
+  return slug
+    ? `https://vagas.solides.com.br/vagas/todas/${slug}`
+    : 'https://vagas.solides.com.br/vagas/todas';
 }
 
 function canonicalJobUrl(value: string, baseUrl: string): string | undefined {
