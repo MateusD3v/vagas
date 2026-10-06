@@ -44,6 +44,14 @@ export const applicationQuestionSchema = z.object({
       z.object({
         name: z.string().optional(),
         type: z.string().optional(),
+        values: z
+          .array(
+            z.object({
+              label: z.string().min(1),
+              value: z.union([z.string(), z.number()]).optional(),
+            }),
+          )
+          .optional(),
       }),
     )
     .default([]),

@@ -2,8 +2,65 @@ import { describe, expect, it, vi } from 'vitest';
 import type { JobIngestionService } from '../src/modules/jobs/job-ingestion.service.js';
 import { ManualJobIntakeService } from '../src/modules/jobs/manual-job-intake.service.js';
 import type { JobMatchingService } from '../src/modules/matching/job-matching.service.js';
+import { manualJobImportSchema } from '../src/modules/jobs/job.schemas.js';
+import { readApplicationQuestions } from '../src/modules/applications/application-channel.js';
 
 describe('ManualJobIntakeService', () => {
+  it('preserva opções numéricas e textuais após validar e importar o formulário público', async () => {
+    const ingest = vi.fn<JobIngestionService['ingest']>().mockResolvedValue({
+      job: { id: 'job-select' } as Awaited<ReturnType<JobIngestionService['ingest']>>['job'],
+      inserted: true,
+      duplicated: false,
+    });
+    const analyze = vi.fn().mockResolvedValue({ application: null });
+    const questions = [
+      {
+        label: 'Disponibilidade',
+        required: true,
+        fields: [
+          {
+            name: 'availability',
+            type: 'select',
+            values: [
+              { label: 'Imediata', value: 0 },
+              { label: 'Em 30 dias', value: '30-days' },
+              { label: 'A combinar' },
+            ],
+          },
+        ],
+      },
+    ];
+    const input = manualJobImportSchema.parse({
+      title: 'Analista de Suporte',
+      company: 'Example',
+      description: 'Suporte Windows',
+      applicationUrl: 'https://boards.greenhouse.io/example/jobs/123',
+      applicationQuestions: questions,
+    });
+    await new ManualJobIntakeService(
+      { ingest } as unknown as JobIngestionService,
+      { analyze } as unknown as JobMatchingService,
+    ).importAndAnalyze(input);
+    const imported = ingest.mock.calls[0]?.[1] as { rawData: unknown };
+    expect(readApplicationQuestions(imported.rawData)).toEqual(questions);
+    expect(
+      manualJobImportSchema.safeParse({
+        ...input,
+        applicationQuestions: [
+          {
+            ...questions[0],
+            fields: [
+              {
+                type: 'select',
+                values: [{ label: 'Inválida', value: { arbitrary: true } }],
+              },
+            ],
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   it('preserva hint explícito de LinkedIn Easy Apply e executa matching', async () => {
     const ingest = vi.fn<JobIngestionService['ingest']>().mockResolvedValue({
       job: { id: 'job-1' } as Awaited<ReturnType<JobIngestionService['ingest']>>['job'],
