@@ -29,10 +29,7 @@ describe('application channel', () => {
 
   it('classifica portais principais como canais próprios', () => {
     expect(
-      classifyApplicationChannel(
-        'https://empresa.gupy.io/job/eyJqb2JJZCI6MTIzfQ==',
-        'gupy',
-      ),
+      classifyApplicationChannel('https://empresa.gupy.io/job/eyJqb2JJZCI6MTIzfQ==', 'gupy'),
     ).toEqual({ platform: 'GUPY', flow: 'ATS', label: 'Gupy' });
 
     expect(
