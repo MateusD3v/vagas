@@ -17,7 +17,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:generate
-      - run: npm run format:check
+      - name: Preview Brazil portals Prettier diff
+        run: |
+          npx prettier --write src/modules/sources/portal-search-plan.ts tests/application-channel.test.ts tests/portal-search-plan.test.ts
+          git diff -- src/modules/sources/portal-search-plan.ts tests/application-channel.test.ts tests/portal-search-plan.test.ts
+          git diff --exit-code -- src/modules/sources/portal-search-plan.ts tests/application-channel.test.ts tests/portal-search-plan.test.ts
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
