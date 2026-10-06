@@ -54,6 +54,19 @@ export class JobSourceHttpClient {
   }
 
   async getText(url: string, options: HttpRequestOptions): Promise<string> {
+    return this.textRequestWithRetry(url, options, 'GET');
+  }
+
+  async postText(url: string, body: unknown, options: HttpRequestOptions): Promise<string> {
+    return this.textRequestWithRetry(url, options, 'POST', JSON.stringify(body));
+  }
+
+  private async textRequestWithRetry(
+    url: string,
+    options: HttpRequestOptions,
+    method: 'GET' | 'POST',
+    body?: string,
+  ): Promise<string> {
     let lastError: JobSourceError | null = null;
     for (let attempt = 0; attempt <= this.config.maxRetries; attempt += 1) {
       if (attempt > 0 && lastError) {
@@ -62,7 +75,7 @@ export class JobSourceHttpClient {
       }
       try {
         await this.enforceRateLimit(options.source, options.requestsPerSecond ?? 1);
-        return await this.requestText(url, options);
+        return await this.requestText(url, options, method, body);
       } catch (error) {
         lastError = normalizeSourceError(error);
         if (!lastError.retryable || attempt === this.config.maxRetries) throw lastError;
@@ -79,15 +92,22 @@ export class JobSourceHttpClient {
     this.lastRequestAt.set(source, Date.now());
   }
 
-  private async requestText(url: string, options: HttpRequestOptions): Promise<string> {
+  private async requestText(
+    url: string,
+    options: HttpRequestOptions,
+    method: 'GET' | 'POST',
+    body?: string,
+  ): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
       const response = await this.fetchImplementation(url, {
-        method: 'GET',
+        method,
         signal: controller.signal,
+        ...(body ? { body } : {}),
         headers: {
           Accept: 'text/plain, application/xml, application/rss+xml, */*',
+          ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
           'User-Agent': this.config.userAgent,
           ...options.headers,
         },
