@@ -50,7 +50,10 @@ describe('portal search plan', () => {
     ).toContain('vagas.com.br/vagas-de-analista-de-suporte-em-belem');
     expect(
       plan.links.find(
-        (item) => item.portal === 'INFOJOBS' && item.query === 'Help Desk' && item.location === 'Ananindeua',
+        (item) =>
+          item.portal === 'INFOJOBS' &&
+          item.query === 'Help Desk' &&
+          item.location === 'Ananindeua',
       )?.url,
     ).toContain('infojobs.com.br/vagas-de-emprego-help%2Bdesk-em-ananindeua%2C-pa.aspx');
     expect(
