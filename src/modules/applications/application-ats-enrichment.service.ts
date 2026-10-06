@@ -159,7 +159,9 @@ export class ApplicationAtsEnrichmentService {
             platform: resolved.platform,
             flow: resolved.flow,
           },
-          ...(questions.length ? { applicationQuestions: applicationQuestionsJson(questions) } : {}),
+          ...(questions.length
+            ? { applicationQuestions: applicationQuestionsJson(questions) }
+            : {}),
         };
 
         await this.db.job.update({
