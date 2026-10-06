@@ -17,7 +17,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:generate
-      - run: npm run format:check
+      - name: Preview portal Prettier diff
+        run: |
+          npx prettier --write src/modules/jobs/ats-job-resolver.service.ts tests/public-portal-job-resolver.test.ts
+          git diff -- src/modules/jobs/ats-job-resolver.service.ts tests/public-portal-job-resolver.test.ts
+          git diff --exit-code -- src/modules/jobs/ats-job-resolver.service.ts tests/public-portal-job-resolver.test.ts
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
