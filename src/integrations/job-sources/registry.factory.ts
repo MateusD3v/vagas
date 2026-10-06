@@ -6,6 +6,7 @@ import { HimalayasJobSource } from './providers/himalayas/himalayas.adapter.js';
 import { JobicyJobSource } from './providers/jobicy/jobicy.adapter.js';
 import { RemotiveJobSource } from './providers/remotive/remotive.adapter.js';
 import { RemoteOkJobSource } from './providers/remoteok/remoteok.adapter.js';
+import { SolidesJobSource } from './providers/solides/solides.adapter.js';
 import { WeWorkRemotelyJobSource } from './providers/weworkremotely/weworkremotely.adapter.js';
 import { JobSourceHttpClient } from './shared/http-client.js';
 
@@ -34,6 +35,9 @@ export function createJobSourceRegistry(config: Environment): JobSourceRegistry 
     }
     if (config.WEWORKREMOTELY_ENABLED) {
       registry.register(new WeWorkRemotelyJobSource(http, config.RAW_DATA_MAX_BYTES));
+    }
+    if (config.SOLIDES_ENABLED) {
+      registry.register(new SolidesJobSource(http, config.RAW_DATA_MAX_BYTES));
     }
   }
   return registry;
