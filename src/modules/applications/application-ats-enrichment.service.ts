@@ -1,8 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
-import type {
-  AtsJobResolverService,
-  ResolvedJobUrl,
-} from '../jobs/ats-job-resolver.service.js';
+import type { AtsJobResolverService, ResolvedJobUrl } from '../jobs/ats-job-resolver.service.js';
 import type { AppLogger } from '../../shared/logger.js';
 import { classifyApplicationChannel, readFastApplyHint } from './application-channel.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -26,17 +23,12 @@ function readEnrichmentState(rawData: Prisma.JsonValue): AtsEnrichmentState | nu
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const record = value as Prisma.JsonObject;
   return {
-    applicationUrl:
-      typeof record.applicationUrl === 'string' ? record.applicationUrl : undefined,
+    applicationUrl: typeof record.applicationUrl === 'string' ? record.applicationUrl : undefined,
     checkedAt: typeof record.checkedAt === 'string' ? record.checkedAt : undefined,
   };
 }
 
-function shouldRefresh(
-  rawData: Prisma.JsonValue,
-  applicationUrl: string,
-  now: Date,
-): boolean {
+function shouldRefresh(rawData: Prisma.JsonValue, applicationUrl: string, now: Date): boolean {
   const state = readEnrichmentState(rawData);
   if (!state || state.applicationUrl !== applicationUrl || !state.checkedAt) return true;
   const checkedAt = Date.parse(state.checkedAt);
@@ -117,10 +109,7 @@ export class ApplicationAtsEnrichmentService {
           item.job.source,
           readFastApplyHint(item.job.rawData),
         );
-        return (
-          channel.flow === 'ATS' &&
-          shouldRefresh(item.job.rawData, applicationUrl, now)
-        );
+        return channel.flow === 'ATS' && shouldRefresh(item.job.rawData, applicationUrl, now);
       })
       .slice(0, limit);
 
