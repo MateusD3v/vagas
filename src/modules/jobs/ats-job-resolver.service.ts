@@ -558,7 +558,13 @@ export class AtsJobResolverService {
       host === 'glassdoor.com' ||
       host.endsWith('.glassdoor.com') ||
       host === 'glassdoor.com.br' ||
-      host.endsWith('.glassdoor.com.br')
+      host.endsWith('.glassdoor.com.br') ||
+      host === 'vagas.com.br' ||
+      host.endsWith('.vagas.com.br') ||
+      host === 'infojobs.com.br' ||
+      host.endsWith('.infojobs.com.br') ||
+      host === 'catho.com.br' ||
+      host.endsWith('.catho.com.br')
     ) {
       return this.resolvePublicPortalJobPosting(url, channel.platform, channel.flow);
     }
