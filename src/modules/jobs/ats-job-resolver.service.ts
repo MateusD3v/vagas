@@ -327,6 +327,28 @@ const breezyJobPostingSchema = z
   })
   .passthrough();
 
+const genericJobPostingSchema = z
+  .object({
+    '@type': z.union([z.literal('JobPosting'), z.array(z.string())]),
+    title: z.string().min(1),
+    description: z.string().default(''),
+    datePosted: z.string().nullish(),
+    employmentType: z.union([z.string(), z.array(z.string())]).nullish(),
+    hiringOrganization: z
+      .object({
+        name: z.string().min(1),
+      })
+      .passthrough()
+      .nullish(),
+    jobLocation: z.union([breezyPlaceSchema, z.array(breezyPlaceSchema)]).nullish(),
+    applicantLocationRequirements: z
+      .union([breezyLocationRequirementSchema, z.array(breezyLocationRequirementSchema)])
+      .nullish(),
+    jobLocationType: z.string().nullish(),
+    url: z.string().url().nullish(),
+  })
+  .passthrough();
+
 export interface ResolvedJobUrl {
   supported: boolean;
   platform: string;
@@ -456,6 +478,42 @@ function breezyApplicantLocations(
     .filter((name): name is string => Boolean(name))
     .join(', ');
 }
+function genericJobPosting(values: unknown[]): z.infer<typeof genericJobPostingSchema> | undefined {
+  for (const value of values) {
+    const parsed = genericJobPostingSchema.safeParse(value);
+    if (!parsed.success) continue;
+    const type = parsed.data['@type'];
+    if (typeof type === 'string' || type.includes('JobPosting')) return parsed.data;
+  }
+  return undefined;
+}
+
+function jobPostingLocation(
+  posting: z.infer<typeof genericJobPostingSchema>,
+): string | undefined {
+  const requirements = breezyApplicantLocations(posting.applicantLocationRequirements);
+  const locations = posting.jobLocation
+    ? (Array.isArray(posting.jobLocation) ? posting.jobLocation : [posting.jobLocation])
+        .map((item) => breezyPlaceName(item))
+        .filter(Boolean)
+        .join(', ')
+    : '';
+  return requirements || locations || undefined;
+}
+
+function normalizedEmploymentType(
+  value: string | string[] | null | undefined,
+): string | undefined {
+  if (Array.isArray(value)) return value.filter(Boolean).join(' / ') || undefined;
+  return value?.trim() || undefined;
+}
+
+function publishedIso(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
 export class AtsJobResolverService {
   constructor(private readonly http: JobSourceHttpClient) {}
 
@@ -495,15 +553,17 @@ export class AtsJobResolverService {
     if (host.endsWith('.breezy.hr')) {
       return this.resolveBreezy(url, channel.flow);
     }
-    if (host.includes('linkedin.com') || host.includes('indeed.com')) {
-      return {
-        supported: false,
-        platform: channel.platform,
-        flow: channel.flow,
-        missingFields: ['title', 'company', 'description'],
-        message:
-          'LinkedIn/Indeed não oferecem um endpoint público de candidato para extrair esta vaga aqui; cole os dados visíveis da vaga e marque candidatura rápida quando aplicável.',
-      };
+    if (
+      host === 'linkedin.com' ||
+      host.endsWith('.linkedin.com') ||
+      host === 'indeed.com' ||
+      host.endsWith('.indeed.com') ||
+      host === 'glassdoor.com' ||
+      host.endsWith('.glassdoor.com') ||
+      host === 'glassdoor.com.br' ||
+      host.endsWith('.glassdoor.com.br')
+    ) {
+      return this.resolvePublicPortalJobPosting(url, channel.platform, channel.flow);
     }
 
     return {
@@ -512,6 +572,74 @@ export class AtsJobResolverService {
       flow: channel.flow,
       missingFields: ['title', 'company', 'description'],
       message: 'URL ainda não possui enriquecimento automático suportado.',
+    };
+  }
+
+  private async resolvePublicPortalJobPosting(
+    url: URL,
+    platform: string,
+    flow: 'ATS' | 'MANUAL' | 'FAST_APPLY',
+  ): Promise<ResolvedJobUrl> {
+    let html: string;
+    try {
+      html = await this.http.getText(url.toString(), {
+        source: `${platform.toLowerCase()}-manual-resolver`,
+        requestsPerSecond: 0.2,
+        headers: {
+          Accept: 'text/html,application/xhtml+xml',
+        },
+      });
+    } catch {
+      return {
+        supported: false,
+        platform,
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message:
+          'A página pública não pôde ser lida sem autenticação; cole os dados visíveis da vaga manualmente.',
+      };
+    }
+
+    const posting = genericJobPosting(extractJsonLdValues(html));
+    if (!posting) {
+      return {
+        supported: false,
+        platform,
+        flow,
+        missingFields: ['title', 'company', 'description'],
+        message:
+          'A página pública não expôs metadados JobPosting utilizáveis; cole os dados visíveis da vaga manualmente.',
+      };
+    }
+
+    const description = stripHtml(posting.description).trim();
+    const company = posting.hiringOrganization?.name?.trim() || undefined;
+    const location = jobPostingLocation(posting);
+    const remoteType = remoteTypeFromText(
+      `${posting.jobLocationType ?? ''} ${location ?? ''} ${posting.title} ${description}`,
+    );
+    const missingFields = [
+      ...(company ? [] : ['company']),
+      ...(description ? [] : ['description']),
+    ];
+
+    return {
+      supported: true,
+      platform,
+      flow,
+      data: {
+        title: posting.title.trim(),
+        ...(company ? { company } : {}),
+        description: description || posting.title.trim(),
+        ...(location ? { location } : {}),
+        remoteType,
+        employmentType: normalizedEmploymentType(posting.employmentType),
+        applicationUrl: posting.url ?? url.toString(),
+        publishedAt: publishedIso(posting.datePosted),
+      },
+      missingFields,
+      message:
+        'Metadados públicos da vaga carregados. Revise os campos antes de importar e enviar qualquer candidatura.',
     };
   }
 
