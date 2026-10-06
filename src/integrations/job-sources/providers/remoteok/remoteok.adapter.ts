@@ -141,7 +141,7 @@ export class RemoteOkJobSource implements JobSourceAdapter {
       seniority: inferSeniority(`${raw.position} ${raw.tags.join(' ')}`),
       salaryMin,
       salaryMax,
-      applicationUrl: raw.url,
+      applicationUrl: raw.apply_url,
       originalUrl: raw.url,
       publishedAt: publicationDate(raw),
       requiredCertifications: [],
