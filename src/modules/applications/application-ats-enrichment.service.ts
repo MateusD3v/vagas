@@ -57,6 +57,27 @@ function resolvedMetadata(
   };
 }
 
+function applicationQuestionsJson(
+  questions: NonNullable<ResolvedJobUrl['applicationQuestions']>,
+): Prisma.InputJsonArray {
+  return questions.map((question) => ({
+    label: question.label,
+    required: question.required,
+    fields: question.fields.map((field) => ({
+      ...(field.name ? { name: field.name } : {}),
+      ...(field.type ? { type: field.type } : {}),
+      ...(field.values?.length
+        ? {
+            values: field.values.map((value) => ({
+              label: value.label,
+              ...(value.value !== undefined ? { value: value.value } : {}),
+            })),
+          }
+        : {}),
+    })),
+  }));
+}
+
 export interface AtsEnrichmentBatchResult {
   attempted: number;
   enriched: number;
@@ -138,7 +159,7 @@ export class ApplicationAtsEnrichmentService {
             platform: resolved.platform,
             flow: resolved.flow,
           },
-          ...(questions.length ? { applicationQuestions: questions } : {}),
+          ...(questions.length ? { applicationQuestions: applicationQuestionsJson(questions) } : {}),
         };
 
         await this.db.job.update({
