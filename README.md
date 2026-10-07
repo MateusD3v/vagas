@@ -279,3 +279,7 @@ Endpoints privados adicionais (todos exigem `X-Admin-Key` e limite de taxa):
 Credenciais OAuth podem expirar ou ser revogadas. Em modo de teste do consentimento Google, refresh tokens com escopos Gmail podem expirar após sete dias; conclua a configuração apropriada do consentimento para uso contínuo. A autorização inicial é feita pelo titular da conta, e nenhuma senha é armazenada.
 
 Referências oficiais: [OAuth para servidor web](https://developers.google.com/identity/protocols/oauth2/web-server), [envio de mensagens Gmail](https://developers.google.com/workspace/gmail/api/guides/sending), [users.messages.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send).
+
+## Dashboard responsivo
+
+O painel usa navegação por seções, controles de toque e formulários em uma coluna no celular. Abaixo de 700 px, as tabelas são exibidas como cartões com rótulos de campos; em tablets, tabelas extensas têm rolagem horizontal. Janelas de candidatura respeitam a altura disponível da tela.
