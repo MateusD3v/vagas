@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import type { Environment } from '../config/env.js';
 import { createJobSourceRegistry } from '../integrations/job-sources/registry.factory.js';
 import { JobSourceHttpClient } from '../integrations/job-sources/shared/http-client.js';
@@ -15,6 +16,8 @@ import { JobAvailabilitySyncService } from '../modules/maintenance/job-availabil
 import { RetentionService } from '../modules/maintenance/retention.service.js';
 import { createCollectionService } from '../modules/sources/collection.factory.js';
 import type { AppLogger } from '../shared/logger.js';
+
+const WORKER_RESTART_RECOVERY_GRACE_MS = 60_000;
 
 export interface WorkerCycleResult {
   started: boolean;
@@ -59,6 +62,7 @@ export class WorkerCycleService {
     private readonly config: Environment,
     private readonly logger: AppLogger,
     dependencies?: WorkerCycleDependencies,
+    private readonly ownerId: string = randomUUID(),
   ) {
     this.applicationSubmission =
       dependencies?.applicationSubmission ??
@@ -109,7 +113,7 @@ export class WorkerCycleService {
       create: {
         workerName: 'job-collection-worker',
         status: 'IDLE',
-        metadata: { mode: 'cron', trigger },
+        metadata: { mode: 'cron', trigger, ownerId: this.ownerId },
       },
       update: {},
     });
@@ -122,7 +126,7 @@ export class WorkerCycleService {
       data: {
         status: 'RUNNING',
         lastSeenAt: now,
-        metadata: { mode: 'cron', trigger },
+        metadata: { mode: 'cron', trigger, ownerId: this.ownerId },
       },
     });
     return claimed.count === 1;
@@ -138,9 +142,62 @@ export class WorkerCycleService {
       data: {
         status,
         lastSeenAt: new Date(),
-        metadata: { mode: 'cron', trigger, ...metadata },
+        metadata: { mode: 'cron', trigger, ...metadata, ownerId: this.ownerId },
       },
     });
+  }
+
+  async recoverInterruptedCycle(processStartedAt: Date, now = new Date()): Promise<boolean> {
+    if (now.getTime() - processStartedAt.getTime() < WORKER_RESTART_RECOVERY_GRACE_MS) {
+      return false;
+    }
+
+    const heartbeat = await this.db.workerHeartbeat.findUnique({
+      where: { workerName: 'job-collection-worker' },
+    });
+    if (!heartbeat || heartbeat.status !== 'RUNNING') return false;
+    if (now.getTime() - heartbeat.lastSeenAt.getTime() < WORKER_RESTART_RECOVERY_GRACE_MS) {
+      return false;
+    }
+
+    const metadata = heartbeat.metadata;
+    const previousOwner =
+      metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+        ? metadata.ownerId
+        : undefined;
+    if (typeof previousOwner === 'string' && previousOwner === this.ownerId) {
+      return false;
+    }
+
+    const recovered = await this.db.workerHeartbeat.updateMany({
+      where: {
+        workerName: 'job-collection-worker',
+        status: 'RUNNING',
+        lastSeenAt: heartbeat.lastSeenAt,
+      },
+      data: {
+        status: 'FAILED',
+        lastSeenAt: now,
+        metadata: {
+          mode: 'recovery',
+          reason: 'PROCESS_RESTART',
+          ownerId: this.ownerId,
+          ...(typeof previousOwner === 'string' ? { previousOwner } : {}),
+        },
+      },
+    });
+
+    if (recovered.count === 1) {
+      this.logger.warn(
+        {
+          previousLastSeenAt: heartbeat.lastSeenAt,
+          previousOwner: typeof previousOwner === 'string' ? previousOwner : undefined,
+          ownerId: this.ownerId,
+        },
+        'Recuperado lock de worker interrompido por reinício do processo',
+      );
+    }
+    return recovered.count === 1;
   }
 
   async run(trigger = 'manual'): Promise<WorkerCycleResult> {
