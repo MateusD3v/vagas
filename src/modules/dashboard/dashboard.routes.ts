@@ -7,62 +7,119 @@ const dashboardHtml = `<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Vagas Agent</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-    body { margin: 0; background: #0b1020; color: #eef2ff; }
-    main { max-width: 1180px; margin: 0 auto; padding: 24px; }
-    h1 { margin: 0 0 6px; font-size: 28px; }
-    .muted { color: #9aa4bf; }
-    .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 18px 0 24px; }
-    input, button, select { border:1px solid #29324a; background:#11182b; color:#eef2ff; border-radius:10px; padding:10px 12px; }
-    input { min-width: 280px; flex:1; }
-    textarea { width:100%; min-height:100px; resize:vertical; border:1px solid #29324a; background:#11182b; color:#eef2ff; border-radius:10px; padding:10px 12px; box-sizing:border-box; }
-    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
-    .form-grid label { display:flex; flex-direction:column; gap:6px; color:#aeb8d4; font-size:13px; }
-    .check { display:flex; gap:8px; align-items:center; margin-top:10px; color:#aeb8d4; }
-    .check input { min-width:auto; flex:0; }
-    button { cursor:pointer; font-weight:700; }
-    button:hover { background:#17213a; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
-    .action-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; }
-    .card { background:#11182b; border:1px solid #222b42; border-radius:14px; padding:16px; }
-    .action-card { display:flex; flex-direction:column; gap:10px; }
+    :root { color-scheme:dark; font-family:Inter,ui-sans-serif,system-ui,sans-serif; --bg:#09121a; --surface:#111f2b; --border:#263846; --text:#edf5f8; --muted:#abc0cc; --accent:#63dfbd; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; scroll-padding-top:80px; }
+    body { margin:0; background:radial-gradient(ellipse at top right,#163b3b 0,transparent 45%),var(--bg); color:var(--text); line-height:1.55; }
+    main { max-width:1280px; margin:auto; padding:32px; }
+    h1 { margin:0 0 8px; font-size:clamp(26px,4vw,40px); line-height:1.15; letter-spacing:-.04em; }
+    h2 { margin:0 0 16px; font-size:20px; letter-spacing:-.02em; }
+    p { margin:0 0 16px; }
+    .eyebrow { color:var(--accent); font-size:12px; letter-spacing:.16em; font-weight:800; margin-bottom:12px; }
+    .hero { padding:16px 0 24px; }
+    .muted { color:var(--muted); }
+    a { color:var(--accent); text-underline-offset:3px; overflow-wrap:anywhere; }
+    .section-nav { display:flex; gap:8px; overflow-x:auto; padding:12px 0; margin-bottom:24px; }
+    .section-nav a { flex:0 0 auto; text-decoration:none; color:var(--muted); padding:8px 14px; border:1px solid var(--border); border-radius:999px; font-size:13px; background:var(--surface); }
+    .section-nav a:hover { color:var(--accent); border-color:var(--accent); }
+    .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:16px 0; }
+    .connection-bar { padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:16px; }
+    input,button,select,textarea { font:inherit; color:var(--text); border:1px solid var(--border); background:#0c1923; border-radius:10px; padding:10px 12px; min-height:44px; max-width:100%; }
+    input { min-width:0; flex:1; width:100%; }
+    textarea { width:100%; min-height:110px; resize:vertical; }
+    input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+    button { cursor:pointer; font-weight:650; white-space:normal; }
+    button:hover { border-color:var(--accent); background:#1a3541; }
+    button:disabled { opacity:.55; cursor:wait; }
+    #saveKey,#runAllSources,#manualImport,#connectGmail { background:var(--accent); border-color:var(--accent); color:#082b24; }
+    #apiKey { flex:1 1 240px; width:auto; }
+    #status { flex-basis:100%; font-size:13px; overflow-wrap:anywhere; }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:16px; }
+    .form-grid label { display:flex; flex-direction:column; gap:7px; min-width:0; color:var(--muted); font-size:14px; }
+    .form-grid select { width:100%; }
+    .check,.form-grid label.check { display:flex; flex-direction:row; gap:10px; align-items:flex-start; margin-top:12px; color:var(--muted); }
+    .check input { width:20px; min-width:20px; min-height:20px; flex:0 0 20px; margin-top:3px; accent-color:var(--accent); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:14px; }
+    .action-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:14px; margin-top:16px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; min-width:0; overflow-wrap:anywhere; }
+    #cards .card { border-top:3px solid var(--accent); }
+    .action-card { display:flex; flex-direction:column; gap:12px; }
     .action-card .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; }
-    .queue-title { font-size:16px; font-weight:800; }
-    .value { font-size:28px; font-weight:800; margin-top:8px; }
-    section { margin-top:24px; }
-    table { width:100%; border-collapse:collapse; background:#11182b; border-radius:14px; overflow:hidden; }
-    th, td { text-align:left; padding:10px 12px; border-bottom:1px solid #222b42; vertical-align:top; }
-    th { color:#aeb8d4; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
-    .ok { color:#7ee787; }
-    .warn { color:#f2cc60; }
-    .bad { color:#ff7b72; }
-    .hidden, .modal-backdrop.hidden { display:none; }
-    .modal-backdrop { position:fixed; inset:0; background:rgba(3,7,18,.78); display:flex; align-items:center; justify-content:center; padding:20px; z-index:20; }
-    .modal { width:min(760px,100%); max-height:85vh; overflow:auto; background:#11182b; border:1px solid #29324a; border-radius:16px; padding:18px; }
-    .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
-    .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
-    .answer { padding:10px 0; border-bottom:1px solid #222b42; }
-    .timeline-event { padding:12px 0; border-bottom:1px solid #222b42; }
+    .queue-title { font-size:17px; font-weight:750; line-height:1.4; }
+    .value { font-size:32px; font-weight:800; margin-top:8px; letter-spacing:-.04em; }
+    section { margin-top:32px; padding-top:8px; min-width:0; }
+    table { width:100%; border-collapse:separate; border-spacing:0; background:var(--surface); border:1px solid var(--border); border-radius:14px; }
+    th,td { text-align:left; padding:14px 12px; border-bottom:1px solid var(--border); vertical-align:top; overflow-wrap:anywhere; }
+    th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; background:#162733; }
+    th:first-child { border-top-left-radius:14px; } th:last-child { border-top-right-radius:14px; }
+    tbody tr:last-child td { border-bottom:0; }
+    td { font-size:13px; } td button,td select { margin:3px 0; font-size:12px; }
+    .ok { color:#7ce6b2; } .warn { color:#f2cf78; } .bad { color:#ff9e99; }
+    .hidden,.modal-backdrop.hidden { display:none; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(3,10,16,.86); display:flex; align-items:center; justify-content:center; padding:20px; z-index:20; backdrop-filter:blur(6px); }
+    .modal { width:min(760px,100%); max-height:90vh; max-height:90dvh; overflow:auto; overscroll-behavior:contain; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:24px; overflow-wrap:anywhere; }
+    .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; position:sticky; top:-24px; background:var(--surface); padding:12px 0; z-index:1; }
+    .modal-head h2 { margin:0; }
+    .modal-head button { flex-shrink:0; }
+    .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin:16px 0; }
+    .answer,.timeline-event { padding:14px 0; border-bottom:1px solid var(--border); }
     .timeline-event:last-child { border-bottom:0; }
-    code { color:#c9d1ff; }
+    code { color:#b4e5dd; overflow-wrap:anywhere; }
+    summary { cursor:pointer; color:var(--accent); padding:12px 0; }
+    details[open] summary { margin-bottom:12px; }
+    @media (max-width:1100px) and (min-width:701px) {
+      table { display:block; overflow-x:auto; }
+      th,td { min-width:100px; } td:first-child { min-width:180px; }
+    }
+    @media (max-width:700px) {
+      main { padding:20px 14px max(24px,env(safe-area-inset-bottom)); }
+      .hero { padding:8px 0 16px; }
+      .section-nav { margin-bottom:16px; }
+      section { margin-top:26px; }
+      .connection-bar { gap:8px; } #apiKey { flex-basis:100%; }
+      .connection-bar button { flex:1; }
+      input,select,textarea { font-size:16px; }
+      .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+      .card { padding:16px; } .value { font-size:28px; }
+      .action-grid,.form-grid { grid-template-columns:minmax(0,1fr); }
+      .bar button,.modal-actions button { flex:1 1 140px; }
+      table,tbody { display:block; width:100%; border:0; background:transparent; }
+      thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+      tbody tr { display:block; margin-bottom:12px; padding:8px 14px; border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+      td { display:block; padding:10px 0; font-size:14px; border-bottom:1px solid var(--border); min-width:0; }
+      td[data-label]::before { content:attr(data-label); display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:4px; }
+      tbody tr td:last-child { border-bottom:0; }
+      td[colspan] { border:0; }
+      .modal-backdrop { padding:10px; }
+      .modal { padding:18px; max-height:calc(100dvh - 20px); border-radius:16px; }
+      .modal-head { top:-18px; } .modal-head h2 { font-size:18px; }
+    }
+    @media (max-width:360px) { .grid { grid-template-columns:minmax(0,1fr); } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
 </head>
 <body>
 <main>
-  <h1>Job Application Agent</h1>
-  <div class="muted">Painel web do pipeline de vagas e candidaturas</div>
+  <header class="hero">
+    <div class="eyebrow">VAGAS AGENT · SEU PRÓXIMO PASSO</div>
+    <h1>Suas oportunidades, em um só lugar.</h1>
+    <div class="muted">Painel web do pipeline de vagas e candidaturas</div>
+  </header>
+  <nav class="section-nav" aria-label="Seções do painel">
+    <a href="#actionSection">Próximas ações</a><a href="#pipelineSection">Candidaturas</a><a href="#searchSection">Buscar vagas</a><a href="#gmailSection">Gmail</a><a href="#sourcesSection">Fontes</a>
+  </nav>
 
-  <div class="bar">
-    <input id="apiKey" type="password" autocomplete="off" placeholder="X-Admin-Key" />
+  <div class="bar connection-bar">
+    <input aria-label="Chave de acesso ao painel" id="apiKey" type="password" autocomplete="off" placeholder="X-Admin-Key" />
     <button id="saveKey">Salvar chave</button>
     <button id="refresh">Atualizar</button>
-    <span id="status" class="muted">Aguardando chave</span>
+    <span id="status" class="muted" role="status" aria-live="polite">Aguardando chave</span>
   </div>
 
   <div id="cards" class="grid"></div>
 
   <section>
-    <h2>Readiness</h2>
+    <h2>Seu perfil e a automação</h2>
     <div id="readiness" class="card muted">Sem dados.</div>
     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="exportProfile" type="button">Exportar backup do perfil</button>
@@ -112,7 +169,7 @@ const dashboardHtml = `<!doctype html>
     </div>
   </section>
 
-  <section>
+  <section id="searchSection">
     <h2>Buscas assistidas</h2>
     <div class="muted">Links gerados a partir do perfil salvo. Abra a busca, escolha a vaga e cole a URL em “Adicionar vaga externa”.</div>
     <div id="portalSearchPlan" class="action-grid" style="margin-top:12px">
@@ -138,7 +195,7 @@ const dashboardHtml = `<!doctype html>
     </div>
   </section>
 
-  <section>
+  <section id="actionSection">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div>
         <h2 style="margin-bottom:4px">Próximas ações</h2>
@@ -150,7 +207,7 @@ const dashboardHtml = `<!doctype html>
     </div>
   </section>
 
-  <section>
+  <section id="pipelineSection">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <h2>Pipeline de candidaturas</h2>
       <label class="muted">Filtro
@@ -171,7 +228,7 @@ const dashboardHtml = `<!doctype html>
     </table>
   </section>
 
-  <section>
+  <section id="sourcesSection">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <h2>Fontes de vagas</h2>
       <button id="runAllSources" type="button">Executar coleta agora</button>
@@ -437,6 +494,18 @@ const dashboardHtml = `<!doctype html>
     });
     document.getElementById('applications').innerHTML =
       appRows.join('') || '<tr><td colspan="9" class="muted">Nenhuma candidatura neste filtro.</td></tr>';
+    labelTableCells();
+  }
+
+  function labelTableCells() {
+    document.querySelectorAll('table').forEach(table => {
+      const labels = Array.from(table.querySelectorAll('thead th'), cell => cell.textContent);
+      table.querySelectorAll('tbody tr').forEach(row => {
+        Array.from(row.cells).forEach((cell, index) => {
+          if (cell.colSpan === 1) cell.dataset.label = labels[index] || '';
+        });
+      });
+    });
   }
 
   async function refresh() {
@@ -536,6 +605,7 @@ const dashboardHtml = `<!doctype html>
       document.getElementById('audit').innerHTML =
         auditRows.join('') || '<tr><td colspan="4" class="muted">Nenhum evento registrado.</td></tr>';
 
+      labelTableCells();
       statusEl.textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR');
       statusEl.className = 'ok';
     } catch (error) {
