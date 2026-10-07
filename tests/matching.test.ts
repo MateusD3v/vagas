@@ -4,6 +4,48 @@ import { clampScore } from '../src/modules/matching/matching.config.js';
 import { candidateFixture, jobFixture } from './fixtures.js';
 
 describe('matching determinístico', () => {
+  it('não reduz a nota por diferenciais ausentes ou experiência apenas desejável', () => {
+    const base = jobFixture();
+    const result = calculateDeterministicMatch(candidateFixture(), {
+      ...base,
+      skills: [...base.skills, { skill: 'Java', required: false, yearsRequired: 10 }],
+    });
+    expect(result.score).toBe(100);
+    expect(result.decision).toBe('APPLY');
+    expect(result.missingSkills).not.toContain('Java');
+    expect(result.matchedSkills).not.toContain('Java');
+  });
+
+  it('diferenciais compatíveis não escondem lacunas obrigatórias', () => {
+    const result = calculateDeterministicMatch(
+      candidateFixture(),
+      jobFixture({
+        skills: [
+          { skill: 'Java', required: true, yearsRequired: null },
+          { skill: 'Node.js', required: false, yearsRequired: null },
+          { skill: 'Git', required: false, yearsRequired: null },
+        ],
+      }),
+    );
+    expect(result.components.skills).toBe(0);
+    expect(result.missingSkills).toEqual(['Java']);
+    expect(result.decision).not.toBe('APPLY');
+  });
+
+  it('usa competências desejáveis como evidência quando não há obrigatórias', () => {
+    const result = calculateDeterministicMatch(
+      candidateFixture(),
+      jobFixture({
+        skills: [
+          { skill: 'Node.js', required: false, yearsRequired: null },
+          { skill: 'Java', required: false, yearsRequired: null },
+        ],
+      }),
+    );
+    expect(result.components.skills).toBe(17.5);
+    expect(result.missingSkills).toEqual([]);
+  });
+
   it('mantém qualquer score entre 0 e 100', () => {
     expect(clampScore(-50)).toBe(0);
     expect(clampScore(123)).toBe(100);

@@ -43,12 +43,17 @@ export function calculateDeterministicMatch(
     }
   }
 
-  const skillRatio = job.skills.length ? matchedSkills.length / job.skills.length : 0;
+  // Diferenciais não reduzem a aderência aos requisitos obrigatórios.
+  // Sem requisitos obrigatórios, use as competências listadas como evidência.
+  const requiredSkills = job.skills.filter((skill) => skill.required);
+  const scoringSkills = requiredSkills.length ? requiredSkills : job.skills;
+  const matchedScoringSkills = scoringSkills.filter((skill) => matchedSkills.includes(skill.skill));
+  const skillRatio = scoringSkills.length ? matchedScoringSkills.length / scoringSkills.length : 0;
   const skills = MATCHING_WEIGHTS.skills * skillRatio;
 
   const requiredYears = Math.max(
     0,
-    ...job.skills.map((skill) => skill.yearsRequired ?? 0),
+    ...requiredSkills.map((skill) => skill.yearsRequired ?? 0),
     normalizeText(job.seniority ?? '').includes('senior') ? 5 : 0,
     normalizeText(job.seniority ?? '').includes('mid') ? 3 : 0,
   );
