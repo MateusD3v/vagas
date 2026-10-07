@@ -2,6 +2,8 @@
 
 Backend auditável que coleta vagas reais autorizadas, normaliza, deduplica, pré-filtra, analisa, reprocessa, prepara e acompanha candidaturas. A submissão automática só ocorre por provider externo explicitamente autorizado, quando configurado e com `SAFE_MODE=false`; por padrão nenhum provider de envio está habilitado. O sistema não automatiza LinkedIn/Indeed, não usa navegador, CAPTCHA bypass ou evasão anti-bot.
 
+A avaliação de competências usa os requisitos obrigatórios quando disponíveis: diferenciais ausentes não reduzem essa parcela da nota nem elevam a experiência mínima. Competências opcionais continuam registradas como evidência; se o anúncio listar somente opcionais, elas são usadas para estimar aderência. Essa nota ponderada não representa a porcentagem de todos os requisitos da vaga. A mudança invalida o cache anterior; vagas existentes precisam passar pelo reprocessamento para receber a nova nota.
+
 ## Stack e arquitetura
 
 Node.js 22.12+, TypeScript, Fastify, PostgreSQL, Prisma, Zod, Vitest, Docker Compose e Swagger. Fastify mantém API e worker pequenos, com logs JSON via Pino. Domínio, persistência e integrações ficam separados:
