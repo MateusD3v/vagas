@@ -9,11 +9,11 @@ const feedUrl = 'https://sejatrainee.com.br/feed/';
 
 function decodeEntities(value: string): string {
   return value
-    .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, '$1')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
     .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
       String.fromCodePoint(Number.parseInt(hex, 16)),
     )
-    .replace(/&#(\\d+);/g, (_, decimal: string) =>
+    .replace(/&#(\d+);/g, (_, decimal: string) =>
       String.fromCodePoint(Number.parseInt(decimal, 10)),
     )
     .replace(/&nbsp;/gi, ' ')
@@ -32,17 +32,17 @@ function tagContent(xml: string, tag: string): string {
 function plainText(value: string): string {
   return decodeEntities(value)
     .replace(/<[^>]+>/g, ' ')
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 export function parseSejaTraineeFeed(xml: string, limit = 12): SejaTraineeArticle[] {
-  if (!/<rss(?:\\s|>)/i.test(xml) || !/<channel(?:\\s|>)/i.test(xml)) {
+  if (!/<rss(?:\s|>)/i.test(xml) || !/<channel(?:\s|>)/i.test(xml)) {
     throw new Error('Feed RSS do Seja Trainee inválido');
   }
 
   const articles: SejaTraineeArticle[] = [];
-  const blocks = xml.match(/<item(?:\\s[^>]*)?>[\\s\\S]*?<\\/item>/gi) ?? [];
+  const blocks = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) ?? [];
   for (const block of blocks) {
     const title = plainText(tagContent(block, 'title')).slice(0, 200);
     const link = tagContent(block, 'link');
