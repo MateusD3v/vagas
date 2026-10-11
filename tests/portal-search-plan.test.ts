@@ -87,7 +87,11 @@ describe('portal search plan', () => {
     const plan = buildPortalSearchPlan({ keywords: [], locations: [] });
 
     expect(plan.links).toHaveLength(8);
-    expect(plan.links.filter((item) => item.portal !== 'SEJATRAINEE').every((item) => item.query === 'Suporte TI')).toBe(true);
+    expect(
+      plan.links
+        .filter((item) => item.portal !== 'SEJATRAINEE')
+        .every((item) => item.query === 'Suporte TI'),
+    ).toBe(true);
     expect(plan.links.every((item) => item.location === undefined)).toBe(true);
   });
 });
