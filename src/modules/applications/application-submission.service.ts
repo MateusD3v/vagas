@@ -36,7 +36,12 @@ export class ApplicationSubmissionService {
         throw new AppError('Candidatura não elegível para submissão automática', 409, eligibility);
       const application = await tx.application.findUnique({
         where: { id: applicationId },
-        include: { job: true, preparation: true, candidate: { include: { policy: true } } },
+        include: {
+          job: true,
+          emailTarget: true,
+          preparation: true,
+          candidate: { include: { policy: true } },
+        },
       });
       if (!application?.preparation || !application.candidate.policy)
         throw new AppError('Pacote ou política ausente', 409);
@@ -44,6 +49,24 @@ export class ApplicationSubmissionService {
         throw new AppError('Candidatura já enviada', 409);
       const provider = registry.find(application.job.source, application.job.applicationUrl);
       if (!provider) throw new AppError('Nenhum provider autorizado suporta esta vaga', 409);
+      // Same job announcement can arrive from different sources with different job IDs.
+      // Guard Gmail submissions by exact verified evidence URL under the candidate row lock.
+      if (provider.id === 'gmail' && application.emailTarget) {
+        const duplicate = await tx.application.findFirst({
+          where: {
+            candidateId: application.candidateId,
+            id: { not: applicationId },
+            emailTarget: { is: { evidenceUrl: application.emailTarget.evidenceUrl } },
+            OR: [
+              { submittedAt: { not: null } },
+              { submissionAttempt: { isNot: null } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (duplicate)
+          throw new AppError('Outra candidatura para este anúncio já foi enviada ou reservada', 409);
+      }
       const now = new Date();
       const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
       const [attempts, manual] = await Promise.all([
