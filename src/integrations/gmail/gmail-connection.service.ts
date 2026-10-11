@@ -82,12 +82,16 @@ export class GmailConnectionService {
   }
 
   async status(candidateId: string) {
-    const [connection, resume] = await Promise.all([
+    const [connection, resume, resumeEnglish] = await Promise.all([
       this.db.gmailConnection.findUnique({
         where: { candidateId },
         select: { accountEmail: true, connectedAt: true },
       }),
       this.db.candidateResume.findUnique({
+        where: { candidateId },
+        select: { updatedAt: true, sha256: true },
+      }),
+      this.db.candidateResumeEnglish.findUnique({
         where: { candidateId },
         select: { updatedAt: true, sha256: true },
       }),
@@ -98,6 +102,8 @@ export class GmailConnectionService {
       account: connection,
       resumeReady: Boolean(resume),
       resumeUpdatedAt: resume?.updatedAt ?? null,
+      resumeEnglishReady: Boolean(resumeEnglish),
+      resumeEnglishUpdatedAt: resumeEnglish?.updatedAt ?? null,
       safeMode: this.config.SAFE_MODE,
       sendEnabled: this.config.GMAIL_SEND_ENABLED,
       automaticEnabled: this.config.AUTO_SUBMIT_APPLICATIONS,
