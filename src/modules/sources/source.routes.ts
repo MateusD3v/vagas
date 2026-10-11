@@ -6,6 +6,7 @@ import { adminRateLimit, requireAdmin } from '../../shared/admin-security.js';
 import { AppError, idParamsSchema, paginationMeta } from '../../shared/http.js';
 import { createCollectionService } from './collection.factory.js';
 import { buildPortalSearchPlan } from './portal-search-plan.js';
+import { fetchSejaTraineeArticles, type SejaTraineeArticle } from './seja-trainee-feed.js';
 import {
   collectionRunsQuerySchema,
   searchProfileUpdateSchema,
@@ -14,6 +15,7 @@ import {
 
 export function sourceRoutes(app: FastifyInstance): void {
   const collection = createCollectionService(prisma, env, app.log);
+  let traineeCache: { expiresAt: number; articles: SejaTraineeArticle[] } | null = null;
   const adminOptions = {
     preHandler: requireAdmin,
     config: { rateLimit: adminRateLimit },
@@ -145,6 +147,35 @@ export function sourceRoutes(app: FastifyInstance): void {
         keywords: profile.keywords,
         locations: profile.locations,
       });
+    },
+  );
+
+  app.get(
+    '/seja-trainee/articles',
+    {
+      ...adminOptions,
+      schema: {
+        tags: ['Sources'],
+        summary: 'Lista matérias recentes do RSS público do Seja Trainee (não confirma vagas)',
+        security: [{ adminKey: [] }],
+      },
+    },
+    async () => {
+      if (!traineeCache || traineeCache.expiresAt < Date.now()) {
+        let articles: SejaTraineeArticle[];
+        try {
+          articles = await fetchSejaTraineeArticles();
+        } catch {
+          throw new AppError('Não foi possível consultar o RSS público do Seja Trainee', 502);
+        }
+        traineeCache = { articles, expiresAt: Date.now() + 15 * 60_000 };
+      }
+      return {
+        source: 'https://sejatrainee.com.br/feed/',
+        kind: 'EDITORIAL_DISCOVERY',
+        warning: 'Matérias não são inscrições nem prova de vaga aberta; valide o anúncio oficial.',
+        articles: traineeCache.articles,
+      };
     },
   );
 
