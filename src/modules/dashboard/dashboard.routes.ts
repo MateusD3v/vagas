@@ -178,6 +178,11 @@ const dashboardHtml = `<!doctype html>
     <div id="portalSearchPlan" class="action-grid" style="margin-top:12px">
       <div class="card muted">Salve a Admin Key para gerar as buscas.</div>
     </div>
+    <h3>Publicações recentes do Seja Trainee</h3>
+    <div class="muted">Fontes editoriais. Antes de se candidatar, confira no site da empresa se a vaga está aberta e se atende seus requisitos.</div>
+    <div id="sejaTraineeUpdates" class="action-grid" style="margin-top:12px">
+      <div class="card muted">Consulte o painel com a Admin Key para carregar as publicações.</div>
+    </div>
   </section>
 
   <section>
@@ -404,6 +409,22 @@ const dashboardHtml = `<!doctype html>
     }).join('');
   }
 
+  function renderSejaTraineeUpdates(feed) {
+    const items = Array.isArray(feed?.articles) ? feed.articles : [];
+    document.getElementById('sejaTraineeUpdates').innerHTML = items.length
+      ? items.slice(0, 10).map(item => {
+          const url = safeHttpUrl(item.url);
+          if (!url) return '';
+          const published = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('pt-BR') : 'Data não informada';
+          return '<div class="card action-card"><div class="queue-title">' +
+            esc(item.title || 'Publicação') + '</div><div class="muted">' +
+            esc(published) + ' · Inscrição não verificada</div>' +
+            (item.excerpt ? '<p class="muted">' + esc(item.excerpt) + '</p>' : '') +
+            '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Ler matéria e conferir edital oficial</a></div>';
+        }).join('')
+      : '<div class="card muted">Nenhuma publicação disponível agora; use os links acima.</div>';
+  }
+
   function applicationMatchesFilter(item, filter) {
     if (filter === 'ACTIONABLE') return ['READY', 'REVIEW_REQUIRED'].includes(item.status);
     if (filter === 'PROGRESS') return ['INTERVIEW', 'OFFER'].includes(item.status);
@@ -516,7 +537,7 @@ const dashboardHtml = `<!doctype html>
     statusEl.textContent = 'Carregando...';
     statusEl.className = 'muted';
     try {
-      const [health, stats, readiness, applications, sources, runs, audit, portalSearchPlan, gmail] =
+      const [health, stats, readiness, applications, sources, runs, audit, portalSearchPlan, gmail, traineeFeed] =
         await Promise.all([
           api('/health'),
           api('/stats'),
@@ -527,6 +548,7 @@ const dashboardHtml = `<!doctype html>
           api('/audit-logs?pageSize=12'),
           api('/portal-search-plan').catch(() => ({ links: [] })),
           api('/integrations/gmail/status').catch(() => null),
+          api('/seja-trainee/articles').catch(() => ({ articles: [] })),
         ]);
 
       document.getElementById('cards').innerHTML = [
@@ -563,6 +585,7 @@ const dashboardHtml = `<!doctype html>
       document.getElementById('emailApplication').innerHTML = '<option value="">Selecione a vaga</option>' +
         cachedApplications.filter(item => !item.submittedAt && !item.submissionAttempt).map(item => '<option value="' + esc(item.id) + '">' + esc(item.job.title + ' · ' + item.job.company) + '</option>').join('');
       renderPortalSearchPlan(portalSearchPlan);
+      renderSejaTraineeUpdates(traineeFeed);
       renderActionQueue();
       renderApplications();
 

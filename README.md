@@ -280,6 +280,10 @@ Credenciais OAuth podem expirar ou ser revogadas. Em modo de teste do consentime
 
 Referências oficiais: [OAuth para servidor web](https://developers.google.com/identity/protocols/oauth2/web-server), [envio de mensagens Gmail](https://developers.google.com/workspace/gmail/api/guides/sending), [users.messages.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send).
 
+## Descoberta segura no Seja Trainee
+
+O painel consulta o RSS público oficial `https://sejatrainee.com.br/feed/` pelo endpoint administrativo `GET /seja-trainee/articles` (cache de 15 minutos, limite de 12 artigos, somente links HTTPS do próprio domínio). As matérias aparecem com data, trecho e link de origem. São **pistas editoriais**, não vagas validadas ou candidaturas enviadas. Antes de importar uma vaga, confirme no empregador/ATS original o prazo, cidade, modalidade, critérios de conclusão da graduação e canal de inscrição. O endpoint é somente leitura, não possui login ou envio ao portal Seja Trainee.
+
 ## Dashboard responsivo
 
 O painel usa navegação por seções, controles de toque e formulários em uma coluna no celular. Abaixo de 700 px, as tabelas são exibidas como cartões com rótulos de campos; em tablets, tabelas extensas têm rolagem horizontal. Janelas de candidatura respeitam a altura disponível da tela.
