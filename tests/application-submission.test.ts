@@ -120,6 +120,39 @@ describe('ApplicationSubmissionService', () => {
     expect(submitProvider.submit).not.toHaveBeenCalled();
   });
 
+  it('bloqueia a mesma vaga do Gmail quando outra fonte já reservou o mesmo anúncio', async () => {
+    const submitted = provider();
+    const createAttempt = vi.fn();
+    const applicant = {
+      ...applicationFixture(),
+      emailTarget: { evidenceUrl: 'https://empresa.example.test/vaga/123' },
+    };
+    const db = {
+      application: {
+        findUnique: vi.fn().mockResolvedValue(applicant),
+        findFirst: vi.fn().mockResolvedValue({ id: 'another-source-application' }),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      submissionAttempt: { count: vi.fn().mockResolvedValue(0), create: createAttempt },
+      auditLog: { create: vi.fn() },
+      $queryRaw: vi.fn().mockResolvedValue([{ id: 'candidate-1' }]),
+      $transaction: vi
+        .fn()
+        .mockImplementation((callback: (tx: object) => Promise<unknown>) => callback(db)),
+    } as unknown as PrismaClient;
+    const gmail = { ...submitted.provider, id: 'gmail' };
+    const service = new ApplicationSubmissionService(
+      db,
+      false,
+      new SubmissionProviderRegistry([gmail]),
+    );
+    await expect(service.submit('app-1')).rejects.toThrow(
+      'Outra candidatura para este anúncio já foi enviada ou reservada',
+    );
+    expect(submitted.submit).not.toHaveBeenCalled();
+    expect(createAttempt).not.toHaveBeenCalled();
+  });
+
   it('submete somente via provider registrado e grava identificador externo', async () => {
     const submitProvider = provider();
     const application = applicationFixture();

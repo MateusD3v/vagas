@@ -101,7 +101,7 @@ Compatibilidade da Fase 1 preservada:
 Fase 2:
 
 - `GET /job-sources`, `GET /job-sources/:id`
-- `GET /portal-search-plan` para gerar buscas assistidas em LinkedIn, Indeed e Glassdoor a partir do perfil salvo
+- `GET /portal-search-plan` para gerar buscas assistidas em LinkedIn, Indeed, Glassdoor, Seja Trainee e demais portais a partir do perfil salvo
 - `POST /job-sources/run`, `POST /job-sources/:id/run`
 - `GET /collection-runs`, `GET /collection-runs/:id`
 - `GET /job-search-profile`, `PUT /job-search-profile`
@@ -258,7 +258,7 @@ A configuração padrão não envia: `SAFE_MODE=true`, `GMAIL_SEND_ENABLED=false
 1. No Google Cloud, habilite Gmail API, configure o consentimento OAuth e crie um cliente **Web application** com o callback HTTPS da instalação (`/integrations/gmail/callback`). Configure apenas os escopos `gmail.send`, `openid` e `email`. Não é necessário acesso de leitura à caixa postal.
 2. Configure `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REDIRECT_URI` e `GMAIL_TOKEN_ENCRYPTION_KEY` no servidor. A chave de criptografia deve ter 32 bytes aleatórios em hexadecimal, gerados uma vez e mantidos estáveis. Não publique as credenciais nem a chave. Trocar a chave invalida tokens existentes.
 3. No dashboard autenticado, clique **Conectar Gmail** e autorize a conta cujo e-mail corresponde ao perfil real. A conexão usa estado aleatório, hash no banco, expiração de dez minutos, uso único e cookie HttpOnly vinculado ao navegador. O refresh token é criptografado com AES-256-GCM; callbacks e logs não expõem códigos ou tokens.
-4. Carregue seu currículo PDF original, até 2 MB, em **Enviar currículo PDF**. O arquivo é privado e persistido no banco; não entra no backup JSON do perfil.
+4. Carregue seus PDFs originais de português e inglês, até 2 MB cada, em **Enviar currículo PDF (PT)** e **Enviar currículo PDF (EN)**. Os arquivos são privados e persistidos separadamente no banco, fora do repositório e do backup JSON do perfil. O endpoint legado `PUT /integrations/gmail/resume` continua sendo PT; o novo `PUT /integrations/gmail/resume/en` guarda EN. No formulário de e-mail escolha o idioma PT/EN; EN sem documento provoca bloqueio, sem fallback silencioso para PT.
 5. Depois de revisar a política, configure `SAFE_MODE=false`, `GMAIL_SEND_ENABLED=true`, `AUTO_SUBMIT_APPLICATIONS=true`. Desative qualquer outra automação que envie candidaturas para evitar duplicatas entre sistemas independentes. A deduplicação desta instalação não consulta a pasta Enviados ou sistemas externos.
 
 A rotina detecta instruções simples e explícitas como “Envie seu currículo para recrutador@example.test” nos anúncios das fontes de coleta existentes. Somente um destinatário, URL HTTPS da publicação e ausência de perguntas obrigatórias no portal permitem criar automaticamente o canal. Endereços de contato genéricos, instruções negadas, vários destinatários e anúncios com assunto específico permanecem assistidos. O painel também permite confirmar o endereço, trecho do anúncio, assunto e mensagem manualmente; isso não substitui a verificação da elegibilidade.

@@ -65,7 +65,7 @@ describe('Gmail message and send', () => {
             body: message.body,
             evidenceUrl: 'https://employer.example.test/job/1',
           },
-          candidate: { resumeDocument: { content: resume } },
+          candidate: { resumeDocument: { content: resume }, resumeDocumentEnglish: null },
         }),
       },
       candidateProfile: {

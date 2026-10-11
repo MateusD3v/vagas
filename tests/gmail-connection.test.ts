@@ -36,6 +36,7 @@ function fixture() {
       deleteMany: vi.fn(),
     },
     candidateResume: { findUnique: vi.fn().mockResolvedValue(null) },
+    candidateResumeEnglish: { findUnique: vi.fn().mockResolvedValue(null) },
     auditLog: { create: vi.fn() },
   };
   const http = vi

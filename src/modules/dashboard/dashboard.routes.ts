@@ -134,9 +134,11 @@ const dashboardHtml = `<!doctype html>
       <p id="gmailStatus" class="muted">Salve a chave para consultar a conexão.</p>
       <div class="bar">
         <button id="connectGmail" type="button">Conectar Gmail</button>
-        <button id="uploadResume" type="button">Enviar currículo PDF</button>
+        <button id="uploadResume" type="button">Enviar currículo PDF (PT)</button>
+        <button id="uploadResumeEnglish" type="button">Enviar currículo PDF (EN)</button>
         <button id="disconnectGmail" type="button">Desconectar Gmail</button>
         <input id="resumePdf" class="hidden" type="file" accept="application/pdf,.pdf" />
+        <input id="resumePdfEnglish" class="hidden" type="file" accept="application/pdf,.pdf" />
       </div>
       <details>
         <summary>Confirmar uma vaga que recebe currículo por e-mail</summary>
@@ -146,6 +148,7 @@ const dashboardHtml = `<!doctype html>
           <label>E-mail do anúncio<input id="emailRecipient" type="email" required /></label>
           <label>Link do anúncio<input id="emailEvidenceUrl" type="url" required /></label>
           <label>Assunto exigido pelo anúncio<input id="emailSubject" maxlength="200" required /></label>
+          <label>Idioma do currículo<select id="emailResumeLanguage"><option value="PT">Português</option><option value="EN">Inglês</option></select></label>
           <label>Trecho que indica candidatura por e-mail<textarea id="emailEvidenceQuote" required maxlength="4000"></textarea></label>
           <label>Mensagem da candidatura<textarea id="emailBody" required maxlength="8000"></textarea></label>
           <label class="check"><input id="emailChannelConfirmed" type="checkbox" required />Confirmo que o anúncio aceita candidaturas neste e-mail e autorizo esta mensagem.</label>
@@ -384,6 +387,7 @@ const dashboardHtml = `<!doctype html>
       { id: 'VAGASCOM', label: 'Vagas.com.br' },
       { id: 'INFOJOBS', label: 'InfoJobs' },
       { id: 'CATHO', label: 'Catho' },
+      { id: 'SEJATRAINEE', label: 'Seja Trainee' },
     ];
     document.getElementById('portalSearchPlan').innerHTML = portals.map(portal => {
       const portalLinks = links.filter(item => item.portal === portal.id).slice(0, 4);
@@ -553,7 +557,8 @@ const dashboardHtml = `<!doctype html>
       document.getElementById('gmailStatus').textContent = !gmail ? 'Não foi possível consultar a conexão Gmail.' : !gmail.configured
         ? 'A configuração OAuth do Gmail ainda precisa ser concluída no servidor.'
         : (gmail.connected ? 'Conta conectada: ' + gmail.account.accountEmail : 'Conecte a conta Gmail usada no perfil.') +
-          (gmail.resumeReady ? ' Currículo PDF carregado.' : ' Envie o currículo PDF.') +
+          (gmail.resumeReady ? ' Currículo PT carregado.' : ' Envie o currículo PT.') +
+          (gmail.resumeEnglishReady ? ' Currículo EN carregado.' : ' Envie o currículo EN.') +
           (gmail.safeMode || !gmail.sendEnabled || !gmail.automaticEnabled ? ' Envio automático ainda desabilitado no servidor.' : ' Envio automático habilitado para vagas elegíveis com canal de e-mail confirmado.');
       document.getElementById('emailApplication').innerHTML = '<option value="">Selecione a vaga</option>' +
         cachedApplications.filter(item => !item.submittedAt && !item.submissionAttempt).map(item => '<option value="' + esc(item.id) + '">' + esc(item.job.title + ' · ' + item.job.company) + '</option>').join('');
@@ -994,6 +999,7 @@ const dashboardHtml = `<!doctype html>
     catch (error) { statusEl.textContent = error.message; statusEl.className = 'bad'; }
   });
   document.getElementById('uploadResume').addEventListener('click', () => document.getElementById('resumePdf').click());
+  document.getElementById('uploadResumeEnglish').addEventListener('click', () => document.getElementById('resumePdfEnglish').click());
   document.getElementById('resumePdf').addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1011,6 +1017,23 @@ const dashboardHtml = `<!doctype html>
     } catch (error) { statusEl.textContent = error.message; statusEl.className = 'bad'; }
     finally { event.target.value = ''; }
   });
+  document.getElementById('resumePdfEnglish').addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error('O PDF deve ter no máximo 2 MB');
+      const contentBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = () => reject(new Error('Não foi possível ler o PDF'));
+        reader.readAsDataURL(file);
+      });
+      await api('/integrations/gmail/resume/en', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contentBase64 }) });
+      await refresh();
+      statusEl.textContent = 'Currículo PDF em inglês carregado.';
+    } catch (error) { statusEl.textContent = error.message; statusEl.className = 'bad'; }
+    finally { event.target.value = ''; }
+  });
   document.getElementById('emailTargetForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = event.target.querySelector('button[type="submit"]');
@@ -1023,6 +1046,7 @@ const dashboardHtml = `<!doctype html>
           evidenceUrl: document.getElementById('emailEvidenceUrl').value.trim(),
           evidenceQuote: document.getElementById('emailEvidenceQuote').value.trim(),
           confirmedEmailChannel: document.getElementById('emailChannelConfirmed').checked,
+          resumeLanguage: document.getElementById('emailResumeLanguage').value,
         }),
       });
       await refresh();

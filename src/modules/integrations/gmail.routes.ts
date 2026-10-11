@@ -36,6 +36,7 @@ const emailTargetSchema = z.object({
     .refine((url) => new URL(url).protocol === 'https:'),
   evidenceQuote: z.string().min(1).max(4000),
   confirmedEmailChannel: z.literal(true),
+  resumeLanguage: z.enum(['PT', 'EN']).default('PT'),
 });
 
 async function candidateId() {
@@ -131,6 +132,39 @@ export function gmailRoutes(app: FastifyInstance): void {
       return { resumeReady: true };
     },
   );
+  // English and Portuguese documents are stored separately and never committed to Git.
+  app.put(
+    '/integrations/gmail/resume/en',
+    { ...protectedOptions, bodyLimit: 3 * 1024 * 1024 },
+    async (request) => {
+      const { contentBase64 } = z
+        .object({
+          contentBase64: z
+            .string()
+            .max(2_800_000)
+            .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
+        })
+        .parse(request.body);
+      const content = Buffer.from(contentBase64, 'base64');
+      validateResume(content);
+      const id = await candidateId();
+      const sha256 = createHash('sha256').update(content).digest('hex');
+      await prisma.candidateResumeEnglish.upsert({
+        where: { candidateId: id },
+        create: { candidateId: id, content, sha256 },
+        update: { content, sha256 },
+      });
+      await prisma.auditLog.create({
+        data: {
+          event: 'RESUME_ENGLISH_PDF_UPDATED',
+          entityType: 'CandidateProfile',
+          entityId: id,
+          metadata: { sha256 },
+        },
+      });
+      return { resumeEnglishReady: true };
+    },
+  );
   app.put('/applications/:id/email-target', protectedOptions, async (request) => {
     const { id } = idParamsSchema.parse(request.params);
     const input = emailTargetSchema.parse(request.body);
@@ -158,6 +192,7 @@ export function gmailRoutes(app: FastifyInstance): void {
         body: input.body,
         evidenceUrl: input.evidenceUrl,
         evidenceQuote: input.evidenceQuote,
+        resumeLanguage: input.resumeLanguage,
         confirmationSource: 'ADMIN',
       };
       const result = await tx.emailApplicationTarget.upsert({
