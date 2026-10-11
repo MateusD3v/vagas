@@ -12,7 +12,7 @@ describe('portal search plan', () => {
     );
 
     expect(plan.generatedAt).toBe('2026-10-06T15:00:00.000Z');
-    expect(plan.links).toHaveLength(26);
+    expect(plan.links).toHaveLength(29);
     expect(plan.links.filter((item) => item.portal === 'LINKEDIN')).toHaveLength(4);
     expect(plan.links.filter((item) => item.portal === 'INDEED')).toHaveLength(4);
     expect(plan.links.filter((item) => item.portal === 'GLASSDOOR')).toHaveLength(4);
@@ -23,6 +23,12 @@ describe('portal search plan', () => {
     expect(trainee).toHaveLength(2);
     expect(trainee[0]?.url).toBe('https://sejatrainee.com.br/trainee/');
     expect(trainee[1]?.url).toContain('vagas-de-trainee-com-inscricoes-abertas');
+    const finland = plan.links.filter((item) => item.portal === 'WORKINFINLAND');
+    expect(finland).toHaveLength(3);
+    expect(finland[0]?.url).toBe('https://www.workinfinland.com/en/open-jobs/?category=ict');
+    expect(finland[1]?.url).toContain('category=software-development');
+    expect(finland[2]?.url).toBe('https://www.workinfinland.com/en/open-jobs/');
+    expect(finland.every((item) => item.location === undefined)).toBe(true);
 
     const linkedin = plan.links.find(
       (item) =>
@@ -76,11 +82,11 @@ describe('portal search plan', () => {
       locations: ['Remoto', 'Belém', 'Ananindeua', 'São Paulo'],
     });
 
-    expect(plan.links).toHaveLength(50);
+    expect(plan.links).toHaveLength(53);
     expect(plan.links.some((item) => item.location === 'Remoto')).toBe(false);
     expect(
       new Set(
-        plan.links.filter((item) => item.portal !== 'SEJATRAINEE').map((item) => item.location),
+        plan.links.filter((item) => item.portal !== 'SEJATRAINEE' && item.portal !== 'WORKINFINLAND').map((item) => item.location),
       ),
     ).toEqual(new Set(['Belém', 'Ananindeua']));
   });
@@ -88,10 +94,10 @@ describe('portal search plan', () => {
   it('usa fallback seguro quando o perfil ainda não possui keywords/localizações', () => {
     const plan = buildPortalSearchPlan({ keywords: [], locations: [] });
 
-    expect(plan.links).toHaveLength(8);
+    expect(plan.links).toHaveLength(11);
     expect(
       plan.links
-        .filter((item) => item.portal !== 'SEJATRAINEE')
+        .filter((item) => item.portal !== 'SEJATRAINEE' && item.portal !== 'WORKINFINLAND')
         .every((item) => item.query === 'Suporte TI'),
     ).toBe(true);
     expect(plan.links.every((item) => item.location === undefined)).toBe(true);
