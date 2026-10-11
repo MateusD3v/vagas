@@ -3,7 +3,6 @@ import type { PrismaClient } from '@prisma/client';
 import { env } from '../src/config/env.js';
 import { GmailSubmissionProvider } from '../src/integrations/gmail/gmail-submission.provider.js';
 
-const pdf = Buffer.from('%PDF-1.7\nTEST FILE\n%%EOF');
 const config = {
   ...env, SAFE_MODE: false, GMAIL_SEND_ENABLED: true,
   GMAIL_CLIENT_ID: 'client', GMAIL_CLIENT_SECRET: 'secret',
