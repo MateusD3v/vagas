@@ -119,6 +119,7 @@ export class GmailSubmissionProvider implements SubmissionProvider {
           include: {
             gmailConnection: { select: { accountEmail: true } },
             resumeDocument: { select: { sha256: true } },
+            resumeDocumentEnglish: { select: { sha256: true } },
           },
         },
       },
@@ -126,7 +127,11 @@ export class GmailSubmissionProvider implements SubmissionProvider {
     if (!application) return ['Candidatura não encontrada'];
     const blockers: string[] = [];
     if (!application.emailTarget) blockers.push('Canal de e-mail ainda não confirmado no anúncio');
-    if (!application.candidate.resumeDocument) blockers.push('Currículo PDF ainda não enviado');
+    const language = application.emailTarget?.resumeLanguage ?? 'PT';
+    if (language === 'EN' && !application.candidate.resumeDocumentEnglish)
+      blockers.push('Currículo PDF em inglês ainda não enviado');
+    if (language !== 'EN' && !application.candidate.resumeDocument)
+      blockers.push('Currículo PDF em português ainda não enviado');
     if (
       !application.candidate.gmailConnection ||
       application.candidate.gmailConnection.accountEmail.toLowerCase() !==
@@ -141,10 +146,16 @@ export class GmailSubmissionProvider implements SubmissionProvider {
       throw new AppError('Envio Gmail desabilitado', 409);
     const application = await this.db.application.findUnique({
       where: { id: request.applicationId },
-      include: { emailTarget: true, candidate: { include: { resumeDocument: true } } },
+      include: {
+        emailTarget: true,
+        candidate: { include: { resumeDocument: true, resumeDocumentEnglish: true } },
+      },
     });
     const target = application?.emailTarget;
-    const resume = application?.candidate.resumeDocument;
+    const resume =
+      application?.emailTarget?.resumeLanguage === 'EN'
+        ? application.candidate.resumeDocumentEnglish
+        : application?.candidate.resumeDocument;
     if (!application || !target || !resume)
       throw new AppError(
         'Confirme o canal de e-mail e envie o currículo PDF antes da candidatura',
