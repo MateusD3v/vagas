@@ -1,5 +1,12 @@
 export type AssistedPortal =
-  'LINKEDIN' | 'INDEED' | 'GLASSDOOR' | 'VAGASCOM' | 'INFOJOBS' | 'CATHO' | 'SEJATRAINEE' | 'WORKINFINLAND';
+  | 'LINKEDIN'
+  | 'INDEED'
+  | 'GLASSDOOR'
+  | 'VAGASCOM'
+  | 'INFOJOBS'
+  | 'CATHO'
+  | 'SEJATRAINEE'
+  | 'WORKINFINLAND';
 
 export interface PortalSearchProfileInput {
   keywords: string[];
