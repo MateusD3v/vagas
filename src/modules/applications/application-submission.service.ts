@@ -5,6 +5,7 @@ import { AppError } from '../../shared/http.js';
 import { EmailApplicationChannelService } from './email-application-channel.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { ApplicationEligibilityService } from './application-eligibility.service.js';
+import { applicationUrlIdentity } from './application-url-identity.js';
 
 export class ApplicationSubmissionService {
   private readonly audit: AuditService;
@@ -66,6 +67,33 @@ export class ApplicationSubmissionService {
             'Outra candidatura para este anúncio já foi enviada ou reservada',
             409,
           );
+
+        // Other sources may add tracking query parameters to the same official URL.
+        // Retain all unknown/identity parameters so distinct job IDs remain distinct.
+        const canonical = applicationUrlIdentity(application.emailTarget.evidenceUrl);
+        if (canonical) {
+          const previous = await tx.application.findMany({
+            where: {
+              candidateId: application.candidateId,
+              id: { not: applicationId },
+              emailTarget: { isNot: null },
+              OR: [{ submittedAt: { not: null } }, { submissionAttempt: { isNot: null } }],
+            },
+            select: { emailTarget: { select: { evidenceUrl: true } } },
+          });
+          if (
+            previous.some(
+              (item) =>
+                item.emailTarget?.evidenceUrl &&
+                applicationUrlIdentity(item.emailTarget.evidenceUrl) === canonical,
+            )
+          ) {
+            throw new AppError(
+              'Outra candidatura para este anúncio já foi enviada ou reservada',
+              409,
+            );
+          }
+        }
       }
       const now = new Date();
       const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
