@@ -1,5 +1,5 @@
 export type AssistedPortal =
-  'LINKEDIN' | 'INDEED' | 'GLASSDOOR' | 'VAGASCOM' | 'INFOJOBS' | 'CATHO' | 'SEJATRAINEE';
+  'LINKEDIN' | 'INDEED' | 'GLASSDOOR' | 'VAGASCOM' | 'INFOJOBS' | 'CATHO' | 'SEJATRAINEE' | 'WORKINFINLAND';
 
 export interface PortalSearchProfileInput {
   keywords: string[];
@@ -190,6 +190,28 @@ export function buildPortalSearchPlan(
     label: 'Seja Trainee · Inscrições abertas',
     query: 'trainee',
     url: 'https://sejatrainee.com.br/vagas-de-trainee-com-inscricoes-abertas/',
+  });
+
+  // Work in Finland is an international listing directory, not a Brazil-remote job feed.
+  // These are assisted discovery links only. Validate remote eligibility and work authorization
+  // on each employer's original listing before preparing or submitting an application.
+  links.push({
+    portal: 'WORKINFINLAND',
+    label: 'Work in Finland · ICT',
+    query: 'ict',
+    url: 'https://www.workinfinland.com/en/open-jobs/?category=ict',
+  });
+  links.push({
+    portal: 'WORKINFINLAND',
+    label: 'Work in Finland · Software Development',
+    query: 'software development',
+    url: 'https://www.workinfinland.com/en/open-jobs/?category=software-development',
+  });
+  links.push({
+    portal: 'WORKINFINLAND',
+    label: 'Work in Finland · Todas as vagas',
+    query: 'technology',
+    url: 'https://www.workinfinland.com/en/open-jobs/',
   });
 
   return {
