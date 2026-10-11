@@ -1,5 +1,5 @@
 export type AssistedPortal =
-  'LINKEDIN' | 'INDEED' | 'GLASSDOOR' | 'VAGASCOM' | 'INFOJOBS' | 'CATHO';
+  'LINKEDIN' | 'INDEED' | 'GLASSDOOR' | 'VAGASCOM' | 'INFOJOBS' | 'CATHO' | 'SEJATRAINEE';
 
 export interface PortalSearchProfileInput {
   keywords: string[];
@@ -177,6 +177,20 @@ export function buildPortalSearchPlan(
       });
     }
   }
+
+  // Editorial listings are discovery sources, never evidence of a submitted application.
+  links.push({
+    portal: 'SEJATRAINEE',
+    label: 'Seja Trainee · Programas recentes',
+    query: 'trainee',
+    url: 'https://sejatrainee.com.br/trainee/',
+  });
+  links.push({
+    portal: 'SEJATRAINEE',
+    label: 'Seja Trainee · Inscrições abertas',
+    query: 'trainee',
+    url: 'https://sejatrainee.com.br/vagas-de-trainee-com-inscricoes-abertas/',
+  });
 
   return {
     generatedAt: now.toISOString(),
