@@ -57,10 +57,7 @@ export class ApplicationSubmissionService {
             candidateId: application.candidateId,
             id: { not: applicationId },
             emailTarget: { is: { evidenceUrl: application.emailTarget.evidenceUrl } },
-            OR: [
-              { submittedAt: { not: null } },
-              { submissionAttempt: { isNot: null } },
-            ],
+            OR: [{ submittedAt: { not: null } }, { submissionAttempt: { isNot: null } }],
           },
           select: { id: true },
         });
