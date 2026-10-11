@@ -154,7 +154,7 @@ export class GmailSubmissionProvider implements SubmissionProvider {
     const target = application?.emailTarget;
     const resume =
       application?.emailTarget?.resumeLanguage === 'EN'
-        ? application.candidate.resumeDocumentEnglish
+        ? application?.candidate.resumeDocumentEnglish
         : application?.candidate.resumeDocument;
     if (!application || !target || !resume)
       throw new AppError(
