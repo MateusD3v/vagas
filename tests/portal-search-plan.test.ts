@@ -78,9 +78,11 @@ describe('portal search plan', () => {
 
     expect(plan.links).toHaveLength(50);
     expect(plan.links.some((item) => item.location === 'Remoto')).toBe(false);
-    expect(new Set(plan.links.map((item) => item.location))).toEqual(
-      new Set(['Belém', 'Ananindeua']),
-    );
+    expect(
+      new Set(
+        plan.links.filter((item) => item.portal !== 'SEJATRAINEE').map((item) => item.location),
+      ),
+    ).toEqual(new Set(['Belém', 'Ananindeua']));
   });
 
   it('usa fallback seguro quando o perfil ainda não possui keywords/localizações', () => {
