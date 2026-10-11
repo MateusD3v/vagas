@@ -62,7 +62,10 @@ export class ApplicationSubmissionService {
           select: { id: true },
         });
         if (duplicate)
-          throw new AppError('Outra candidatura para este anúncio já foi enviada ou reservada', 409);
+          throw new AppError(
+            'Outra candidatura para este anúncio já foi enviada ou reservada',
+            409,
+          );
       }
       const now = new Date();
       const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
