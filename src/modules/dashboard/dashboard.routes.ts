@@ -393,6 +393,7 @@ const dashboardHtml = `<!doctype html>
       { id: 'INFOJOBS', label: 'InfoJobs' },
       { id: 'CATHO', label: 'Catho' },
       { id: 'SEJATRAINEE', label: 'Seja Trainee' },
+      { id: 'WORKINFINLAND', label: 'Work in Finland · TI' },
     ];
     document.getElementById('portalSearchPlan').innerHTML = portals.map(portal => {
       const portalLinks = links.filter(item => item.portal === portal.id).slice(0, 4);

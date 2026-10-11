@@ -101,7 +101,7 @@ Compatibilidade da Fase 1 preservada:
 Fase 2:
 
 - `GET /job-sources`, `GET /job-sources/:id`
-- `GET /portal-search-plan` para gerar buscas assistidas em LinkedIn, Indeed, Glassdoor, Seja Trainee e demais portais a partir do perfil salvo
+- `GET /portal-search-plan` para gerar buscas assistidas em LinkedIn, Indeed, Glassdoor, Seja Trainee, Work in Finland e demais portais a partir do perfil salvo
 - `POST /job-sources/run`, `POST /job-sources/:id/run`
 - `GET /collection-runs`, `GET /collection-runs/:id`
 - `GET /job-search-profile`, `PUT /job-search-profile`
@@ -279,6 +279,10 @@ Endpoints privados adicionais (todos exigem `X-Admin-Key` e limite de taxa):
 Credenciais OAuth podem expirar ou ser revogadas. Em modo de teste do consentimento Google, refresh tokens com escopos Gmail podem expirar após sete dias; conclua a configuração apropriada do consentimento para uso contínuo. A autorização inicial é feita pelo titular da conta, e nenhuma senha é armazenada.
 
 Referências oficiais: [OAuth para servidor web](https://developers.google.com/identity/protocols/oauth2/web-server), [envio de mensagens Gmail](https://developers.google.com/workspace/gmail/api/guides/sending), [users.messages.send](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send).
+
+## Work in Finland (descoberta assistida)
+
+O painel exibe os links oficiais do [Work in Finland](https://www.workinfinland.com/en/open-jobs/?category=ict) para ICT, Software Development e todas as vagas. Esta é uma **fonte de descoberta manual/assistida**, sem scraping, autenticação ou submissão automática. Antes de considerar qualquer oportunidade internacional, confira a descrição completa **no empregador/ATS original**, a modalidade, autorização para trabalhar remotamente residindo no Brasil, exigências de inglês, senioridade e permissão de trabalho; vagas presenciais/híbridas que exigem residência na Finlândia não são elegíveis para o perfil atual. O portal lista também empregos dentro da Finlândia; não presuma que sejam remotos globais. Resultados dinâmicos não são confirmados apenas pela página agregadora.
 
 ## Descoberta segura no Seja Trainee
 
