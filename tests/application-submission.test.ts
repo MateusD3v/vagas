@@ -139,6 +139,7 @@ describe('ApplicationSubmissionService', () => {
         .fn()
         .mockImplementation((callback: (tx: object) => Promise<unknown>) => callback(db)),
     } as unknown as PrismaClient;
+    const createAttempt = db.submissionAttempt.create;
     const gmail = { ...submitted.provider, id: 'gmail' };
     const service = new ApplicationSubmissionService(
       db,
@@ -149,7 +150,7 @@ describe('ApplicationSubmissionService', () => {
       'Outra candidatura para este anúncio já foi enviada ou reservada',
     );
     expect(submitted.submit).not.toHaveBeenCalled();
-    expect(db.submissionAttempt.create).not.toHaveBeenCalled();
+    expect(createAttempt).not.toHaveBeenCalled();
   });
 
   it('submete somente via provider registrado e grava identificador externo', async () => {
