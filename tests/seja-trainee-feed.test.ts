@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchSejaTraineeArticles, parseSejaTraineeFeed } from '../src/modules/sources/seja-trainee-feed.js';
+import {
+  fetchSejaTraineeArticles,
+  parseSejaTraineeFeed,
+} from '../src/modules/sources/seja-trainee-feed.js';
 
 const rss = `<?xml version="1.0"?>
 <rss version="2.0"><channel>
