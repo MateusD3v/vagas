@@ -122,6 +122,7 @@ describe('ApplicationSubmissionService', () => {
 
   it('bloqueia a mesma vaga do Gmail quando outra fonte já reservou o mesmo anúncio', async () => {
     const submitted = provider();
+    const createAttempt = vi.fn();
     const applicant = {
       ...applicationFixture(),
       emailTarget: { evidenceUrl: 'https://empresa.example.test/vaga/123' },
@@ -132,14 +133,13 @@ describe('ApplicationSubmissionService', () => {
         findFirst: vi.fn().mockResolvedValue({ id: 'another-source-application' }),
         count: vi.fn().mockResolvedValue(0),
       },
-      submissionAttempt: { count: vi.fn().mockResolvedValue(0), create: vi.fn() },
+      submissionAttempt: { count: vi.fn().mockResolvedValue(0), create: createAttempt },
       auditLog: { create: vi.fn() },
       $queryRaw: vi.fn().mockResolvedValue([{ id: 'candidate-1' }]),
       $transaction: vi
         .fn()
         .mockImplementation((callback: (tx: object) => Promise<unknown>) => callback(db)),
     } as unknown as PrismaClient;
-    const createAttempt = db.submissionAttempt.create;
     const gmail = { ...submitted.provider, id: 'gmail' };
     const service = new ApplicationSubmissionService(
       db,
