@@ -86,7 +86,9 @@ describe('portal search plan', () => {
     expect(plan.links.some((item) => item.location === 'Remoto')).toBe(false);
     expect(
       new Set(
-        plan.links.filter((item) => item.portal !== 'SEJATRAINEE' && item.portal !== 'WORKINFINLAND').map((item) => item.location),
+        plan.links
+          .filter((item) => item.portal !== 'SEJATRAINEE' && item.portal !== 'WORKINFINLAND')
+          .map((item) => item.location),
       ),
     ).toEqual(new Set(['Belém', 'Ananindeua']));
   });
