@@ -112,6 +112,7 @@ model CandidateProfile {
   gmailConnection GmailConnection?
   gmailAuthorizations GmailAuthorization[]
   resumeDocument CandidateResume?
+  resumeDocumentEnglish CandidateResumeEnglish?
 }
 
 model CandidateSkill {
@@ -493,6 +494,15 @@ model CandidateResume {
   candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 }
 
+// Private English PDF; never place candidates' resume bytes in a public repository.
+model CandidateResumeEnglish {
+  candidateId String           @id
+  content     Bytes
+  sha256      String
+  updatedAt   DateTime         @updatedAt
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
 // A published resume-by-email instruction or authenticated confirmation enables the channel.
 model EmailApplicationTarget {
   applicationId      String      @id
@@ -501,6 +511,7 @@ model EmailApplicationTarget {
   body               String
   evidenceUrl        String
   evidenceQuote      String
+  resumeLanguage     String      @default("PT")
   confirmationSource String      @default("ADMIN")
   confirmedAt        DateTime    @default(now())
   application        Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
